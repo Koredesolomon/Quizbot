@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { MathContent } from "./math-content";
 
 const buttonBase =
   "inline-flex min-h-11 items-center justify-center rounded-lg font-black transition duration-150 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-55";
@@ -29,6 +30,25 @@ export function SecondaryButton({
       {...props}
     >
       {children}
+    </button>
+  );
+}
+
+export function BackButton({
+  label = "Back",
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }) {
+  return (
+    <button
+      className={`inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-700 hover:shadow-md ${className}`}
+      type="button"
+      {...props}
+    >
+      <span aria-hidden="true" className="text-lg leading-none">
+        &larr;
+      </span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -110,7 +130,9 @@ export function ResultBlock({ label, text }: { label: string; text: string }) {
   return (
     <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <strong className="block text-xs font-black uppercase text-slate-600">{label}</strong>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">{text}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">
+        <MathContent>{text}</MathContent>
+      </p>
     </div>
   );
 }

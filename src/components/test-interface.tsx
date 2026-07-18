@@ -1,23 +1,43 @@
-import { questions } from "@/data/platform";
-import { PrimaryButton, SecondaryButton } from "./ui";
+import type { Question } from "@/types/platform";
+import { MathContent } from "./math-content";
+import { BackButton, PrimaryButton, SecondaryButton } from "./ui";
 
 export function TestInterface({
+  questions,
   answers,
   currentQuestion,
   onAnswer,
   onCurrentQuestion,
+  onBack,
   onSubmit,
 }: {
+  questions: Question[];
   answers: Record<number, string>;
   currentQuestion: number;
   onAnswer: (id: number, value: string) => void;
   onCurrentQuestion: (index: number) => void;
+  onBack: () => void;
   onSubmit: () => void;
 }) {
   const question = questions[currentQuestion];
 
+  if (!question) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+        <BackButton className="mb-4" label="Overview" onClick={onBack} />
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/70">
+          <h2 className="text-2xl font-black text-slate-950">No questions available</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Ask an admin to publish questions before starting this test.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <BackButton className="mb-4" label="Overview" onClick={onBack} />
       <div className="grid min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/70 lg:grid-cols-[280px_1fr]">
         <aside className="flex flex-col gap-6 border-b border-slate-200 bg-slate-50 p-5 lg:border-b-0 lg:border-r">
           <div>
@@ -58,7 +78,9 @@ export function TestInterface({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-indigo-700">Question {question.id}</p>
-              <h2 className="mt-2 text-xl font-black leading-7 text-slate-950">{question.prompt}</h2>
+              <h2 className="mt-2 text-xl font-black leading-7 text-slate-950">
+                <MathContent>{question.prompt}</MathContent>
+              </h2>
             </div>
             <span className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-800">
               {question.marks} marks
@@ -80,17 +102,30 @@ export function TestInterface({
                     onChange={() => onAnswer(question.id, option)}
                   />
                   <span className="font-semibold text-slate-500">{String.fromCharCode(65 + index)}.</span>
-                  <strong className="font-bold text-slate-900">{option}</strong>
+                  <strong className="font-bold text-slate-900">
+                    <MathContent>{option}</MathContent>
+                  </strong>
                 </label>
               ))}
             </div>
           ) : (
-            <textarea
-              className="mt-6 min-h-52 w-full resize-y rounded-lg border border-slate-200 bg-white p-4 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
-              value={answers[question.id] ?? ""}
-              onChange={(event) => onAnswer(question.id, event.target.value)}
-              placeholder="Type your answer here..."
-            />
+            <div className="mt-6 grid gap-3 lg:grid-cols-2">
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Your Answer
+                <textarea
+                  className="min-h-52 w-full resize-y rounded-lg border border-slate-200 bg-white p-4 font-mono text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                  value={answers[question.id] ?? ""}
+                  onChange={(event) => onAnswer(question.id, event.target.value)}
+                  placeholder="Use LaTeX like $v = u + at$ or $$F = ma$$"
+                />
+              </label>
+              <div className="min-h-52 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <strong className="block text-xs font-black uppercase text-slate-600">Preview</strong>
+                <div className="mt-3 text-sm font-semibold leading-7 text-slate-900">
+                  <MathContent>{answers[question.id] || "Your rendered math preview will appear here."}</MathContent>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="mt-8 flex flex-wrap justify-between gap-3">

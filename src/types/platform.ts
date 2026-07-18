@@ -9,6 +9,7 @@ export type Screen =
   | "marking"
   | "results"
   | "details"
+  | "admin"
   | "comingSoon";
 
 export type QuestionType = "objective" | "theory";
@@ -38,4 +39,26 @@ export type TopicBreakdown = {
   available: number;
   weak: number;
   percent: number;
+};
+
+export type StudentAttempt = {
+  id: string;
+  student: string;
+  status: "active" | "completed";
+  startedAt: string;
+  submittedAt?: string;
+  answered: number;
+  questionCount: number;
+  score?: number;
+  totalMarks: number;
+  percent?: number;
+};
+
+export type StudentFeedback = {
+  id: string;
+  student: string;
+  rating: number;
+  message: string;
+  submittedAt: string;
+  status: "new" | "reviewed";
 };

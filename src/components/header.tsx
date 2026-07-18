@@ -23,6 +23,14 @@ export function Header({ onNavigate }: { onNavigate: (screen: Screen) => void })
           >
             B
           </button>
+          <button
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-black text-emerald-700 transition hover:-translate-y-0.5 hover:shadow-md"
+            type="button"
+            onClick={() => onNavigate("admin")}
+            title="Admin access"
+          >
+            A
+          </button>
           <PrimaryButton className="h-10 min-h-10 px-4 py-0 text-sm" type="button" onClick={() => onNavigate("programme")}>
             Start Test
           </PrimaryButton>

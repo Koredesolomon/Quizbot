@@ -1,7 +1,6 @@
-import { questions } from "@/data/platform";
-import type { MarkedQuestion, TopicBreakdown } from "@/types/platform";
+import type { MarkedQuestion, Question, TopicBreakdown } from "@/types/platform";
 
-export function markResponses(answers: Record<number, string>): MarkedQuestion[] {
+export function markResponses(answers: Record<number, string>, questions: Question[]): MarkedQuestion[] {
   return questions.map((question) => {
     const userAnswer = (answers[question.id] ?? "").trim();
 

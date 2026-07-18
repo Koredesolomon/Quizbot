@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { questions, totalMarks } from "@/data/platform";
-import type { MarkedQuestion, TopicBreakdown } from "@/types/platform";
-import { Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge, TileIcon } from "./ui";
+import type { MarkedQuestion, Question, TopicBreakdown } from "@/types/platform";
+import { MathContent } from "./math-content";
+import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge, TileIcon } from "./ui";
 
 export function Marking() {
   return (
@@ -24,6 +24,10 @@ export function Results({
   percent,
   score,
   answeredCount,
+  questions,
+  totalMarks,
+  onFeedback,
+  onBack,
   onDetails,
   onRetry,
 }: {
@@ -31,14 +35,20 @@ export function Results({
   percent: number;
   score: number;
   answeredCount: number;
+  questions: Question[];
+  totalMarks: number;
+  onFeedback: (message: string, rating: number) => void;
+  onBack: () => void;
   onDetails: () => void;
   onRetry: () => void;
 }) {
   const correct = marked.filter((question) => question.correct).length;
   const unanswered = marked.filter((question) => !question.userAnswer).length;
+  const feedbackOptions = [1, 2, 3, 4, 5];
 
   return (
     <Panel title="Great work!" subtitle="You have completed PHS 001 - Topic 1.">
+      <BackButton className="mb-5" label="Overview" onClick={onBack} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div
           className="flex h-36 w-36 flex-col items-center justify-center justify-self-start rounded-full sm:justify-self-center"
@@ -67,6 +77,43 @@ export function Results({
             : "Focus on SI base quantities, instrument errors, and the difference between scalar and vector quantities."}
         </p>
       </div>
+      <form
+        className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const formData = new FormData(form);
+          const message = String(formData.get("feedback") ?? "").trim();
+          const rating = Number(formData.get("rating") ?? 5);
+
+          if (!message) return;
+          onFeedback(message, rating);
+          form.reset();
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <strong className="text-sm font-black text-slate-900">Platform Feedback</strong>
+          <select
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
+            defaultValue="5"
+            name="rating"
+          >
+            {feedbackOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}/5
+              </option>
+            ))}
+          </select>
+        </div>
+        <textarea
+          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+          name="feedback"
+          placeholder="Share your opinion about the test platform..."
+        />
+        <PrimaryButton className="mt-3 h-10 min-h-10 px-4 py-0 text-sm" type="submit">
+          Send Feedback
+        </PrimaryButton>
+      </form>
       <div className="mt-6 flex flex-wrap gap-3">
         <PrimaryButton type="button" onClick={onDetails}>
           View Detailed Results
@@ -97,9 +144,7 @@ export function Details({
   return (
     <section className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
-        <SecondaryButton className="mb-5" type="button" onClick={onBack}>
-          Back to Summary
-        </SecondaryButton>
+        <BackButton className="mb-5" label="Summary" onClick={onBack} />
         <h2 className="text-2xl font-black">Detailed Results</h2>
         <div className="mt-5 space-y-2">
           {marked.map((item, index) => (
@@ -132,7 +177,9 @@ export function Details({
             {question.awarded}/{question.marks} marks
           </StatusBadge>
         </div>
-        <p className="mt-5 font-bold text-slate-900">{question.prompt}</p>
+        <p className="mt-5 font-bold text-slate-900">
+          <MathContent>{question.prompt}</MathContent>
+        </p>
         <ResultBlock label="Your Answer" text={question.userAnswer || "No answer submitted."} />
         <ResultBlock label="Model Answer" text={question.answer} />
         <ResultBlock label="AI Feedback" text={question.aiFeedback} />
@@ -151,9 +198,10 @@ export function Details({
   );
 }
 
-export function ComingSoon({ onAvailable }: { onAvailable: () => void }) {
+export function ComingSoon({ onAvailable, onBack }: { onAvailable: () => void; onBack: () => void }) {
   return (
     <Panel title="Coming Soon!" subtitle="We are working hard to bring this test to you.">
+      <BackButton className="mb-5" label="Back" onClick={onBack} />
       <div className="flex h-32 items-center justify-center rounded-lg border border-orange-200 bg-[repeating-linear-gradient(-45deg,#f97316,#f97316_14px,#ffffff_14px,#ffffff_28px)] text-2xl font-black text-slate-950">
         Soon
       </div>

@@ -1,14 +1,16 @@
-import { comingSoonSubjects, phs001Topics, physicsCourses, questions, totalMarks } from "@/data/platform";
-import { Metric, Panel, PrimaryButton, StatusBadge, TileIcon } from "./ui";
+import { comingSoonSubjects, phs001Topics, physicsCourses } from "@/data/platform";
+import type { Question } from "@/types/platform";
+import { BackButton, Metric, Panel, PrimaryButton, StatusBadge, TileIcon } from "./ui";
 
 const rowClass =
   "flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left text-slate-950 transition hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100";
 const lockedRowClass =
   "flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-slate-950";
 
-export function Programme({ onNext }: { onNext: () => void }) {
+export function Programme({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
     <Panel title="Select Programme" subtitle="Choose a programme to get started.">
+      <BackButton className="mb-5" label="Home" onClick={onBack} />
       <button className={`${rowClass} min-h-32`} type="button" onClick={onNext}>
         <TileIcon>S</TileIcon>
         <span className="min-w-0 flex-1">
@@ -26,12 +28,15 @@ export function Programme({ onNext }: { onNext: () => void }) {
 export function Subjects({
   onPhysics,
   onComingSoon,
+  onBack,
 }: {
   onPhysics: () => void;
   onComingSoon: () => void;
+  onBack: () => void;
 }) {
   return (
     <Panel title="Select Subject" subtitle="Only Physics is open in this first phase.">
+      <BackButton className="mb-5" label="Programme" onClick={onBack} />
       <div className="grid gap-3 sm:grid-cols-2">
         {comingSoonSubjects.map((subject) => (
           <button className={lockedRowClass} key={subject} type="button" onClick={onComingSoon}>
@@ -57,12 +62,15 @@ export function Subjects({
 export function Courses({
   onPHS001,
   onComingSoon,
+  onBack,
 }: {
   onPHS001: () => void;
   onComingSoon: () => void;
+  onBack: () => void;
 }) {
   return (
     <Panel title="Physics Courses" subtitle="Choose a course.">
+      <BackButton className="mb-5" label="Subjects" onClick={onBack} />
       <div className="space-y-3">
         {physicsCourses.map((course, index) => (
           <button
@@ -91,12 +99,15 @@ export function Courses({
 export function Topics({
   onTopicOne,
   onComingSoon,
+  onBack,
 }: {
   onTopicOne: () => void;
   onComingSoon: () => void;
+  onBack: () => void;
 }) {
   return (
     <Panel title="PHS 001" subtitle="Select a topic.">
+      <BackButton className="mb-5" label="Courses" onClick={onBack} />
       <div className="space-y-3">
         {phs001Topics.map((topic, index) => (
           <button
@@ -122,9 +133,20 @@ export function Topics({
   );
 }
 
-export function Overview({ onStart }: { onStart: () => void }) {
+export function Overview({
+  questions,
+  totalMarks,
+  onStart,
+  onBack,
+}: {
+  questions: Question[];
+  totalMarks: number;
+  onStart: () => void;
+  onBack: () => void;
+}) {
   return (
     <Panel title="PHS 001 - Topic 1" subtitle="Physical quantities, measurement, errors, and dimensions.">
+      <BackButton className="mb-5" label="Topics" onClick={onBack} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Questions" value={String(questions.length)} />
         <Metric label="Marks" value={String(totalMarks)} />
@@ -138,7 +160,7 @@ export function Overview({ onStart }: { onStart: () => void }) {
           <li>Dimensional analysis</li>
         </ul>
       </div>
-      <PrimaryButton className="mt-6 w-full" type="button" onClick={onStart}>
+      <PrimaryButton className="mt-6 w-full" disabled={questions.length === 0} type="button" onClick={onStart}>
         Start Test
       </PrimaryButton>
     </Panel>

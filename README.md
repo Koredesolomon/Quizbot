@@ -16,6 +16,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## LaTeX in Questions and Answers
+
+Admin question entry and JSON imports support LaTeX inside normal text fields. Use `$...$` for inline math and `$$...$$` for display equations.
+
+```json
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "objective",
+      "topic": "Algebra",
+      "prompt": "Solve for $x$: $$2x + 3 = 11$$",
+      "options": ["$x = 2$", "$x = 4$", "$x = 7$", "$x = 11$"],
+      "answer": "$x = 4$",
+      "explanation": "Subtract 3 from both sides, then divide by 2: $x = \\frac{8}{2} = 4$.",
+      "marks": 2
+    }
+  ]
+}
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

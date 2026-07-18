@@ -44,10 +44,10 @@ export const questions: Question[] = [
     type: "objective",
     topic: "Dimensional analysis",
     prompt: "Which dimension represents velocity?",
-    options: ["LT^-1", "L^2T", "MLT^-2", "MT^-1"],
-    answer: "LT^-1",
+    options: ["$LT^{-1}$", "$L^2T$", "$MLT^{-2}$", "$MT^{-1}$"],
+    answer: "$LT^{-1}$",
     explanation:
-      "Velocity is displacement divided by time, so its dimension is length per time: LT^-1.",
+      "Velocity is displacement divided by time, so its dimension is length per time: $LT^{-1}$.",
     marks: 2,
   },
   {
@@ -124,10 +124,10 @@ export const questions: Question[] = [
     type: "objective",
     topic: "Dimensional analysis",
     prompt: "The dimension of force is:",
-    options: ["MLT^-2", "ML^2T^-2", "LT^-2", "MT^-1"],
-    answer: "MLT^-2",
+    options: ["$MLT^{-2}$", "$ML^2T^{-2}$", "$LT^{-2}$", "$MT^{-1}$"],
+    answer: "$MLT^{-2}$",
     explanation:
-      "Force equals mass times acceleration. Mass is M and acceleration is LT^-2, giving MLT^-2.",
+      "Force equals mass times acceleration. Mass is $M$ and acceleration is $LT^{-2}$, giving $MLT^{-2}$.",
     marks: 2,
   },
 ];
