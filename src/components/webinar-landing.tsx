@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowDown,
   ArrowRight,
@@ -94,12 +96,21 @@ const ctaCards = [
   },
 ];
 
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function WebinarLanding() {
   return (
     <main className="min-h-screen bg-white font-['Inter','Helvetica_Neue',Arial,sans-serif] text-slate-950 antialiased">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-4 sm:px-8 lg:px-10">
-          <a href="#top" className="inline-flex min-w-0 items-center gap-2 sm:gap-3" aria-label="TLCHub webinar home">
+          <button
+            type="button"
+            onClick={() => scrollToSection("top")}
+            className="inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left outline-none transition hover:-translate-y-0.5 hover:opacity-85 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0 sm:gap-3"
+            aria-label="TLCHub webinar home"
+          >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-700 text-white sm:h-10 sm:w-10">
               <GraduationCap aria-hidden="true" size={21} />
             </span>
@@ -109,15 +120,15 @@ export function WebinarLanding() {
                 BeyondTheory
               </span>
             </span>
-          </a>
+          </button>
           <nav className="hidden items-center gap-6 text-[11px] font-semibold tracking-normal text-slate-700 md:flex">
-            <a className="hover:text-emerald-700" href="#about">About</a>
-            <a className="hover:text-emerald-700" href="#host">Host</a>
-            <a className="hover:text-emerald-700" href="#speakers">Speakers</a>
-            <a className="hover:text-emerald-700" href="#register">Register</a>
+            <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("about")}>About</button>
+            <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("host")}>Host</button>
+            <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("speakers")}>Speakers</button>
+            <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("register")}>Register</button>
           </nav>
           <a
-            className="inline-flex shrink-0 items-center gap-2 rounded-md bg-slate-950 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.04em] text-white transition hover:-translate-y-0.5 hover:bg-emerald-700 sm:px-4 sm:py-3 sm:text-[11px]"
+            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.04em] text-white outline-none transition hover:-translate-y-0.5 hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0 sm:px-4 sm:py-3 sm:text-[11px]"
             href="https://bit.ly/beyondtheorystem"
           >
             Register Now
@@ -148,24 +159,25 @@ export function WebinarLanding() {
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <a
-                className="inline-flex items-center justify-center gap-2 border-2 border-emerald-400 bg-emerald-500 px-6 py-3 text-[12px] font-black uppercase tracking-[0.04em] text-white shadow-xl shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-400"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 border-2 border-emerald-400 bg-emerald-500 px-6 py-3 text-[12px] font-black uppercase tracking-[0.04em] text-white shadow-xl shadow-emerald-950/30 outline-none transition hover:-translate-y-0.5 hover:bg-emerald-400 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0"
                 href="https://bit.ly/beyondtheorystem"
               >
                 Register Now
                 <ArrowRight aria-hidden="true" size={19} />
               </a>
-              <a
-                className="inline-flex items-center justify-center gap-2 border-2 border-white/45 px-6 py-3 text-[12px] font-black uppercase tracking-[0.04em] text-white transition hover:-translate-y-0.5 hover:bg-white/12"
-                href="#about"
+              <button
+                type="button"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 border-2 border-white/45 px-6 py-3 text-[12px] font-black uppercase tracking-[0.04em] text-white outline-none transition hover:-translate-y-0.5 hover:bg-white/12 focus-visible:ring-4 focus-visible:ring-white/40 active:translate-y-0"
+                onClick={() => scrollToSection("about")}
               >
                 Learn More
-              </a>
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="about" className="bg-white px-5 py-16 text-center sm:px-8 lg:px-10">
+      <section id="about" className="scroll-mt-20 bg-white px-5 py-16 text-center sm:px-8 lg:px-10">
         <div className="mx-auto max-w-3xl">
           <p className="text-[11px] font-black uppercase tracking-[0.06em] text-slate-700">
             About <span className="text-emerald-700">BeyondTheory</span>
@@ -174,13 +186,14 @@ export function WebinarLanding() {
             BeyondTheory explores how Nigerian schools can move STEM education from abstract explanation to practical learning through virtual labs, simulations, and digital classroom tools. With educators, EdTech builders, and innovation leaders in one room, the webinar creates space for useful conversation, shared insight, and realistic next steps for schools.
           </p>
           <div className="mt-10 flex justify-center">
-            <a
-              href="#host"
+            <button
+              type="button"
+              onClick={() => scrollToSection("host")}
               aria-label="Continue to host profile"
-              className="grid h-12 w-12 place-items-center rounded-full border border-slate-200 text-slate-800 transition hover:-translate-y-0.5 hover:border-emerald-500 hover:text-emerald-700"
+              className="grid h-12 w-12 cursor-pointer place-items-center rounded-full border border-slate-200 text-slate-800 outline-none transition hover:-translate-y-0.5 hover:border-emerald-500 hover:text-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0"
             >
               <ArrowDown aria-hidden="true" size={28} />
-            </a>
+            </button>
           </div>
         </div>
 
@@ -202,7 +215,7 @@ export function WebinarLanding() {
         </div>
       </section>
 
-      <section id="host" className="bg-white px-5 py-16 sm:px-8 lg:px-10">
+      <section id="host" className="scroll-mt-20 bg-white px-5 py-16 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-[1200px]">
           <div className="grid items-stretch overflow-hidden rounded-md border border-slate-200 bg-white shadow-2xl shadow-slate-200/80 lg:grid-cols-[0.78fr_1.22fr]">
             <ProfileImage
@@ -247,7 +260,7 @@ export function WebinarLanding() {
         </div>
       </section>
 
-      <section id="speakers" className="bg-white px-5 py-16 text-slate-950 sm:px-8 lg:px-10">
+      <section id="speakers" className="scroll-mt-20 bg-white px-5 py-16 text-slate-950 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-[1200px]">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-[34px] font-black leading-tight tracking-normal text-slate-900 sm:text-[40px]">
@@ -282,23 +295,33 @@ export function WebinarLanding() {
         </div>
       </section>
 
-      <section id="register" className="bg-white px-5 py-16 sm:px-8 lg:px-10">
+      <section id="register" className="scroll-mt-20 bg-white px-5 py-16 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-[1200px]">
           <h2 className="text-center text-[34px] font-black tracking-normal text-slate-900 sm:text-[40px]">
             Take Your Place at <span className="text-emerald-700">BeyondTheory</span>
           </h2>
           <div className="mt-10 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
             {ctaCards.map((card, index) => (
-              <a
-                key={card.title}
-                href={index === 4 ? "#about" : "https://bit.ly/beyondtheorystem"}
-                className={`${card.tone} group min-h-52 p-6 shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 ${
-                  index === 4 ? "md:col-span-2" : ""
-                }`}
-              >
-                <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
-                <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
-              </a>
+              index === 4 ? (
+                <button
+                  key={card.title}
+                  type="button"
+                  onClick={() => scrollToSection("about")}
+                  className={`${card.tone} group min-h-52 cursor-pointer p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0 md:col-span-2`}
+                >
+                  <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
+                  <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
+                </button>
+              ) : (
+                <a
+                  key={card.title}
+                  href="https://bit.ly/beyondtheorystem"
+                  className={`${card.tone} group min-h-52 cursor-pointer p-6 shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0`}
+                >
+                  <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
+                  <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
+                </a>
+              )
             ))}
           </div>
         </div>
@@ -343,24 +366,24 @@ export function WebinarLanding() {
           <FooterColumn
             title="Explore"
             links={[
-              ["About", "#about"],
-              ["Host", "#host"],
-              ["Speakers", "#speakers"],
-              ["Who Should Attend", "#register"],
+              ["About", "about"],
+              ["Host", "host"],
+              ["Speakers", "speakers"],
+              ["Who Should Attend", "register"],
             ]}
           />
           <div>
             <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-white">Get Involved</h3>
             <div className="mt-7 grid gap-3 text-[14px] font-semibold text-emerald-50">
-              <a className="inline-flex items-center gap-2 hover:text-white" href="tel:+2348132455031">
+              <a className="inline-flex cursor-pointer items-center gap-2 rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 active:translate-y-0" href="tel:+2348132455031">
                 <Phone aria-hidden="true" size={16} />
                 +234 813 245 5031
               </a>
-              <a className="inline-flex items-center gap-2 hover:text-white" href="tel:+2347034932667">
+              <a className="inline-flex cursor-pointer items-center gap-2 rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 active:translate-y-0" href="tel:+2347034932667">
                 <Phone aria-hidden="true" size={16} />
                 +234 703 493 2667
               </a>
-              <a className="inline-flex items-center gap-2 hover:text-white" href="mailto:info@tlchub.com">
+              <a className="inline-flex cursor-pointer items-center gap-2 rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 active:translate-y-0" href="mailto:info@tlchub.com">
                 <Mail aria-hidden="true" size={16} />
                 info@tlchub.com
               </a>
@@ -449,10 +472,15 @@ function FooterColumn({ title, links }: { title: string; links: Array<[string, s
     <div>
       <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-white">{title}</h3>
       <div className="mt-6 grid gap-3 text-[13px] font-normal text-emerald-50">
-        {links.map(([label, href]) => (
-          <a key={label} className="hover:text-white" href={href}>
+        {links.map(([label, sectionId]) => (
+          <button
+            key={label}
+            className="cursor-pointer rounded-sm text-left outline-none transition hover:-translate-y-0.5 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 active:translate-y-0"
+            type="button"
+            onClick={() => scrollToSection(sectionId)}
+          >
             {label}
-          </a>
+          </button>
         ))}
       </div>
     </div>
@@ -464,7 +492,7 @@ function SocialLink({ label, initials }: { label: string; initials: string }) {
     <a
       href="mailto:info@tlchub.com"
       aria-label={label}
-      className="grid h-9 w-9 place-items-center rounded-full border border-white/30 text-[10px] font-black text-white transition hover:border-white hover:bg-white hover:text-emerald-800"
+      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-white/30 text-[10px] font-black text-white outline-none transition hover:-translate-y-0.5 hover:border-white hover:bg-white hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-white/50 active:translate-y-0"
     >
       {initials}
     </a>

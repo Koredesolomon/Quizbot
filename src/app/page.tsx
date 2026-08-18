@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminDashboard, AdminLogin, AdminRegistration, type AdminAccount } from "@/components/admin-dashboard";
 import { Header } from "@/components/header";
 import { Landing } from "@/components/landing";
@@ -85,6 +86,7 @@ const seedFeedback: StudentFeedback[] = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [screen, setScreen] = useState<Screen>("landing");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -276,7 +278,7 @@ export default function Home() {
         signal: controller.signal,
       });
       window.clearTimeout(timeoutId);
-      window.location.href = googleUrl;
+      router.push(googleUrl);
     } catch {
       unlockGoogleDemoAdmin();
     }
