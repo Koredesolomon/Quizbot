@@ -22,7 +22,9 @@ jobs:
             cd "${{ secrets.VPS_PATH }}"
             git fetch origin main
             git reset --hard origin/main
+            rm -rf .next
             npm ci
             npm run build
             pm2 restart tlchub-web
+            pm2 save
           EOF
