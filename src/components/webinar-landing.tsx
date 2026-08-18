@@ -96,6 +96,8 @@ const ctaCards = [
   },
 ];
 
+const registrationUrl = "https://forms.gle/mQf4QxmsRyY5B4T76";
+
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -129,7 +131,9 @@ export function WebinarLanding() {
           </nav>
           <a
             className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.04em] text-white outline-none transition hover:-translate-y-0.5 hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0 sm:px-4 sm:py-3 sm:text-[11px]"
-            href="https://bit.ly/beyondtheorystem"
+            href={registrationUrl}
+            rel="noreferrer"
+            target="_blank"
           >
             Register Now
             <ArrowRight aria-hidden="true" size={15} />
@@ -160,7 +164,9 @@ export function WebinarLanding() {
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <a
                 className="inline-flex cursor-pointer items-center justify-center gap-2 border-2 border-emerald-400 bg-emerald-500 px-6 py-3 text-[12px] font-black uppercase tracking-[0.04em] text-white shadow-xl shadow-emerald-950/30 outline-none transition hover:-translate-y-0.5 hover:bg-emerald-400 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0"
-                href="https://bit.ly/beyondtheorystem"
+                href={registrationUrl}
+                rel="noreferrer"
+                target="_blank"
               >
                 Register Now
                 <ArrowRight aria-hidden="true" size={19} />
@@ -315,7 +321,9 @@ export function WebinarLanding() {
               ) : (
                 <a
                   key={card.title}
-                  href="https://bit.ly/beyondtheorystem"
+                  href={registrationUrl}
+                  rel="noreferrer"
+                  target="_blank"
                   className={`${card.tone} group min-h-52 cursor-pointer p-6 shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0`}
                 >
                   <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
