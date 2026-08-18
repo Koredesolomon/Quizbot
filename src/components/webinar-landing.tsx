@@ -354,26 +354,21 @@ export function WebinarLanding() {
           <div className="mt-10 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
             {ctaCards.map((card, index) => (
               index === 4 ? (
-                <button
+                <div
                   key={card.title}
-                  type="button"
-                  onClick={() => scrollToSection("about")}
-                  className={`${card.tone} group flex min-h-52 cursor-pointer flex-col items-start justify-start p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0 md:col-span-2`}
+                  className={`${card.tone} group flex min-h-52 flex-col items-start justify-start p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl md:col-span-2`}
                 >
                   <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
                   <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
-                </button>
+                </div>
               ) : (
-                <a
+                <div
                   key={card.title}
-                  href={registrationUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                  className={`${card.tone} group flex min-h-52 cursor-pointer flex-col items-start justify-start p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0`}
+                  className={`${card.tone} group flex min-h-52 flex-col items-start justify-start p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl`}
                 >
                   <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
                   <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
-                </a>
+                </div>
               )
             ))}
           </div>
