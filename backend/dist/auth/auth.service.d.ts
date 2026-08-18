@@ -1,6 +1,6 @@
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import type { UserRole } from "../store.service";
+import type { UserRole } from "../common/user-role.type";
 import { UsersService } from "../users/users.service";
 export declare class AuthService {
     private readonly users;

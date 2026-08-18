@@ -6,10 +6,34 @@ export declare class AdminController {
     private readonly feedback;
     private readonly questions;
     constructor(attempts: AttemptsService, feedback: FeedbackService, questions: QuestionsService);
-    attemptsList(): import("../store.service").AttemptRecord[];
-    feedbackList(): import("../store.service").FeedbackRecord[];
-    markFeedbackReviewed(id: string): import("../store.service").FeedbackRecord;
-    analytics(): {
+    attemptsList(): Promise<{
+        id: string;
+        studentId: string;
+        status: import("../attempts/attempt.schema").AttemptStatus;
+        startedAt: string;
+        submittedAt: string | undefined;
+        score: number;
+        totalMarks: number;
+        percent: number;
+        createdAt: string;
+    }[]>;
+    feedbackList(): Promise<{
+        id: string;
+        studentId: string;
+        rating: number;
+        message: string;
+        status: import("../feedback/feedback.schema").FeedbackStatus;
+        createdAt: string;
+    }[]>;
+    markFeedbackReviewed(id: string): Promise<{
+        id: string;
+        studentId: string;
+        rating: number;
+        message: string;
+        status: import("../feedback/feedback.schema").FeedbackStatus;
+        createdAt: string;
+    }>;
+    analytics(): Promise<{
         questions: number;
         totalMarks: number;
         attempts: number;
@@ -17,6 +41,16 @@ export declare class AdminController {
         completedAttempts: number;
         averageScore: number;
         unreadFeedback: number;
-        watchlist: import("../store.service").AttemptRecord[];
-    };
+        watchlist: {
+            id: string;
+            studentId: string;
+            status: import("../attempts/attempt.schema").AttemptStatus;
+            startedAt: string;
+            submittedAt: string | undefined;
+            score: number;
+            totalMarks: number;
+            percent: number;
+            createdAt: string;
+        }[];
+    }>;
 }

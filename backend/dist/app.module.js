@@ -9,12 +9,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const mongoose_1 = require("@nestjs/mongoose");
 const admin_module_1 = require("./admin/admin.module");
 const attempts_module_1 = require("./attempts/attempts.module");
 const auth_module_1 = require("./auth/auth.module");
 const feedback_module_1 = require("./feedback/feedback.module");
 const questions_module_1 = require("./questions/questions.module");
-const store_module_1 = require("./store.module");
 const users_module_1 = require("./users/users.module");
 let AppModule = class AppModule {
 };
@@ -23,7 +23,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
-            store_module_1.StoreModule,
+            mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/quiz-bot"),
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
             questions_module_1.QuestionsModule,

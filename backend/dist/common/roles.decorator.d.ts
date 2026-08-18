@@ -1,3 +1,3 @@
-import type { UserRole } from "../store.service";
+import type { UserRole } from "./user-role.type";
 export declare const ROLES_KEY = "roles";
 export declare const Roles: (...roles: UserRole[]) => import("@nestjs/common").CustomDecorator<string>;

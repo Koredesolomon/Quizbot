@@ -12,7 +12,7 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../store.service").UserRole;
+            role: import("../common/user-role.type").UserRole;
             createdAt: string;
         };
     }>;
@@ -22,7 +22,7 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../store.service").UserRole;
+            role: import("../common/user-role.type").UserRole;
             createdAt: string;
         };
     }>;
@@ -32,7 +32,7 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../store.service").UserRole;
+            role: import("../common/user-role.type").UserRole;
             createdAt: string;
         };
     }>;

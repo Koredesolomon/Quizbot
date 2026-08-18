@@ -17,36 +17,39 @@ export class AdminController {
   ) {}
 
   @Get("attempts")
-  attemptsList() {
+  async attemptsList() {
     return this.attempts.allAttempts();
   }
 
   @Get("feedback")
-  feedbackList() {
+  async feedbackList() {
     return this.feedback.list();
   }
 
   @Patch("feedback/:id/reviewed")
-  markFeedbackReviewed(@Param("id") id: string) {
+  async markFeedbackReviewed(@Param("id") id: string) {
     return this.feedback.markReviewed(id);
   }
 
   @Get("analytics")
-  analytics() {
-    const attempts = this.attempts.allAttempts();
+  async analytics() {
+    const attempts = await this.attempts.allAttempts();
+    const feedback = await this.feedback.list();
+    const questions = await this.questions.list();
+    const totalMarks = await this.questions.totalMarks();
     const completed = attempts.filter((attempt) => attempt.status === "completed");
     const averageScore = completed.length
       ? Math.round(completed.reduce((sum, attempt) => sum + attempt.percent, 0) / completed.length)
       : 0;
 
     return {
-      questions: this.questions.list().length,
-      totalMarks: this.questions.totalMarks(),
+      questions: questions.length,
+      totalMarks,
       attempts: attempts.length,
       activeStudents: attempts.filter((attempt) => attempt.status === "active").length,
       completedAttempts: completed.length,
       averageScore,
-      unreadFeedback: this.feedback.list().filter((item) => item.status === "new").length,
+      unreadFeedback: feedback.filter((item) => item.status === "new").length,
       watchlist: completed.filter((attempt) => attempt.percent < 50),
     };
   }

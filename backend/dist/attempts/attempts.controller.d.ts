@@ -4,10 +4,49 @@ import { SubmitAttemptDto } from "./dto";
 export declare class AttemptsController {
     private readonly attempts;
     constructor(attempts: AttemptsService);
-    start(user: JwtUser): import("../store.service").AttemptRecord;
-    submit(id: string, body: SubmitAttemptDto, user: JwtUser): {
-        attempt: import("../store.service").AttemptRecord;
-        answers: import("../store.service").AnswerRecord[];
-    };
-    mine(user: JwtUser): import("../store.service").AttemptRecord[];
+    start(user: JwtUser): Promise<{
+        id: string;
+        studentId: string;
+        status: import("./attempt.schema").AttemptStatus;
+        startedAt: string;
+        submittedAt: string | undefined;
+        score: number;
+        totalMarks: number;
+        percent: number;
+        createdAt: string;
+    }>;
+    submit(id: string, body: SubmitAttemptDto, user: JwtUser): Promise<{
+        attempt: {
+            id: string;
+            studentId: string;
+            status: import("./attempt.schema").AttemptStatus;
+            startedAt: string;
+            submittedAt: string | undefined;
+            score: number;
+            totalMarks: number;
+            percent: number;
+            createdAt: string;
+        };
+        answers: {
+            id: string;
+            attemptId: string;
+            questionId: string;
+            answer: string;
+            awarded: number;
+            correct: boolean;
+            aiFeedback: string;
+            createdAt: string;
+        }[];
+    }>;
+    mine(user: JwtUser): Promise<{
+        id: string;
+        studentId: string;
+        status: import("./attempt.schema").AttemptStatus;
+        startedAt: string;
+        submittedAt: string | undefined;
+        score: number;
+        totalMarks: number;
+        percent: number;
+        createdAt: string;
+    }[]>;
 }

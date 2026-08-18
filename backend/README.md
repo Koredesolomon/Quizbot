@@ -6,10 +6,27 @@ NestJS API for the quiz platform.
 
 ```bash
 npm install
+cp .env.example .env
 npm run start:dev
 ```
 
 Default API URL: `http://localhost:4000`
+
+## MongoDB
+
+Set `MONGODB_URI` in `.env`.
+
+Local MongoDB:
+
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/quiz-bot
+```
+
+MongoDB Atlas:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
+```
 
 ## First endpoints
 
@@ -26,7 +43,49 @@ Default API URL: `http://localhost:4000`
 - `POST /feedback`
 - `GET /admin/analytics` admin only
 
-This first version uses in-memory storage so the frontend can connect immediately. The next backend step is adding PostgreSQL with Prisma.
+Questions, users, attempts, answers, and feedback are persisted in MongoDB.
+
+## Uploading questions
+
+1. Register or login as an admin.
+2. Copy the returned `accessToken`.
+3. Upload a question:
+
+```bash
+curl -X POST http://localhost:4000/questions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "type": "objective",
+    "topic": "Physical quantities and units",
+    "prompt": "Which of the following is a base physical quantity?",
+    "options": ["Force", "Length", "Speed", "Acceleration"],
+    "answer": "Length",
+    "explanation": "Length is one of the SI base quantities.",
+    "marks": 2
+  }'
+```
+
+Bulk import:
+
+```bash
+curl -X POST http://localhost:4000/questions/import \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "questions": [
+      {
+        "type": "objective",
+        "topic": "Physical quantities and units",
+        "prompt": "Which of the following is a base physical quantity?",
+        "options": ["Force", "Length", "Speed", "Acceleration"],
+        "answer": "Length",
+        "explanation": "Length is one of the SI base quantities.",
+        "marks": 2
+      }
+    ]
+  }'
+```
 
 ## Google admin login
 

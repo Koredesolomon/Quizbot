@@ -4,7 +4,43 @@ import { QuestionsService } from "./questions.service";
 export declare class QuestionsController {
     private readonly questions;
     constructor(questions: QuestionsService);
-    list(): import("../store.service").QuestionRecord[];
-    create(body: CreateQuestionDto, user: JwtUser): import("../store.service").QuestionRecord;
-    import(body: ImportQuestionsDto, user: JwtUser): import("../store.service").QuestionRecord[];
+    list(): Promise<{
+        id: string;
+        type: import("./question.schema").QuestionType;
+        topic: string;
+        prompt: string;
+        options: string[] | undefined;
+        answer: string;
+        explanation: string;
+        marks: number;
+        keywords: string[] | undefined;
+        createdBy: string;
+        createdAt: string;
+    }[]>;
+    create(body: CreateQuestionDto, user: JwtUser): Promise<{
+        id: string;
+        type: import("./question.schema").QuestionType;
+        topic: string;
+        prompt: string;
+        options: string[] | undefined;
+        answer: string;
+        explanation: string;
+        marks: number;
+        keywords: string[] | undefined;
+        createdBy: string;
+        createdAt: string;
+    }>;
+    import(body: ImportQuestionsDto, user: JwtUser): Promise<{
+        id: string;
+        type: import("./question.schema").QuestionType;
+        topic: string;
+        prompt: string;
+        options: string[] | undefined;
+        answer: string;
+        explanation: string;
+        marks: number;
+        keywords: string[] | undefined;
+        createdBy: string;
+        createdAt: string;
+    }[]>;
 }

@@ -1,4 +1,6 @@
+import { FileText } from "lucide-react";
 import type { ReactNode } from "react";
+import { formatBytes, parseAnswerValue } from "@/lib/answer-attachments";
 import { MathContent } from "./math-content";
 
 const buttonBase =
@@ -63,8 +65,8 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <div className="rounded-lg border border-slate-200 bg-white/95 p-4 shadow-xl shadow-slate-200/70 sm:p-8">
+    <section className="surface-enter mx-auto grid min-h-[calc(100vh-4.25rem)] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
+      <div className="rounded-lg border border-slate-200 bg-white/95 p-4 shadow-xl shadow-slate-200/70 transition-shadow duration-200 hover:shadow-2xl hover:shadow-slate-200/80 sm:p-8">
         <div className="mb-7 text-center">
           <h2 className="text-2xl font-black text-slate-950">{title}</h2>
           <p className="mt-2 text-sm font-medium text-slate-500">{subtitle}</p>
@@ -77,7 +79,7 @@ export function Panel({
 
 export function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-h-20 rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div className="interactive-lift min-h-20 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <strong className="block text-2xl font-black text-slate-950">{value}</strong>
       <span className="mt-1 block text-xs font-bold text-slate-500">{label}</span>
     </div>
@@ -120,19 +122,38 @@ export function StatusBadge({
   };
 
   return (
-    <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-black ${tones[tone]}`}>
+    <span className={`selected-pop inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-black ${tones[tone]}`}>
       {children}
     </span>
   );
 }
 
 export function ResultBlock({ label, text }: { label: string; text: string }) {
+  const answer = parseAnswerValue(text);
+  const visibleText = answer.text || (answer.attachments.length ? "Document answer attached." : text);
+
   return (
-    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div className="content-rise mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <strong className="block text-xs font-black uppercase text-slate-600">{label}</strong>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">
-        <MathContent>{text}</MathContent>
+        <MathContent>{visibleText}</MathContent>
       </p>
+      {answer.attachments.length > 0 && (
+        <div className="mt-3 grid gap-2">
+          {answer.attachments.map((attachment) => (
+            <div
+              className="flex min-h-10 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+              key={attachment.id}
+            >
+              <FileText aria-hidden="true" className="shrink-0 text-indigo-700" size={16} />
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-sm font-black text-slate-900">{attachment.name}</strong>
+                <small className="block text-xs font-bold text-slate-500">{formatBytes(attachment.size)}</small>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

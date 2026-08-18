@@ -26,7 +26,7 @@ let AuthService = class AuthService {
     }
     async register(input) {
         const passwordHash = await bcrypt.hash(input.password, 10);
-        const user = this.users.create({
+        const user = await this.users.create({
             fullName: input.fullName,
             email: input.email,
             passwordHash,
@@ -35,7 +35,7 @@ let AuthService = class AuthService {
         return this.authResponse(user);
     }
     async login(input) {
-        const user = this.users.findByEmail(input.email);
+        const user = await this.users.findByEmail(input.email);
         if (!user || !user.passwordHash || !(await bcrypt.compare(input.password, user.passwordHash))) {
             throw new common_1.UnauthorizedException("Invalid email or password.");
         }
@@ -81,7 +81,7 @@ let AuthService = class AuthService {
         }
         const email = profile.email.toLowerCase();
         this.assertGoogleAdminAllowed(email, profile.hd);
-        const user = this.users.findOrCreateGoogleAdmin({
+        const user = await this.users.findOrCreateGoogleAdmin({
             fullName: profile.name ?? email,
             email,
         });

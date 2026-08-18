@@ -1,4 +1,4 @@
-import type { UserRole } from "../store.service";
+import type { UserRole } from "./user-role.type";
 export type JwtUser = {
     sub: string;
     email: string;

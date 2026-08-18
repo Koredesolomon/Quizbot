@@ -29,29 +29,32 @@ let AdminController = class AdminController {
         this.feedback = feedback;
         this.questions = questions;
     }
-    attemptsList() {
+    async attemptsList() {
         return this.attempts.allAttempts();
     }
-    feedbackList() {
+    async feedbackList() {
         return this.feedback.list();
     }
-    markFeedbackReviewed(id) {
+    async markFeedbackReviewed(id) {
         return this.feedback.markReviewed(id);
     }
-    analytics() {
-        const attempts = this.attempts.allAttempts();
+    async analytics() {
+        const attempts = await this.attempts.allAttempts();
+        const feedback = await this.feedback.list();
+        const questions = await this.questions.list();
+        const totalMarks = await this.questions.totalMarks();
         const completed = attempts.filter((attempt) => attempt.status === "completed");
         const averageScore = completed.length
             ? Math.round(completed.reduce((sum, attempt) => sum + attempt.percent, 0) / completed.length)
             : 0;
         return {
-            questions: this.questions.list().length,
-            totalMarks: this.questions.totalMarks(),
+            questions: questions.length,
+            totalMarks,
             attempts: attempts.length,
             activeStudents: attempts.filter((attempt) => attempt.status === "active").length,
             completedAttempts: completed.length,
             averageScore,
-            unreadFeedback: this.feedback.list().filter((item) => item.status === "new").length,
+            unreadFeedback: feedback.filter((item) => item.status === "new").length,
             watchlist: completed.filter((attempt) => attempt.percent < 50),
         };
     }
@@ -61,26 +64,26 @@ __decorate([
     (0, common_1.Get)("attempts"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AdminController.prototype, "attemptsList", null);
 __decorate([
     (0, common_1.Get)("feedback"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AdminController.prototype, "feedbackList", null);
 __decorate([
     (0, common_1.Patch)("feedback/:id/reviewed"),
     __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AdminController.prototype, "markFeedbackReviewed", null);
 __decorate([
     (0, common_1.Get)("analytics"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AdminController.prototype, "analytics", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)("admin"),

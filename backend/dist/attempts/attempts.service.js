@@ -8,64 +8,73 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AttemptsService = void 0;
 const common_1 = require("@nestjs/common");
-const store_service_1 = require("../store.service");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
 const questions_service_1 = require("../questions/questions.service");
+const answer_schema_1 = require("./answer.schema");
+const attempt_schema_1 = require("./attempt.schema");
 let AttemptsService = class AttemptsService {
-    store;
+    attemptModel;
+    answerModel;
     questions;
-    constructor(store, questions) {
-        this.store = store;
+    constructor(attemptModel, answerModel, questions) {
+        this.attemptModel = attemptModel;
+        this.answerModel = answerModel;
         this.questions = questions;
     }
-    start(studentId) {
-        const attempt = {
-            id: crypto.randomUUID(),
-            studentId,
+    async start(studentId) {
+        const attempt = await this.attemptModel.create({
+            studentId: new mongoose_2.Types.ObjectId(studentId),
             status: "active",
-            startedAt: new Date().toISOString(),
+            startedAt: new Date(),
             score: 0,
-            totalMarks: this.questions.totalMarks(),
+            totalMarks: await this.questions.totalMarks(),
             percent: 0,
-        };
-        this.store.attempts.push(attempt);
-        return attempt;
+        });
+        return this.publicAttempt(attempt);
     }
-    submit(attemptId, studentId, answers) {
-        const attempt = this.findOwnedAttempt(attemptId, studentId);
-        const markedAnswers = answers.map((answer) => this.markAnswer(attempt.id, answer));
+    async submit(attemptId, studentId, answers) {
+        const attempt = await this.findOwnedAttempt(attemptId, studentId);
+        const markedAnswers = await Promise.all(answers.map((answer) => this.markAnswer(attempt.id, answer)));
         const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
-        const totalMarks = this.questions.totalMarks();
-        this.store.answers = this.store.answers.filter((answer) => answer.attemptId !== attempt.id);
-        this.store.answers.push(...markedAnswers);
+        const totalMarks = await this.questions.totalMarks();
+        await this.answerModel.deleteMany({ attemptId: attempt._id }).exec();
+        const savedAnswers = await this.answerModel.insertMany(markedAnswers);
         attempt.status = "completed";
-        attempt.submittedAt = new Date().toISOString();
+        attempt.submittedAt = new Date();
         attempt.score = score;
         attempt.totalMarks = totalMarks;
         attempt.percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
+        await attempt.save();
         return {
-            attempt,
-            answers: markedAnswers,
+            attempt: this.publicAttempt(attempt),
+            answers: savedAnswers.map((answer) => this.publicAnswer(answer)),
         };
     }
-    myAttempts(studentId) {
-        return this.store.attempts.filter((attempt) => attempt.studentId === studentId);
+    async myAttempts(studentId) {
+        const attempts = await this.attemptModel.find({ studentId: new mongoose_2.Types.ObjectId(studentId) }).sort({ createdAt: -1 }).exec();
+        return attempts.map((attempt) => this.publicAttempt(attempt));
     }
-    allAttempts() {
-        return this.store.attempts;
+    async allAttempts() {
+        const attempts = await this.attemptModel.find().sort({ createdAt: -1 }).exec();
+        return attempts.map((attempt) => this.publicAttempt(attempt));
     }
-    findOwnedAttempt(attemptId, studentId) {
-        const attempt = this.store.attempts.find((item) => item.id === attemptId);
+    async findOwnedAttempt(attemptId, studentId) {
+        const attempt = await this.attemptModel.findById(attemptId).exec();
         if (!attempt)
             throw new common_1.NotFoundException("Attempt not found.");
-        if (attempt.studentId !== studentId)
+        if (attempt.studentId.toString() !== studentId)
             throw new common_1.ForbiddenException("You cannot submit this attempt.");
         return attempt;
     }
-    markAnswer(attemptId, answer) {
-        const question = this.questions.findById(answer.questionId);
+    async markAnswer(attemptId, answer) {
+        const question = await this.questions.findById(answer.questionId);
         const response = answer.answer.trim();
         if (!response) {
             return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.");
@@ -86,20 +95,47 @@ let AttemptsService = class AttemptsService {
     }
     answerRecord(attemptId, question, answer, awarded, correct, aiFeedback) {
         return {
-            id: crypto.randomUUID(),
-            attemptId,
-            questionId: question.id,
+            attemptId: new mongoose_2.Types.ObjectId(attemptId),
+            questionId: question._id,
             answer,
             awarded,
             correct,
             aiFeedback,
         };
     }
+    publicAttempt(attempt) {
+        return {
+            id: attempt.id,
+            studentId: attempt.studentId.toString(),
+            status: attempt.status,
+            startedAt: attempt.startedAt.toISOString(),
+            submittedAt: attempt.submittedAt?.toISOString(),
+            score: attempt.score,
+            totalMarks: attempt.totalMarks,
+            percent: attempt.percent,
+            createdAt: attempt.createdAt.toISOString(),
+        };
+    }
+    publicAnswer(answer) {
+        return {
+            id: answer.id,
+            attemptId: answer.attemptId.toString(),
+            questionId: answer.questionId.toString(),
+            answer: answer.answer,
+            awarded: answer.awarded,
+            correct: answer.correct,
+            aiFeedback: answer.aiFeedback,
+            createdAt: answer.createdAt.toISOString(),
+        };
+    }
 };
 exports.AttemptsService = AttemptsService;
 exports.AttemptsService = AttemptsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [store_service_1.StoreService,
+    __param(0, (0, mongoose_1.InjectModel)(attempt_schema_1.Attempt.name)),
+    __param(1, (0, mongoose_1.InjectModel)(answer_schema_1.Answer.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         questions_service_1.QuestionsService])
 ], AttemptsService);
 //# sourceMappingURL=attempts.service.js.map

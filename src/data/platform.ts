@@ -6,16 +6,6 @@ export const physicsCourses = ["PHS 001", "PHS 002", "PHS 003"];
 
 export const phs001Topics = ["Topic 1", "Topic 2", "Topic 3"];
 
-export const workflowSteps = [
-  "Access",
-  "Select",
-  "Take Test",
-  "Submit",
-  "AI Marking",
-  "Results",
-  "Advice",
-];
-
 export const questions: Question[] = [
   {
     id: 1,

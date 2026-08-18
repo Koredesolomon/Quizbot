@@ -8,41 +8,42 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
-const store_service_1 = require("../store.service");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
+const user_schema_1 = require("./user.schema");
 let UsersService = class UsersService {
-    store;
-    constructor(store) {
-        this.store = store;
+    userModel;
+    constructor(userModel) {
+        this.userModel = userModel;
     }
-    create(input) {
+    async create(input) {
         const email = input.email.toLowerCase();
-        const existing = this.findByEmail(email);
+        const existing = await this.findByEmail(email);
         if (existing) {
             throw new common_1.ConflictException("Email is already registered.");
         }
-        const user = {
-            id: crypto.randomUUID(),
+        return this.userModel.create({
             fullName: input.fullName,
             email,
             passwordHash: input.passwordHash,
             authProvider: input.authProvider ?? "password",
             role: input.role,
-            createdAt: new Date().toISOString(),
-        };
-        this.store.users.push(user);
-        return user;
+        });
     }
-    findOrCreateGoogleAdmin(input) {
+    async findOrCreateGoogleAdmin(input) {
         const email = input.email.toLowerCase();
-        const existing = this.findByEmail(email);
+        const existing = await this.findByEmail(email);
         if (existing) {
             existing.fullName = input.fullName || existing.fullName;
             existing.authProvider = "google";
             existing.role = "admin";
-            return existing;
+            return existing.save();
         }
         return this.create({
             fullName: input.fullName,
@@ -52,10 +53,10 @@ let UsersService = class UsersService {
         });
     }
     findByEmail(email) {
-        return this.store.users.find((user) => user.email === email.toLowerCase());
+        return this.userModel.findOne({ email: email.toLowerCase() }).exec();
     }
     findById(id) {
-        return this.store.users.find((user) => user.id === id);
+        return this.userModel.findById(id).exec();
     }
     publicUser(user) {
         return {
@@ -63,13 +64,14 @@ let UsersService = class UsersService {
             fullName: user.fullName,
             email: user.email,
             role: user.role,
-            createdAt: user.createdAt,
+            createdAt: user.createdAt.toISOString(),
         };
     }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [store_service_1.StoreService])
+    __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

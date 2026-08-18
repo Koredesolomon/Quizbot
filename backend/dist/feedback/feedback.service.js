@@ -8,41 +8,54 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FeedbackService = void 0;
 const common_1 = require("@nestjs/common");
-const store_service_1 = require("../store.service");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
+const feedback_schema_1 = require("./feedback.schema");
 let FeedbackService = class FeedbackService {
-    store;
-    constructor(store) {
-        this.store = store;
+    feedbackModel;
+    constructor(feedbackModel) {
+        this.feedbackModel = feedbackModel;
     }
-    create(studentId, input) {
-        const feedback = {
-            id: crypto.randomUUID(),
-            studentId,
+    async create(studentId, input) {
+        const feedback = await this.feedbackModel.create({
+            studentId: new mongoose_2.Types.ObjectId(studentId),
             rating: input.rating,
             message: input.message,
             status: "new",
-            createdAt: new Date().toISOString(),
-        };
-        this.store.feedback.push(feedback);
-        return feedback;
+        });
+        return this.publicFeedback(feedback);
     }
-    list() {
-        return this.store.feedback;
+    async list() {
+        const feedback = await this.feedbackModel.find().sort({ createdAt: -1 }).exec();
+        return feedback.map((item) => this.publicFeedback(item));
     }
-    markReviewed(id) {
-        const feedback = this.store.feedback.find((item) => item.id === id);
+    async markReviewed(id) {
+        const feedback = await this.feedbackModel.findByIdAndUpdate(id, { status: "reviewed" }, { new: true }).exec();
         if (!feedback)
             throw new common_1.NotFoundException("Feedback not found.");
-        feedback.status = "reviewed";
-        return feedback;
+        return this.publicFeedback(feedback);
+    }
+    publicFeedback(feedback) {
+        return {
+            id: feedback.id,
+            studentId: feedback.studentId.toString(),
+            rating: feedback.rating,
+            message: feedback.message,
+            status: feedback.status,
+            createdAt: feedback.createdAt.toISOString(),
+        };
     }
 };
 exports.FeedbackService = FeedbackService;
 exports.FeedbackService = FeedbackService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [store_service_1.StoreService])
+    __param(0, (0, mongoose_1.InjectModel)(feedback_schema_1.Feedback.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model])
 ], FeedbackService);
 //# sourceMappingURL=feedback.service.js.map

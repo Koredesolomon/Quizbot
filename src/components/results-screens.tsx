@@ -6,7 +6,7 @@ import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton,
 export function Marking() {
   return (
     <Panel title="AI is reviewing your answers..." subtitle="This may take a few seconds.">
-      <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-indigo-50 bg-gradient-to-br from-indigo-600 to-emerald-500 text-4xl font-black text-white shadow-2xl shadow-indigo-200">
+      <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-indigo-50 bg-gradient-to-br from-indigo-600 to-emerald-500 text-4xl font-black text-white shadow-2xl shadow-indigo-200">
         AI
       </div>
       <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-slate-200">
@@ -51,10 +51,10 @@ export function Results({
       <BackButton className="mb-5" label="Overview" onClick={onBack} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div
-          className="flex h-36 w-36 flex-col items-center justify-center justify-self-start rounded-full sm:justify-self-center"
+          className="score-ring flex h-36 w-36 flex-col items-center justify-center justify-self-start rounded-full sm:justify-self-center"
           style={
             {
-              background: `radial-gradient(circle at center, #ffffff 58%, transparent 59%), conic-gradient(#4f46e5 ${percent}%, #e2e8f0 0)`,
+              "--score-value": `${percent}%`,
             } as CSSProperties
           }
         >
@@ -142,16 +142,16 @@ export function Details({
   const question = marked[selectedDetail] ?? marked[0];
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
+      <section className="surface-enter mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="content-rise rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
         <BackButton className="mb-5" label="Summary" onClick={onBack} />
         <h2 className="text-2xl font-black">Detailed Results</h2>
-        <div className="mt-5 space-y-2">
+        <div className="stagger-list mt-5 space-y-2">
           {marked.map((item, index) => (
             <button
-              className={`flex min-h-12 w-full items-center justify-between rounded-lg border p-3 text-left transition hover:border-indigo-200 ${
+              className={`interactive-lift flex min-h-12 w-full items-center justify-between rounded-lg border p-3 text-left hover:border-indigo-200 ${
                 selectedDetail === index
-                  ? "border-indigo-300 bg-indigo-50"
+                  ? "selected-pop border-indigo-300 bg-indigo-50"
                   : "border-slate-200 bg-white"
               }`}
               key={item.id}
@@ -167,7 +167,7 @@ export function Details({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
+      <div className="content-rise-delay rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase text-indigo-700">{question.topic}</p>
@@ -185,7 +185,7 @@ export function Details({
         <ResultBlock label="AI Feedback" text={question.aiFeedback} />
         <ResultBlock label="Explanation" text={question.explanation} />
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="stagger-list mt-6 grid gap-3 sm:grid-cols-3">
           {topicBreakdown.map((topic) => (
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4" key={topic.topic}>
               <strong className="block text-lg font-black text-indigo-800">{topic.percent}%</strong>
@@ -205,7 +205,7 @@ export function ComingSoon({ onAvailable, onBack }: { onAvailable: () => void; o
       <div className="flex h-32 items-center justify-center rounded-lg border border-orange-200 bg-[repeating-linear-gradient(-45deg,#f97316,#f97316_14px,#ffffff_14px,#ffffff_28px)] text-2xl font-black text-slate-950">
         Soon
       </div>
-      <div className="mt-6 flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left sm:flex-row sm:items-center sm:justify-between">
+      <div className="content-rise-delay mt-6 flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left sm:flex-row sm:items-center sm:justify-between">
         <TileIcon tone="emerald">P</TileIcon>
         <span className="min-w-0 flex-1">
           <strong className="block text-sm font-black">Available Now</strong>

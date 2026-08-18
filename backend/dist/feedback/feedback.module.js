@@ -8,7 +8,8 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FeedbackModule = void 0;
 const common_1 = require("@nestjs/common");
-const store_module_1 = require("../store.module");
+const mongoose_1 = require("@nestjs/mongoose");
+const feedback_schema_1 = require("./feedback.schema");
 const feedback_controller_1 = require("./feedback.controller");
 const feedback_service_1 = require("./feedback.service");
 let FeedbackModule = class FeedbackModule {
@@ -16,7 +17,7 @@ let FeedbackModule = class FeedbackModule {
 exports.FeedbackModule = FeedbackModule;
 exports.FeedbackModule = FeedbackModule = __decorate([
     (0, common_1.Module)({
-        imports: [store_module_1.StoreModule],
+        imports: [mongoose_1.MongooseModule.forFeature([{ name: feedback_schema_1.Feedback.name, schema: feedback_schema_1.FeedbackSchema }])],
         controllers: [feedback_controller_1.FeedbackController],
         providers: [feedback_service_1.FeedbackService],
         exports: [feedback_service_1.FeedbackService],

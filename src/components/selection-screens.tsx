@@ -3,9 +3,9 @@ import type { Question } from "@/types/platform";
 import { BackButton, Metric, Panel, PrimaryButton, StatusBadge, TileIcon } from "./ui";
 
 const rowClass =
-  "flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left text-slate-950 transition hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100";
+  "interactive-lift flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left text-slate-950 transition hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100";
 const lockedRowClass =
-  "flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-slate-950";
+  "interactive-lift flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-slate-950";
 
 export function Programme({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
@@ -37,7 +37,7 @@ export function Subjects({
   return (
     <Panel title="Select Subject" subtitle="Only Physics is open in this first phase.">
       <BackButton className="mb-5" label="Programme" onClick={onBack} />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="stagger-list grid gap-3 sm:grid-cols-2">
         {comingSoonSubjects.map((subject) => (
           <button className={lockedRowClass} key={subject} type="button" onClick={onComingSoon}>
             <TileIcon tone="orange">{subject.slice(0, 1)}</TileIcon>
@@ -71,7 +71,7 @@ export function Courses({
   return (
     <Panel title="Physics Courses" subtitle="Choose a course.">
       <BackButton className="mb-5" label="Subjects" onClick={onBack} />
-      <div className="space-y-3">
+      <div className="stagger-list space-y-3">
         {physicsCourses.map((course, index) => (
           <button
             className={index === 0 ? rowClass : lockedRowClass}
@@ -108,7 +108,7 @@ export function Topics({
   return (
     <Panel title="PHS 001" subtitle="Select a topic.">
       <BackButton className="mb-5" label="Courses" onClick={onBack} />
-      <div className="space-y-3">
+      <div className="stagger-list space-y-3">
         {phs001Topics.map((topic, index) => (
           <button
             className={index === 0 ? rowClass : lockedRowClass}
@@ -147,12 +147,12 @@ export function Overview({
   return (
     <Panel title="PHS 001 - Topic 1" subtitle="Physical quantities, measurement, errors, and dimensions.">
       <BackButton className="mb-5" label="Topics" onClick={onBack} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="stagger-list grid gap-3 sm:grid-cols-3">
         <Metric label="Questions" value={String(questions.length)} />
         <Metric label="Marks" value={String(totalMarks)} />
         <Metric label="Time" value="30 min" />
       </div>
-      <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="content-rise-delay mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-sm font-black text-slate-900">Topics Covered</h3>
         <ul className="mt-3 space-y-2 text-sm text-slate-600">
           <li>Physical quantities and units</li>

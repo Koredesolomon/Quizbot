@@ -1,68 +1,74 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AnswerRecord, AttemptRecord, QuestionRecord, StoreService } from "../store.service";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import { QuestionsService } from "../questions/questions.service";
+import type { QuestionDocument } from "../questions/question.schema";
+import { Answer, AnswerDocument } from "./answer.schema";
+import { Attempt, AttemptDocument } from "./attempt.schema";
 import { SubmitAnswerDto } from "./dto";
 
 @Injectable()
 export class AttemptsService {
   constructor(
-    private readonly store: StoreService,
+    @InjectModel(Attempt.name) private readonly attemptModel: Model<AttemptDocument>,
+    @InjectModel(Answer.name) private readonly answerModel: Model<AnswerDocument>,
     private readonly questions: QuestionsService
   ) {}
 
-  start(studentId: string) {
-    const attempt: AttemptRecord = {
-      id: crypto.randomUUID(),
-      studentId,
+  async start(studentId: string) {
+    const attempt = await this.attemptModel.create({
+      studentId: new Types.ObjectId(studentId),
       status: "active",
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(),
       score: 0,
-      totalMarks: this.questions.totalMarks(),
+      totalMarks: await this.questions.totalMarks(),
       percent: 0,
-    };
+    });
 
-    this.store.attempts.push(attempt);
-    return attempt;
+    return this.publicAttempt(attempt);
   }
 
-  submit(attemptId: string, studentId: string, answers: SubmitAnswerDto[]) {
-    const attempt = this.findOwnedAttempt(attemptId, studentId);
-    const markedAnswers = answers.map((answer) => this.markAnswer(attempt.id, answer));
+  async submit(attemptId: string, studentId: string, answers: SubmitAnswerDto[]) {
+    const attempt = await this.findOwnedAttempt(attemptId, studentId);
+    const markedAnswers = await Promise.all(answers.map((answer) => this.markAnswer(attempt.id, answer)));
     const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
-    const totalMarks = this.questions.totalMarks();
+    const totalMarks = await this.questions.totalMarks();
 
-    this.store.answers = this.store.answers.filter((answer) => answer.attemptId !== attempt.id);
-    this.store.answers.push(...markedAnswers);
+    await this.answerModel.deleteMany({ attemptId: attempt._id }).exec();
+    const savedAnswers = await this.answerModel.insertMany(markedAnswers);
 
     attempt.status = "completed";
-    attempt.submittedAt = new Date().toISOString();
+    attempt.submittedAt = new Date();
     attempt.score = score;
     attempt.totalMarks = totalMarks;
     attempt.percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
+    await attempt.save();
 
     return {
-      attempt,
-      answers: markedAnswers,
+      attempt: this.publicAttempt(attempt),
+      answers: savedAnswers.map((answer) => this.publicAnswer(answer)),
     };
   }
 
-  myAttempts(studentId: string) {
-    return this.store.attempts.filter((attempt) => attempt.studentId === studentId);
+  async myAttempts(studentId: string) {
+    const attempts = await this.attemptModel.find({ studentId: new Types.ObjectId(studentId) }).sort({ createdAt: -1 }).exec();
+    return attempts.map((attempt) => this.publicAttempt(attempt));
   }
 
-  allAttempts() {
-    return this.store.attempts;
+  async allAttempts() {
+    const attempts = await this.attemptModel.find().sort({ createdAt: -1 }).exec();
+    return attempts.map((attempt) => this.publicAttempt(attempt));
   }
 
-  private findOwnedAttempt(attemptId: string, studentId: string) {
-    const attempt = this.store.attempts.find((item) => item.id === attemptId);
+  private async findOwnedAttempt(attemptId: string, studentId: string) {
+    const attempt = await this.attemptModel.findById(attemptId).exec();
     if (!attempt) throw new NotFoundException("Attempt not found.");
-    if (attempt.studentId !== studentId) throw new ForbiddenException("You cannot submit this attempt.");
+    if (attempt.studentId.toString() !== studentId) throw new ForbiddenException("You cannot submit this attempt.");
     return attempt;
   }
 
-  private markAnswer(attemptId: string, answer: SubmitAnswerDto): AnswerRecord {
-    const question = this.questions.findById(answer.questionId);
+  private async markAnswer(attemptId: string, answer: SubmitAnswerDto) {
+    const question = await this.questions.findById(answer.questionId);
     const response = answer.answer.trim();
 
     if (!response) {
@@ -102,20 +108,46 @@ export class AttemptsService {
 
   private answerRecord(
     attemptId: string,
-    question: QuestionRecord,
+    question: QuestionDocument,
     answer: string,
     awarded: number,
     correct: boolean,
     aiFeedback: string
-  ): AnswerRecord {
+  ) {
     return {
-      id: crypto.randomUUID(),
-      attemptId,
-      questionId: question.id,
+      attemptId: new Types.ObjectId(attemptId),
+      questionId: question._id,
       answer,
       awarded,
       correct,
       aiFeedback,
+    };
+  }
+
+  private publicAttempt(attempt: AttemptDocument) {
+    return {
+      id: attempt.id,
+      studentId: attempt.studentId.toString(),
+      status: attempt.status,
+      startedAt: attempt.startedAt.toISOString(),
+      submittedAt: attempt.submittedAt?.toISOString(),
+      score: attempt.score,
+      totalMarks: attempt.totalMarks,
+      percent: attempt.percent,
+      createdAt: attempt.createdAt.toISOString(),
+    };
+  }
+
+  private publicAnswer(answer: AnswerDocument) {
+    return {
+      id: answer.id,
+      attemptId: answer.attemptId.toString(),
+      questionId: answer.questionId.toString(),
+      answer: answer.answer,
+      awarded: answer.awarded,
+      correct: answer.correct,
+      aiFeedback: answer.aiFeedback,
+      createdAt: answer.createdAt.toISOString(),
     };
   }
 }

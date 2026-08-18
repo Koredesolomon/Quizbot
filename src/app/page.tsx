@@ -13,13 +13,13 @@ import {
 } from "@/components/selection-screens";
 import { ComingSoon, Details, Marking, Results } from "@/components/results-screens";
 import { TestInterface } from "@/components/test-interface";
-import { Workflow } from "@/components/workflow";
 import { questions as starterQuestions } from "@/data/platform";
 import { getTopicBreakdown, markResponses } from "@/lib/marker";
 import type { MarkedQuestion, Question, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const studentName = "Practice Student";
 const adminStorageKey = "stem-jupeb-admin-account";
+const themeStorageKey = "stem-jupeb-theme";
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 function getGoogleAdminCallbackAccount(): AdminAccount | null {
@@ -85,8 +85,7 @@ const seedFeedback: StudentFeedback[] = [
 ];
 
 export default function Home() {
-  const [googleAdminCallbackAccount] = useState(getGoogleAdminCallbackAccount);
-  const [screen, setScreen] = useState<Screen>(googleAdminCallbackAccount ? "admin" : "landing");
+  const [screen, setScreen] = useState<Screen>("landing");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -95,33 +94,49 @@ export default function Home() {
   const [attempts, setAttempts] = useState<StudentAttempt[]>(seedAttempts);
   const [feedback, setFeedback] = useState<StudentFeedback[]>(seedFeedback);
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
-  const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(() => {
-    if (typeof window === "undefined") return null;
-
-    if (googleAdminCallbackAccount) return googleAdminCallbackAccount;
-
-    const savedAdmin = window.localStorage.getItem(adminStorageKey);
-    if (!savedAdmin) return null;
-
-    try {
-      return JSON.parse(savedAdmin) as AdminAccount;
-    } catch {
-      window.localStorage.removeItem(adminStorageKey);
-      return null;
-    }
-  });
-  const [adminUnlocked, setAdminUnlocked] = useState(Boolean(googleAdminCallbackAccount));
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [themeLoaded, setThemeLoaded] = useState(false);
+  const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [comingSoonBackScreen, setComingSoonBackScreen] = useState<Screen>("subjects");
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.location.hash.includes("adminGoogle=1")) return;
+    if (typeof window === "undefined") return;
 
-    if (googleAdminCallbackAccount) {
-      window.localStorage.setItem(adminStorageKey, JSON.stringify(googleAdminCallbackAccount));
-    }
+    const loadBrowserState = window.setTimeout(() => {
+      const savedTheme = window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+      setTheme(savedTheme);
+      setThemeLoaded(true);
 
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-  }, [googleAdminCallbackAccount]);
+      const googleAdminCallbackAccount = getGoogleAdminCallbackAccount();
+      if (googleAdminCallbackAccount) {
+        setAdminAccount(googleAdminCallbackAccount);
+        setAdminUnlocked(true);
+        setScreen("admin");
+        window.localStorage.setItem(adminStorageKey, JSON.stringify(googleAdminCallbackAccount));
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+
+      const savedAdmin = window.localStorage.getItem(adminStorageKey);
+      if (!savedAdmin) return;
+
+      try {
+        setAdminAccount(JSON.parse(savedAdmin) as AdminAccount);
+      } catch {
+        window.localStorage.removeItem(adminStorageKey);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(loadBrowserState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !themeLoaded) return;
+
+    window.localStorage.setItem(themeStorageKey, theme);
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+  }, [theme, themeLoaded]);
 
   const answeredCount = Object.values(answers).filter(Boolean).length;
   const totalMarks = useMemo(() => questions.reduce((sum, question) => sum + question.marks, 0), [questions]);
@@ -235,19 +250,61 @@ export default function Home() {
     return true;
   };
 
+  const unlockGoogleDemoAdmin = () => {
+    const account: AdminAccount = {
+      name: "Google Admin",
+      email: "google-admin@stem-jupeb.local",
+      role: "Academic Admin",
+      accessCode: "",
+      authProvider: "google",
+    };
+
+    setAdminAccount(account);
+    setAdminUnlocked(true);
+    window.localStorage.setItem(adminStorageKey, JSON.stringify(account));
+  };
+
+  const continueWithGoogle = async () => {
+    const googleUrl = `${apiBaseUrl}/auth/google/admin`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 1200);
+
+      await fetch(googleUrl, {
+        mode: "no-cors",
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeoutId);
+      window.location.href = googleUrl;
+    } catch {
+      unlockGoogleDemoAdmin();
+    }
+  };
+
   const showComingSoon = (backScreen: Screen) => {
     setComingSoonBackScreen(backScreen);
     setScreen("comingSoon");
   };
 
+  const isDark = theme === "dark";
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <Header onNavigate={setScreen} />
+    <main
+      className={`min-h-screen transition-colors duration-200 ${
+        isDark ? "theme-dark bg-slate-950 text-slate-100" : "theme-light bg-slate-50 text-slate-950"
+      }`}
+    >
+      <Header
+        theme={theme}
+        onNavigate={setScreen}
+        onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+      />
 
       {screen === "landing" && (
         <Landing
           onStart={() => setScreen("programme")}
-          onHowItWorks={() => document.getElementById("workflow")?.scrollIntoView({ behavior: "smooth" })}
+          onBrowseSubjects={() => setScreen("subjects")}
         />
       )}
 
@@ -347,9 +404,7 @@ export default function Home() {
               setAdminUnlocked(unlocked);
               return unlocked;
             }}
-            onGoogleLogin={() => {
-              window.location.href = `${apiBaseUrl}/auth/google/admin`;
-            }}
+            onGoogleLogin={continueWithGoogle}
             onBack={() => setScreen("overview")}
           />
         )
@@ -357,8 +412,6 @@ export default function Home() {
       {screen === "comingSoon" && (
         <ComingSoon onAvailable={() => setScreen("overview")} onBack={() => setScreen(comingSoonBackScreen)} />
       )}
-
-      <Workflow />
     </main>
   );
 }

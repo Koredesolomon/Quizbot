@@ -4,5 +4,12 @@ import { FeedbackService } from "./feedback.service";
 export declare class FeedbackController {
     private readonly feedback;
     constructor(feedback: FeedbackService);
-    create(user: JwtUser, body: CreateFeedbackDto): import("../store.service").FeedbackRecord;
+    create(user: JwtUser, body: CreateFeedbackDto): Promise<{
+        id: string;
+        studentId: string;
+        rating: number;
+        message: string;
+        status: import("./feedback.schema").FeedbackStatus;
+        createdAt: string;
+    }>;
 }

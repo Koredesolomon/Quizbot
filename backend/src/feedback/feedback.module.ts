@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
-import { StoreModule } from "../store.module";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Feedback, FeedbackSchema } from "./feedback.schema";
 import { FeedbackController } from "./feedback.controller";
 import { FeedbackService } from "./feedback.service";
 
 @Module({
-  imports: [StoreModule],
+  imports: [MongooseModule.forFeature([{ name: Feedback.name, schema: FeedbackSchema }])],
   controllers: [FeedbackController],
   providers: [FeedbackService],
   exports: [FeedbackService],

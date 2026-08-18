@@ -2,7 +2,8 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
-import type { UserRecord, UserRole } from "../store.service";
+import type { UserRole } from "../common/user-role.type";
+import type { UserDocument } from "../users/user.schema";
 import { UsersService } from "../users/users.service";
 
 type GoogleTokenResponse = {
@@ -32,7 +33,7 @@ export class AuthService {
 
   async register(input: { fullName: string; email: string; password: string; role: UserRole }) {
     const passwordHash = await bcrypt.hash(input.password, 10);
-    const user = this.users.create({
+    const user = await this.users.create({
       fullName: input.fullName,
       email: input.email,
       passwordHash,
@@ -43,7 +44,7 @@ export class AuthService {
   }
 
   async login(input: { email: string; password: string }) {
-    const user = this.users.findByEmail(input.email);
+    const user = await this.users.findByEmail(input.email);
 
     if (!user || !user.passwordHash || !(await bcrypt.compare(input.password, user.passwordHash))) {
       throw new UnauthorizedException("Invalid email or password.");
@@ -102,7 +103,7 @@ export class AuthService {
     const email = profile.email.toLowerCase();
     this.assertGoogleAdminAllowed(email, profile.hd);
 
-    const user = this.users.findOrCreateGoogleAdmin({
+    const user = await this.users.findOrCreateGoogleAdmin({
       fullName: profile.name ?? email,
       email,
     });
@@ -110,7 +111,7 @@ export class AuthService {
     return this.authResponse(user);
   }
 
-  private authResponse(user: UserRecord) {
+  private authResponse(user: UserDocument) {
     const token = this.jwt.sign({
       sub: user.id,
       email: user.email,
