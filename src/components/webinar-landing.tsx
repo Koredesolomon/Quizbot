@@ -156,7 +156,7 @@ export function WebinarLanding() {
             </span>
           </button>
           <nav
-            className={`hidden items-center gap-6 text-[11px] font-semibold tracking-normal transition-colors duration-700 ease-out md:flex ${
+            className={`hidden items-center gap-6 text-[13px] font-semibold tracking-normal transition-colors duration-700 ease-out md:flex ${
               hasScrolled ? "text-slate-700" : "text-white/90"
             }`}
           >
