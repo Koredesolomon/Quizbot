@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -103,9 +104,26 @@ function scrollToSection(id: string) {
 }
 
 export function WebinarLanding() {
+  const [hasScrolled, setHasScrolled] = useState(false);
+
+  useEffect(() => {
+    const updateHeader = () => setHasScrolled(window.scrollY > 24);
+
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
+
   return (
     <main className="min-h-screen bg-white font-['Inter','Helvetica_Neue',Arial,sans-serif] text-slate-950 antialiased">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header
+        className={`fixed inset-x-0 top-0 z-30 border-b transition-[background-color,border-color,box-shadow,color,backdrop-filter] duration-700 ease-out ${
+          hasScrolled
+            ? "border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur"
+            : "border-white/10 bg-transparent text-white"
+        }`}
+      >
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-4 sm:px-8 lg:px-10">
           <button
             type="button"
@@ -113,24 +131,46 @@ export function WebinarLanding() {
             className="inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left outline-none transition hover:-translate-y-0.5 hover:opacity-85 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0 sm:gap-3"
             aria-label="TLCHub webinar home"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-700 text-white sm:h-10 sm:w-10">
+            <span
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-md transition-colors duration-700 ease-out sm:h-10 sm:w-10 ${
+                hasScrolled ? "bg-emerald-700 text-white" : "bg-white text-emerald-800"
+              }`}
+            >
               <GraduationCap aria-hidden="true" size={21} />
             </span>
             <span className="min-w-0">
-              <span className="block text-lg font-black tracking-tight text-emerald-800 sm:text-xl">TLCHub</span>
-              <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 min-[420px]:block">
+              <span
+                className={`block text-lg font-black tracking-tight transition-colors duration-700 ease-out sm:text-xl ${
+                  hasScrolled ? "text-emerald-800" : "text-white"
+                }`}
+              >
+                TLCHub
+              </span>
+              <span
+                className={`hidden text-[10px] font-black uppercase tracking-[0.18em] transition-colors duration-700 ease-out min-[420px]:block ${
+                  hasScrolled ? "text-slate-500" : "text-white/75"
+                }`}
+              >
                 BeyondTheory
               </span>
             </span>
           </button>
-          <nav className="hidden items-center gap-6 text-[11px] font-semibold tracking-normal text-slate-700 md:flex">
+          <nav
+            className={`hidden items-center gap-6 text-[11px] font-semibold tracking-normal transition-colors duration-700 ease-out md:flex ${
+              hasScrolled ? "text-slate-700" : "text-white/90"
+            }`}
+          >
             <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("about")}>About</button>
             <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("host")}>Host</button>
             <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("speakers")}>Speakers</button>
             <button className="cursor-pointer rounded-sm outline-none transition hover:-translate-y-0.5 hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0" type="button" onClick={() => scrollToSection("register")}>Register</button>
           </nav>
           <a
-            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.04em] text-white outline-none transition hover:-translate-y-0.5 hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 active:translate-y-0 sm:px-4 sm:py-3 sm:text-[11px]"
+            className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.04em] outline-none transition duration-700 ease-out hover:-translate-y-0.5 focus-visible:ring-4 active:translate-y-0 sm:px-4 sm:py-3 sm:text-[11px] ${
+              hasScrolled
+                ? "bg-slate-950 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                : "bg-white text-slate-950 hover:bg-emerald-400 focus-visible:ring-white/40"
+            }`}
             href={registrationUrl}
             rel="noreferrer"
             target="_blank"
