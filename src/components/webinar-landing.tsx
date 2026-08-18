@@ -19,28 +19,31 @@ import Image from "next/image";
 
 const speakers = [
   {
+    name: "Mr. Abayomi Ajao",
+    role: "Founder, Zulfah Virtual Lab and STEM Innovation Expert",
+    focus: "Virtual Labs",
+    bio: "Abayomi Ajao is a technology entrepreneur, software engineer, educator, and STEM innovation advocate with over a decade of experience building technology solutions and advancing digital education. He is the Founder and CEO of Zulfah, where he leads initiatives at the intersection of technology, education, and innovation. Passionate about transforming how technology is taught and experienced, Abayomi champions practical, technology-enabled learning that moves students beyond theory into experimentation, problem-solving, and real-world application. His work spans software engineering, cybersecurity, artificial intelligence, data engineering, and emerging technologies, with a particular focus on making quality technology education more accessible and relevant to Nigerian learners.",
+    initials: "AA",
+    accent: "from-slate-900 to-blue-700",
+    image: "/webinar/abayomi-ajao-headshot.jpeg",
+  },
+  {
     name: "Dr. Olawale Akimide Christopher (PhD)",
     role: "Department of Science and Technology Education, University of Ibadan",
     focus: "Science Education",
-    bio: "A science and technology education scholar bringing classroom, curriculum, and teacher-development perspective to the discussion.",
+    bio: "Dr. A. C. Olawale is a Lecturer in the Department of Science and Technology Education at the University of Ibadan, with 15 years of experience spanning technical and academic roles. His work focuses on technology integration in science teaching, teacher professional development, and the design of programmes that help teachers use digital tools to strengthen practical STEM learning. Drawing on both hands-on technical experience and academic insight, he supports meaningful innovation in science and technology education, particularly in resource-constrained school settings.",
     initials: "OC",
     accent: "from-emerald-500 to-teal-500",
+    image: "/webinar/dr-a-c-olawale.png",
   },
   {
     name: "Mr. Sulaymon Tajudeen",
     role: "Software Engineer and EdTech Expert",
     focus: "EdTech Systems",
-    bio: "A software engineer focused on education technology systems, digital learning products, and practical school implementation.",
+    bio: "Sulaymon Tajudeen is a Specialist Software Engineer focused on design systems, cloud computing, STEM education, digital learning, and technology innovation.",
     initials: "ST",
     accent: "from-blue-700 to-sky-500",
-  },
-  {
-    name: "Mr. Abayomi Ajao",
-    role: "Founder, Zulfah Virtual Lab and STEM Innovation Expert",
-    focus: "Virtual Labs",
-    bio: "A STEM innovation expert working on virtual laboratory access and technology-enabled science learning.",
-    initials: "AA",
-    accent: "from-slate-900 to-blue-700",
+    image: "/webinar/mr-sulaymon-tajudeen.jpg",
   },
 ];
 
@@ -328,6 +331,8 @@ export function WebinarLanding() {
                   label={speaker.focus}
                   accent={speaker.accent}
                   marker={`0${index + 1}`}
+                  image={speaker.image}
+                  imageAlt={`${speaker.name} professional headshot`}
                 />
                 <div className="bg-white p-6 text-center">
                   <h3 className="text-[14px] font-black uppercase leading-6 text-slate-950">{speaker.name}</h3>
@@ -353,7 +358,7 @@ export function WebinarLanding() {
                   key={card.title}
                   type="button"
                   onClick={() => scrollToSection("about")}
-                  className={`${card.tone} group min-h-52 cursor-pointer p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0 md:col-span-2`}
+                  className={`${card.tone} group flex min-h-52 cursor-pointer flex-col items-start justify-start p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0 md:col-span-2`}
                 >
                   <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
                   <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
@@ -364,7 +369,7 @@ export function WebinarLanding() {
                   href={registrationUrl}
                   rel="noreferrer"
                   target="_blank"
-                  className={`${card.tone} group min-h-52 cursor-pointer p-6 shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0`}
+                  className={`${card.tone} group flex min-h-52 cursor-pointer flex-col items-start justify-start p-6 text-left shadow-sm outline-none transition hover:-translate-y-1 hover:shadow-xl focus-visible:ring-4 focus-visible:ring-emerald-300 active:translate-y-0`}
                 >
                   <h3 className="text-[16px] font-black leading-6">{card.title}</h3>
                   <p className="mt-4 max-w-md text-[13px] font-normal leading-6 opacity-85">{card.text}</p>
@@ -462,14 +467,40 @@ function ProfileImage({
   label,
   accent,
   marker,
+  image,
+  imageAlt,
   stretch = false,
 }: {
   initials: string;
   label: string;
   accent: string;
   marker: string;
+  image?: string;
+  imageAlt?: string;
   stretch?: boolean;
 }) {
+  if (image) {
+    return (
+      <div
+        className={`relative overflow-hidden bg-slate-100 ${
+          stretch ? "min-h-[360px] lg:h-full lg:min-h-0" : "aspect-[4/3.4]"
+        }`}
+      >
+        <Image
+          src={image}
+          alt={imageAlt ?? label}
+          fill
+          className="object-cover object-[50%_22%] transition duration-500 group-hover:scale-105"
+          sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+        />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/55 to-transparent" />
+        <div className="absolute left-5 top-5 rounded-md bg-white/92 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-slate-900 shadow-lg">
+          {label}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative grid place-items-end overflow-hidden bg-gradient-to-br ${accent} ${
