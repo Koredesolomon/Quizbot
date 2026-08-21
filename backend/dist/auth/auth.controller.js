@@ -33,30 +33,50 @@ let AuthController = class AuthController {
     login(body) {
         return this.auth.login(body);
     }
-    googleAdminLogin(response) {
-        return response.redirect(this.auth.getGoogleAdminAuthorizationUrl());
-    }
-    async googleAdminCallback(code, error, response) {
+    googleLogin(role, response) {
         const frontendUrl = this.config.get("FRONTEND_ORIGIN") ?? "http://localhost:3000";
-        if (error || !code) {
-            return response.redirect(this.googleAdminRedirect(frontendUrl, { error: error ?? "missing_code" }));
+        if (!this.isGoogleRole(role)) {
+            return response.redirect(this.googleRedirect(frontendUrl, "student", { error: "Invalid Google login role." }));
         }
         try {
-            const result = await this.auth.loginGoogleAdmin(code);
-            return response.redirect(this.googleAdminRedirect(frontendUrl, {
+            return response.redirect(this.auth.getGoogleAuthorizationUrl(role));
+        }
+        catch (loginError) {
+            const message = loginError instanceof Error ? loginError.message : "Google login is not configured.";
+            return response.redirect(this.googleRedirect(frontendUrl, role, { error: message }));
+        }
+    }
+    async googleCallback(role, code, error, response) {
+        const frontendUrl = this.config.get("FRONTEND_ORIGIN") ?? "http://localhost:3000";
+        if (!this.isGoogleRole(role)) {
+            return response.redirect(this.googleRedirect(frontendUrl, "student", { error: "Invalid Google login role." }));
+        }
+        if (error || !code) {
+            return response.redirect(this.googleRedirect(frontendUrl, role, { error: error ?? "missing_code" }));
+        }
+        try {
+            const result = await this.auth.loginGoogle(code, role);
+            return response.redirect(this.googleRedirect(frontendUrl, role, {
                 accessToken: result.accessToken,
+                id: result.user.id,
                 email: result.user.email,
                 name: result.user.fullName,
+                avatarUrl: result.user.avatarUrl ?? "",
+                authProvider: result.user.authProvider,
+                createdAt: result.user.createdAt,
             }));
         }
         catch (callbackError) {
             const message = callbackError instanceof Error ? callbackError.message : "Google login failed.";
-            return response.redirect(this.googleAdminRedirect(frontendUrl, { error: message }));
+            return response.redirect(this.googleRedirect(frontendUrl, role, { error: message }));
         }
     }
-    googleAdminRedirect(frontendUrl, params) {
-        const hash = new URLSearchParams({ adminGoogle: "1", ...params });
+    googleRedirect(frontendUrl, role, params) {
+        const hash = new URLSearchParams({ authGoogle: "1", role, ...params });
         return `${frontendUrl}/#${hash.toString()}`;
+    }
+    isGoogleRole(role) {
+        return role === "admin" || role === "student";
     }
 };
 exports.AuthController = AuthController;
@@ -82,21 +102,23 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([
-    (0, common_1.Get)("google/admin"),
-    __param(0, (0, common_1.Res)()),
+    (0, common_1.Get)("google/:role"),
+    __param(0, (0, common_1.Param)("role")),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
-], AuthController.prototype, "googleAdminLogin", null);
+], AuthController.prototype, "googleLogin", null);
 __decorate([
-    (0, common_1.Get)("google/admin/callback"),
-    __param(0, (0, common_1.Query)("code")),
-    __param(1, (0, common_1.Query)("error")),
-    __param(2, (0, common_1.Res)()),
+    (0, common_1.Get)("google/:role/callback"),
+    __param(0, (0, common_1.Param)("role")),
+    __param(1, (0, common_1.Query)("code")),
+    __param(2, (0, common_1.Query)("error")),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:paramtypes", [String, Object, Object, Object]),
     __metadata("design:returntype", Promise)
-], AuthController.prototype, "googleAdminCallback", null);
+], AuthController.prototype, "googleCallback", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)("auth"),
     __metadata("design:paramtypes", [auth_service_1.AuthService,

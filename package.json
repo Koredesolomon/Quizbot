@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "db:up": "docker compose up -d mongo",
+    "dev:all": "node scripts/dev.mjs",
     "backend:dev": "npm run start:dev --prefix backend",
     "backend:build": "npm run build --prefix backend",
     "backend:lint": "npm run lint --prefix backend",

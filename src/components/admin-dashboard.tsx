@@ -38,10 +38,24 @@ const emptyQuestion = {
   answer: "",
   explanation: "",
   marks: 2,
+  difficulty: "medium",
+  learningObjective: "",
+  rubricPoints: "",
+  commonMistakes: "",
   keywords: "",
 };
 
 type QuestionForm = typeof emptyQuestion;
+
+type AdminNotification = {
+  id: string;
+  tone: "orange" | "indigo" | "rose";
+  title: string;
+  message: string;
+  cta: string;
+  feedbackId?: string;
+  targetId?: string;
+};
 
 export type AdminAccount = {
   name: string;
@@ -56,7 +70,7 @@ export function AdminRegistration({
   onRegister,
   onBack,
 }: {
-  onRegister: (account: AdminAccount) => boolean;
+  onRegister: (account: AdminAccount) => boolean | Promise<boolean>;
   onBack: () => void;
 }) {
   const [name, setName] = useState("");
@@ -87,7 +101,7 @@ export function AdminRegistration({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
 
             if (!name.trim() || !email.trim() || !accessCode.trim()) {
@@ -110,15 +124,21 @@ export function AdminRegistration({
               return;
             }
 
-            const registered = onRegister({
-              name: name.trim(),
-              email: email.trim().toLowerCase(),
-              role,
-              accessCode,
-            });
+            try {
+              const registered = await Promise.resolve(
+                onRegister({
+                  name: name.trim(),
+                  email: email.trim().toLowerCase(),
+                  role,
+                  accessCode,
+                })
+              );
 
-            if (!registered) {
-              setError("Registration failed. Try again.");
+              if (!registered) {
+                setError("Registration failed. Try again.");
+              }
+            } catch (registerError) {
+              setError(registerError instanceof Error ? registerError.message : "Registration failed. Try again.");
             }
           }}
         >
@@ -150,12 +170,14 @@ export function AdminRegistration({
 
 export function AdminLogin({
   adminEmail,
+  authError = "",
   onUnlock,
   onGoogleLogin,
   onBack,
 }: {
   adminEmail: string;
-  onUnlock: (email: string, accessCode: string) => boolean;
+  authError?: string;
+  onUnlock: (email: string, accessCode: string) => boolean | Promise<boolean>;
   onGoogleLogin: () => void;
   onBack: () => void;
 }) {
@@ -167,33 +189,34 @@ export function AdminLogin({
     <AuthScene>
       <AuthCard
         title="Welcome back"
-        subtitle="Sign in to continue your learning journey"
+        subtitle="Sign in to manage questions, attempts, and feedback"
         footer={
           <>
             <p>
-              No account yet?{" "}
               <button className="font-black text-blue-400 hover:text-blue-300" type="button" onClick={onBack}>
-                Create one free
+                Return to student site
               </button>
             </p>
-            <p>
-              Have an invitation? <span className="font-black text-blue-400">Join workspace</span>
-            </p>
+            <p>Private admin channel</p>
           </>
         }
       >
         <form
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            const unlocked = onUnlock(email.trim().toLowerCase(), accessCode.trim());
+            try {
+              const unlocked = await Promise.resolve(onUnlock(email.trim().toLowerCase(), accessCode.trim()));
 
-            if (!unlocked) {
-              setError("Incorrect admin email or access code.");
-              return;
+              if (!unlocked) {
+                setError("Incorrect admin email or password.");
+                return;
+              }
+
+              setAccessCode("");
+              setError("");
+            } catch (loginError) {
+              setError(loginError instanceof Error ? loginError.message : "Admin sign in failed.");
             }
-
-            setAccessCode("");
-            setError("");
           }}
         >
           <div className="grid gap-4">
@@ -217,7 +240,7 @@ export function AdminLogin({
             />
           </div>
 
-          {error && <p className="mt-3 text-sm font-bold text-rose-300">{error}</p>}
+          {(error || authError) && <p className="mt-3 text-sm font-bold text-rose-300">{error || authError}</p>}
 
           <AuthSubmitButton>Sign in</AuthSubmitButton>
           <button
@@ -323,14 +346,16 @@ export function AdminDashboard({
   questions: Question[];
   attempts: StudentAttempt[];
   feedback: StudentFeedback[];
-  onAddQuestion: (question: Question) => void;
-  onImportQuestions: (questions: Question[]) => void;
+  onAddQuestion: (question: Question) => void | Promise<void>;
+  onImportQuestions: (questions: Question[]) => void | Promise<void>;
   onReviewFeedback: (id: string) => void;
   onSignOut: () => void;
   onBack: () => void;
 }) {
   const [form, setForm] = useState<QuestionForm>(emptyQuestion);
   const [importMessage, setImportMessage] = useState("");
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
 
   const completedAttempts = attempts.filter((attempt) => attempt.status === "completed");
   const activeAttempts = attempts.filter((attempt) => attempt.status === "active");
@@ -343,9 +368,52 @@ export function AdminDashboard({
       : 0;
   const needsAttention = completedAttempts.filter((attempt) => (attempt.percent ?? 0) < 50);
   const unreadFeedback = feedback.filter((item) => item.status === "new").length;
+  const notifications: AdminNotification[] = [
+    ...feedback
+      .filter((item) => item.status === "new")
+      .map((item) => ({
+        id: `feedback-${item.id}`,
+        tone: "orange" as const,
+        title: `${item.student} sent feedback`,
+        message: `${item.rating}/5 rating - ${item.message}`,
+        cta: "Mark reviewed",
+        feedbackId: item.id,
+      })),
+    ...activeAttempts.map((attempt) => ({
+      id: `active-${attempt.id}`,
+      tone: "indigo" as const,
+      title: `${attempt.student} has an active attempt`,
+      message: `${attempt.answered}/${attempt.questionCount} answered so far.`,
+      cta: "View attempts",
+      targetId: "attempt-summary",
+    })),
+    ...needsAttention.map((attempt) => ({
+      id: `watch-${attempt.id}`,
+      tone: "rose" as const,
+      title: `${attempt.student} needs attention`,
+      message: `Scored ${attempt.percent ?? 0}% on the latest completed attempt.`,
+      cta: "Open watchlist",
+      targetId: "performance-watchlist",
+    })),
+    ...(questions.length === 0
+      ? [
+          {
+            id: "question-bank-empty",
+            tone: "rose" as const,
+            title: "Question bank is empty",
+            message: "Students cannot take a real backend test until questions are published.",
+            cta: "Add questions",
+            targetId: "question-studio",
+          },
+        ]
+      : []),
+  ];
+  const unreadNotifications = notifications.filter((notification) => !readNotificationIds.includes(notification.id));
+  const readNotifications = notifications.filter((notification) => readNotificationIds.includes(notification.id));
+  const notificationCount = unreadNotifications.length;
   const completionRate =
     attempts.length > 0 ? Math.round((completedAttempts.length / attempts.length) * 100) : 0;
-  const publishedToday = Math.min(questions.length, Math.max(1, Math.ceil(questions.length / 4)));
+  const totalStudents = new Set(attempts.map((attempt) => attempt.student)).size;
 
   const topicCoverage = useMemo(() => {
     const groups = new Map<string, number>();
@@ -369,22 +437,18 @@ export function AdminDashboard({
       meta: `${item.rating}/5 rating`,
     })),
   ].slice(0, 4);
-  const topQuizzes = topicCoverage.slice(0, 5).map(([topic, count], index) => {
-    const topicAttempts = Math.max(count * 142 - index * 31, count * 16);
-    const score = Math.max(54, averageScore - index * 4 + 8);
-    const completion = Math.max(62, completionRate + count * 8 - index * 3);
-
+  const topQuizzes = topicCoverage.slice(0, 5).map(([topic, count]) => {
     return {
       topic,
       count,
-      attempts: topicAttempts,
-      score: Math.min(96, score),
-      completion: Math.min(98, completion),
-      status: index === topicCoverage.length - 1 ? "Draft" : "Active",
+      attempts: attempts.length,
+      score: averageScore,
+      completion: completionRate,
+      status: count > 0 ? "Active" : "Draft",
     };
   });
 
-  const addQuestion = () => {
+  const addQuestion = async () => {
     const prompt = form.prompt.trim();
     const answer = form.answer.trim();
     const explanation = form.explanation.trim();
@@ -398,25 +462,39 @@ export function AdminDashboard({
       return;
     }
 
-    onAddQuestion({
-      id: nextQuestionId(questions),
-      type: form.type as Question["type"],
-      topic: form.topic.trim() || "General",
-      prompt,
-      options: form.type === "objective" ? options : undefined,
-      answer,
-      explanation,
-      marks: Math.max(1, Number(form.marks) || 1),
-      keywords:
-        form.type === "theory"
-          ? form.keywords
-              .split(",")
-              .map((keyword) => keyword.trim())
-              .filter(Boolean)
-          : undefined,
-    });
-    setForm(emptyQuestion);
-    setImportMessage("Question published to the live frontend question bank.");
+    try {
+      await onAddQuestion({
+        id: nextQuestionId(questions),
+        type: form.type as Question["type"],
+        topic: form.topic.trim() || "General",
+        prompt,
+        options: form.type === "objective" ? options : undefined,
+        answer,
+        explanation,
+        marks: Math.max(1, Number(form.marks) || 1),
+        difficulty: form.difficulty as Question["difficulty"],
+        learningObjective: form.learningObjective.trim() || undefined,
+        rubricPoints: form.rubricPoints
+          .split("\n")
+          .map((point) => point.trim())
+          .filter(Boolean),
+        commonMistakes: form.commonMistakes
+          .split("\n")
+          .map((mistake) => mistake.trim())
+          .filter(Boolean),
+        keywords:
+          form.type === "theory"
+            ? form.keywords
+                .split(",")
+                .map((keyword) => keyword.trim())
+                .filter(Boolean)
+            : undefined,
+      });
+      setForm(emptyQuestion);
+      setImportMessage("Question saved to the database.");
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : "Question could not be saved.");
+    }
   };
 
   const importQuestions = async (file: File | null) => {
@@ -438,11 +516,24 @@ export function AdminDashboard({
         return;
       }
 
-      onImportQuestions(cleanQuestions);
-      setImportMessage(`${cleanQuestions.length} questions imported and published.`);
-    } catch {
-      setImportMessage("Import failed. Check that the file is valid JSON.");
+      await onImportQuestions(cleanQuestions);
+      setImportMessage(`${cleanQuestions.length} questions imported and saved to the database.`);
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : "Import failed. Check that the file is valid JSON.");
     }
+  };
+
+  const openSection = (id: string) => {
+    setIsNotificationsOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const markNotificationRead = (id: string) => {
+    setReadNotificationIds((current) => (current.includes(id) ? current : [...current, id]));
+  };
+
+  const markAllNotificationsRead = () => {
+    setReadNotificationIds((current) => Array.from(new Set([...current, ...notifications.map((item) => item.id)])));
   };
 
   return (
@@ -468,7 +559,12 @@ export function AdminDashboard({
             <SidebarItem icon={Trophy} label="Leaderboard" />
             <SidebarItem icon={BarChart3} label="Analytics" />
             <SidebarItem icon={BookOpenCheck} label="Certificates" />
-            <SidebarItem icon={Bell} label="Notifications" />
+            <SidebarItem
+              icon={Bell}
+              label="Notifications"
+              badge={notificationCount}
+              onClick={() => setIsNotificationsOpen(true)}
+            />
             <SidebarItem icon={Settings} label="Settings" />
           </nav>
           <div className="border-t border-slate-200 p-4">
@@ -502,18 +598,102 @@ export function AdminDashboard({
               </label>
             </div>
             <div className="flex items-center gap-4">
-              <button
-                className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700"
-                type="button"
-                aria-label="Notifications"
-              >
-                <Bell size={19} />
-                {unreadFeedback > 0 && (
-                  <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-black text-white">
-                    {unreadFeedback}
-                  </span>
+              <div className="relative">
+                <button
+                  className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700"
+                  type="button"
+                  aria-label="Notifications"
+                  aria-expanded={isNotificationsOpen}
+                  onClick={() => setIsNotificationsOpen((open) => !open)}
+                >
+                  <Bell size={19} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-black text-white">
+                      {notificationCount}
+                    </span>
+                  )}
+                </button>
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 top-12 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-slate-950 shadow-2xl shadow-slate-200">
+                    <div className="flex items-center justify-between gap-3 px-1 pb-3">
+                      <span>
+                        <strong className="block text-sm font-black">Notifications</strong>
+                        <small className="block text-xs font-bold text-slate-500">
+                          {notificationCount ? `${notificationCount} unread item${notificationCount === 1 ? "" : "s"}` : "All clear"}
+                        </small>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        {notificationCount > 0 && (
+                          <button
+                            className="rounded-md px-2 py-1 text-xs font-black text-indigo-700 transition hover:bg-indigo-50"
+                            type="button"
+                            onClick={markAllNotificationsRead}
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        <button
+                          className="rounded-md px-2 py-1 text-xs font-black text-slate-500 transition hover:bg-slate-100"
+                          type="button"
+                          onClick={() => setIsNotificationsOpen(false)}
+                        >
+                          Close
+                        </button>
+                      </span>
+                    </div>
+                    <div className="max-h-[28rem] space-y-2 overflow-y-auto">
+                      {unreadNotifications.length ? (
+                        unreadNotifications.map((notification) => (
+                          <NotificationCard
+                            key={notification.id}
+                            {...notification}
+                            state="unread"
+                            onMarkRead={() => markNotificationRead(notification.id)}
+                            onAction={() => {
+                              if (notification.feedbackId) {
+                                onReviewFeedback(notification.feedbackId);
+                                markNotificationRead(notification.id);
+                                return;
+                              }
+
+                              if (notification.targetId) {
+                                markNotificationRead(notification.id);
+                                openSection(notification.targetId);
+                              }
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                          No new feedback, watchlist alerts, or active attempt alerts.
+                        </p>
+                      )}
+                      {readNotifications.length > 0 && (
+                        <div className="pt-3">
+                          <div className="mb-2 flex items-center justify-between px-1">
+                            <strong className="text-xs font-black uppercase text-slate-400">Read</strong>
+                            <span className="text-xs font-bold text-slate-400">{readNotifications.length}</span>
+                          </div>
+                          <div className="space-y-2">
+                            {readNotifications.map((notification) => (
+                              <NotificationCard
+                                key={notification.id}
+                                {...notification}
+                                state="read"
+                                onAction={() => {
+                                  if (notification.targetId) {
+                                    openSection(notification.targetId);
+                                  }
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-emerald-500 text-sm font-black text-white">
                   {initials(adminName)}
@@ -538,8 +718,7 @@ export function AdminDashboard({
               <div className="flex flex-wrap gap-2">
                 <button className="inline-flex h-12 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm" type="button">
                   <CalendarDays size={18} />
-                  Jul 11, 2026 - Jul 17, 2026
-                  <ChevronDown size={16} />
+                  Live database
                 </button>
                 <SecondaryButton className="h-12 gap-2 px-4 py-0 text-sm" type="button" onClick={onSignOut}>
                   <LogOut size={16} />
@@ -549,16 +728,20 @@ export function AdminDashboard({
             </div>
 
             <div className="stagger-list mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <StatCard icon={Users} tone="purple" label="Total Students" value={String(attempts.length + 12430)} trend="18.2%" detail="vs last 7 days" />
-              <StatCard icon={UserRound} tone="green" label="Active Users" value={String(activeAttempts.length || 302)} trend={`${activeAttempts.length || 302} online`} detail="" />
-              <StatCard icon={ClipboardList} tone="blue" label="Total Quizzes" value={String(questions.length)} trend={`${publishedToday} today`} detail="published" />
-              <StatCard icon={Gauge} tone="orange" label="Attempts Today" value={String(attempts.length)} trend="12.5%" detail="vs yesterday" />
-              <StatCard icon={Sparkles} tone="rose" label="Average Score" value={`${averageScore}%`} trend="3.4%" detail="vs last 7 days" />
+              <StatCard icon={Users} tone="purple" label="Total Students" value={String(totalStudents)} trend={`${totalStudents} recorded`} detail="" />
+              <StatCard icon={UserRound} tone="green" label="Active Attempts" value={String(activeAttempts.length)} trend={`${activeAttempts.length} active`} detail="" />
+              <StatCard icon={ClipboardList} tone="blue" label="Total Questions" value={String(questions.length)} trend={`${topicCoverage.length} topics`} detail="" />
+              <StatCard icon={Gauge} tone="orange" label="Total Attempts" value={String(attempts.length)} trend={`${completedAttempts.length} completed`} detail="" />
+              <StatCard icon={Sparkles} tone="rose" label="Average Score" value={`${averageScore}%`} trend={`${needsAttention.length} watchlist`} detail="" />
             </div>
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.95fr_0.95fr]">
-              <DashboardPanel className="min-h-[330px]" title="User Growth" action="Last 7 days">
-                <MiniLineChart />
+              <DashboardPanel className="min-h-[330px]" title="Attempt Summary" action="Live" id="attempt-summary">
+                <div className="grid h-full content-center gap-4 sm:grid-cols-3">
+                  <SummaryTile label="Active" value={String(activeAttempts.length)} />
+                  <SummaryTile label="Completed" value={String(completedAttempts.length)} />
+                  <SummaryTile label="Completion" value={`${completionRate}%`} />
+                </div>
               </DashboardPanel>
               <DashboardPanel className="min-h-[330px]" title="Quiz Categories">
                 <div className="grid items-center gap-5 sm:grid-cols-[180px_1fr] xl:grid-cols-1 2xl:grid-cols-[180px_1fr]">
@@ -664,7 +847,7 @@ export function AdminDashboard({
             </div>
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
-              <DashboardPanel title="Question Studio" action="LaTeX enabled">
+              <DashboardPanel title="Question Studio" action="LaTeX enabled" id="question-studio">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Topic" value={form.topic} onChange={(value) => setForm({ ...form, topic: value })} />
                   <label className="grid gap-1 text-sm font-bold text-slate-700">
@@ -678,6 +861,23 @@ export function AdminDashboard({
                       <option value="theory">Theory</option>
                     </select>
                   </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Difficulty
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-indigo-400"
+                      value={form.difficulty}
+                      onChange={(event) => setForm({ ...form, difficulty: event.target.value as QuestionForm["difficulty"] })}
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </label>
+                  <Field
+                    label="Learning Objective"
+                    value={form.learningObjective}
+                    onChange={(value) => setForm({ ...form, learningObjective: value })}
+                  />
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                     Prompt
                     <textarea
@@ -712,6 +912,24 @@ export function AdminDashboard({
                       value={form.explanation}
                       onChange={(event) => setForm({ ...form, explanation: event.target.value })}
                       placeholder="Example: Subtract 3, then divide by 2: $x = \\frac{8}{2} = 4$."
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                    Rubric Points
+                    <textarea
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      value={form.rubricPoints}
+                      onChange={(event) => setForm({ ...form, rubricPoints: event.target.value })}
+                      placeholder={"Mention the correct principle\nUse the correct unit\nShow the required relationship"}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                    Common Mistakes
+                    <textarea
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      value={form.commonMistakes}
+                      onChange={(event) => setForm({ ...form, commonMistakes: event.target.value })}
+                      placeholder={"Confusing base and derived quantities\nUsing the wrong unit\nSkipping the explanation"}
                     />
                   </label>
                   {form.type === "theory" && (
@@ -752,7 +970,7 @@ export function AdminDashboard({
             </div>
 
             <div className="mt-5 grid gap-5 xl:grid-cols-2">
-              <DashboardPanel title={`Feedback Review (${unreadFeedback} new)`}>
+              <DashboardPanel title={`Feedback Review (${unreadFeedback} new)`} id="feedback-review">
                 <div className="stagger-list space-y-3">
                   {feedback.map((item) => (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={item.id}>
@@ -780,7 +998,7 @@ export function AdminDashboard({
                 </div>
               </DashboardPanel>
 
-              <DashboardPanel title="Performance Watchlist">
+              <DashboardPanel title="Performance Watchlist" id="performance-watchlist">
                 <div className="stagger-list space-y-3">
                   {needsAttention.length === 0 ? (
                     <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-slate-500">
@@ -843,10 +1061,14 @@ function SidebarItem({
   icon: Icon,
   label,
   active = false,
+  badge = 0,
+  onClick,
 }: {
   icon: LucideIcon;
   label: string;
   active?: boolean;
+  badge?: number;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -854,9 +1076,15 @@ function SidebarItem({
         active ? "bg-indigo-50 text-indigo-700" : "text-slate-950 hover:bg-slate-50"
       }`}
       type="button"
+      onClick={onClick}
     >
       <Icon size={20} />
-      <span>{label}</span>
+      <span className="min-w-0 flex-1">{label}</span>
+      {badge > 0 && (
+        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-black text-white">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -896,7 +1124,7 @@ function StatCard({
         </span>
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-bold">
-        <span className="text-emerald-600">↑ {trend}</span>
+        <span className="text-slate-600">{trend}</span>
         {detail && <span className="text-slate-500">{detail}</span>}
       </div>
     </div>
@@ -906,16 +1134,21 @@ function StatCard({
 function DashboardPanel({
   title,
   action,
+  id,
   className = "",
   children,
 }: {
   title: string;
   action?: string;
+  id?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`interactive-lift content-rise rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}>
+    <div
+      className={`interactive-lift content-rise scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 ${className}`}
+      id={id}
+    >
       <div className="mb-5 flex items-center justify-between gap-3">
         <h2 className="text-lg font-black">{title}</h2>
         {action && <button className="text-sm font-bold text-indigo-700" type="button">{action}</button>}
@@ -925,57 +1158,73 @@ function DashboardPanel({
   );
 }
 
-function MiniLineChart() {
-  const points = [
-    [34, 214],
-    [118, 184],
-    [202, 168],
-    [286, 140],
-    [370, 106],
-    [454, 74],
-    [538, 46],
-  ];
-  const path = points.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-  const fillPath = `${path} L 538 260 L 34 260 Z`;
+function NotificationCard({
+  tone,
+  title,
+  message,
+  cta,
+  state,
+  onAction,
+  onMarkRead,
+}: {
+  tone: "orange" | "indigo" | "rose";
+  title: string;
+  message: string;
+  cta: string;
+  state: "read" | "unread";
+  onAction: () => void;
+  onMarkRead?: () => void;
+}) {
+  const tones = {
+    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+  };
+  const isRead = state === "read";
 
   return (
-    <div className="h-[260px] w-full">
-      <svg className="h-full w-full" viewBox="0 0 580 280" role="img" aria-label="User growth line chart">
-        {[0, 1, 2, 3, 4].map((row) => (
-          <line key={row} x1="34" x2="550" y1={42 + row * 54} y2={42 + row * 54} stroke="#e5e7eb" />
-        ))}
-        <path d={fillPath} fill="url(#growthFill)" />
-        <path className="chart-line" d={path} fill="none" stroke="#4f46e5" strokeLinecap="round" strokeWidth="4" />
-        {points.map(([x, y], index) => (
-          <circle
-            className="chart-point"
-            cx={x}
-            cy={y}
-            fill="#ffffff"
-            key={`${x}-${y}`}
-            r="7"
-            stroke="#4f46e5"
-            strokeWidth="3"
-            style={{ animationDelay: `${260 + index * 70}ms` }}
-          />
-        ))}
-        {["0", "2K", "4K", "6K", "8K"].map((label, index) => (
-          <text fill="#64748b" fontSize="12" fontWeight="700" key={label} x="0" y={258 - index * 54}>
-            {label}
-          </text>
-        ))}
-        {["Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17"].map((label, index) => (
-          <text fill="#64748b" fontSize="12" fontWeight="700" key={label} x={22 + index * 84} y="278">
-            {label}
-          </text>
-        ))}
-        <defs>
-          <linearGradient id="growthFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-      </svg>
+    <div className={`rounded-lg border p-3 ${isRead ? "border-slate-200 bg-slate-50 text-slate-500 opacity-75" : tones[tone]}`}>
+      <div className="flex items-start gap-3">
+        <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/80">
+          <Bell size={16} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-3">
+            <strong className={`block text-sm font-black ${isRead ? "text-slate-500" : ""}`}>{title}</strong>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isRead ? "bg-slate-200 text-slate-500" : "bg-white/80 text-slate-700"}`}>
+              {isRead ? "Read" : "New"}
+            </span>
+          </span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-slate-600">{message}</span>
+          <span className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="inline-flex h-8 items-center rounded-md bg-white px-3 text-xs font-black text-slate-800 shadow-sm transition hover:-translate-y-0.5"
+              type="button"
+              onClick={onAction}
+            >
+              {cta}
+            </button>
+            {!isRead && onMarkRead && (
+              <button
+                className="inline-flex h-8 items-center rounded-md px-3 text-xs font-black text-slate-600 transition hover:bg-white/80"
+                type="button"
+                onClick={onMarkRead}
+              >
+                Clear
+              </button>
+            )}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+      <strong className="block text-3xl font-black text-slate-950">{value}</strong>
+      <span className="mt-2 block text-xs font-bold uppercase text-slate-500">{label}</span>
     </div>
   );
 }
@@ -1077,7 +1326,7 @@ function firstName(name: string) {
 }
 
 function nextQuestionId(questions: Question[]) {
-  return Math.max(0, ...questions.map((question) => question.id)) + 1;
+  return String(Math.max(0, ...questions.map((question) => Number(question.id) || 0)) + 1);
 }
 
 function normalizeQuestion(question: Partial<Question>, index: number): Question | null {
@@ -1089,7 +1338,7 @@ function normalizeQuestion(question: Partial<Question>, index: number): Question
   if (type === "objective" && (!options || options.length < 2)) return null;
 
   return {
-    id: Number(question.id) || index + 1,
+    id: String(question.id ?? index + 1),
     type,
     topic: question.topic || "General",
     prompt: question.prompt,
@@ -1097,6 +1346,10 @@ function normalizeQuestion(question: Partial<Question>, index: number): Question
     answer: question.answer,
     explanation: question.explanation,
     marks: Math.max(1, Number(question.marks) || 1),
+    difficulty: question.difficulty ?? "medium",
+    learningObjective: question.learningObjective,
+    rubricPoints: Array.isArray(question.rubricPoints) ? question.rubricPoints.filter(Boolean) : undefined,
+    commonMistakes: Array.isArray(question.commonMistakes) ? question.commonMistakes.filter(Boolean) : undefined,
     keywords: type === "theory" ? question.keywords ?? [] : undefined,
   };
 }

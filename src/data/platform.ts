@@ -8,7 +8,7 @@ export const phs001Topics = ["Topic 1", "Topic 2", "Topic 3"];
 
 export const questions: Question[] = [
   {
-    id: 1,
+    id: "1",
     type: "objective",
     topic: "Physical quantities and units",
     prompt: "Which of the following is a base physical quantity?",
@@ -19,7 +19,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 2,
+    id: "2",
     type: "objective",
     topic: "Measurement and errors",
     prompt: "The SI unit of mass is the:",
@@ -30,7 +30,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 3,
+    id: "3",
     type: "objective",
     topic: "Dimensional analysis",
     prompt: "Which dimension represents velocity?",
@@ -41,7 +41,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 4,
+    id: "4",
     type: "objective",
     topic: "Physical quantities and units",
     prompt: "Which instrument is most suitable for measuring the diameter of a thin wire?",
@@ -52,7 +52,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 5,
+    id: "5",
     type: "objective",
     topic: "Measurement and errors",
     prompt: "A repeated measurement that gives values close to one another is said to be:",
@@ -63,7 +63,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 6,
+    id: "6",
     type: "theory",
     topic: "Physical quantities and units",
     prompt:
@@ -76,7 +76,7 @@ export const questions: Question[] = [
     keywords: ["fundamental", "base", "derived", "combining", "length", "speed", "time"],
   },
   {
-    id: 7,
+    id: "7",
     type: "theory",
     topic: "Dimensional analysis",
     prompt: "State two uses of dimensional analysis in Physics.",
@@ -88,7 +88,7 @@ export const questions: Question[] = [
     keywords: ["check", "correctness", "equations", "derive", "relationships", "quantities"],
   },
   {
-    id: 8,
+    id: "8",
     type: "objective",
     topic: "Measurement and errors",
     prompt: "Zero error is associated with:",
@@ -99,7 +99,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 9,
+    id: "9",
     type: "objective",
     topic: "Physical quantities and units",
     prompt: "Which of these is a scalar quantity?",
@@ -110,7 +110,7 @@ export const questions: Question[] = [
     marks: 2,
   },
   {
-    id: 10,
+    id: "10",
     type: "objective",
     topic: "Dimensional analysis",
     prompt: "The dimension of force is:",

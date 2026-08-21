@@ -7,6 +7,8 @@ export declare class FeedbackService {
     create(studentId: string, input: CreateFeedbackDto): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("./feedback.schema").FeedbackStatus;
@@ -15,6 +17,8 @@ export declare class FeedbackService {
     list(): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("./feedback.schema").FeedbackStatus;
@@ -23,10 +27,13 @@ export declare class FeedbackService {
     markReviewed(id: string): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("./feedback.schema").FeedbackStatus;
         createdAt: string;
     }>;
     private publicFeedback;
+    private populatedStudent;
 }

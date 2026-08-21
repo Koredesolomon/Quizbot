@@ -16,6 +16,9 @@ export class User {
   @Prop()
   passwordHash?: string;
 
+  @Prop({ trim: true })
+  avatarUrl?: string;
+
   @Prop({ enum: ["password", "google"], default: "password" })
   authProvider: AuthProvider;
 

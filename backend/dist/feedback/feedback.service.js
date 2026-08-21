@@ -32,24 +32,33 @@ let FeedbackService = class FeedbackService {
         return this.publicFeedback(feedback);
     }
     async list() {
-        const feedback = await this.feedbackModel.find().sort({ createdAt: -1 }).exec();
+        const feedback = await this.feedbackModel.find().populate("studentId", "fullName email").sort({ createdAt: -1 }).exec();
         return feedback.map((item) => this.publicFeedback(item));
     }
     async markReviewed(id) {
-        const feedback = await this.feedbackModel.findByIdAndUpdate(id, { status: "reviewed" }, { new: true }).exec();
+        const feedback = await this.feedbackModel
+            .findByIdAndUpdate(id, { status: "reviewed" }, { new: true })
+            .populate("studentId", "fullName email")
+            .exec();
         if (!feedback)
             throw new common_1.NotFoundException("Feedback not found.");
         return this.publicFeedback(feedback);
     }
     publicFeedback(feedback) {
+        const student = this.populatedStudent(feedback.studentId);
         return {
             id: feedback.id,
-            studentId: feedback.studentId.toString(),
+            studentId: student?._id.toString() ?? feedback.studentId.toString(),
+            studentName: student?.fullName,
+            studentEmail: student?.email,
             rating: feedback.rating,
             message: feedback.message,
             status: feedback.status,
             createdAt: feedback.createdAt.toISOString(),
         };
+    }
+    populatedStudent(studentId) {
+        return "fullName" in studentId ? studentId : null;
     }
 };
 exports.FeedbackService = FeedbackService;

@@ -19,14 +19,17 @@ const mongoose_2 = require("mongoose");
 const questions_service_1 = require("../questions/questions.service");
 const answer_schema_1 = require("./answer.schema");
 const attempt_schema_1 = require("./attempt.schema");
+const ai_marker_service_1 = require("./ai-marker.service");
 let AttemptsService = class AttemptsService {
     attemptModel;
     answerModel;
     questions;
-    constructor(attemptModel, answerModel, questions) {
+    aiMarker;
+    constructor(attemptModel, answerModel, questions, aiMarker) {
         this.attemptModel = attemptModel;
         this.answerModel = answerModel;
         this.questions = questions;
+        this.aiMarker = aiMarker;
     }
     async start(studentId) {
         const attempt = await this.attemptModel.create({
@@ -44,13 +47,34 @@ let AttemptsService = class AttemptsService {
         const markedAnswers = await Promise.all(answers.map((answer) => this.markAnswer(attempt.id, answer)));
         const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
         const totalMarks = await this.questions.totalMarks();
+        const percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
+        const aiSummary = await this.aiMarker.reviewCompletedTest({
+            score,
+            totalMarks,
+            percent,
+            answers: markedAnswers.map((answer) => ({
+                topic: answer.question.topic,
+                prompt: answer.question.prompt,
+                modelAnswer: answer.question.answer,
+                explanation: answer.question.explanation,
+                difficulty: answer.question.difficulty,
+                learningObjective: answer.question.learningObjective,
+                rubricPoints: answer.question.rubricPoints ?? [],
+                commonMistakes: answer.question.commonMistakes ?? [],
+                studentAnswer: answer.answer,
+                awarded: answer.awarded,
+                marks: answer.question.marks,
+                correct: answer.correct,
+            })),
+        }, this.fallbackTestSummary(score, totalMarks, percent, markedAnswers));
         await this.answerModel.deleteMany({ attemptId: attempt._id }).exec();
-        const savedAnswers = await this.answerModel.insertMany(markedAnswers);
+        const savedAnswers = await this.answerModel.insertMany(markedAnswers.map((answer) => this.persistedAnswer(answer)));
         attempt.status = "completed";
         attempt.submittedAt = new Date();
         attempt.score = score;
         attempt.totalMarks = totalMarks;
-        attempt.percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
+        attempt.percent = percent;
+        attempt.aiSummary = aiSummary;
         await attempt.save();
         return {
             attempt: this.publicAttempt(attempt),
@@ -62,7 +86,7 @@ let AttemptsService = class AttemptsService {
         return attempts.map((attempt) => this.publicAttempt(attempt));
     }
     async allAttempts() {
-        const attempts = await this.attemptModel.find().sort({ createdAt: -1 }).exec();
+        const attempts = await this.attemptModel.find().populate("studentId", "fullName email").sort({ createdAt: -1 }).exec();
         return attempts.map((attempt) => this.publicAttempt(attempt));
     }
     async findOwnedAttempt(attemptId, studentId) {
@@ -83,20 +107,30 @@ let AttemptsService = class AttemptsService {
             const correct = response === question.answer;
             return this.answerRecord(attemptId, question, response, correct ? question.marks : 0, correct, correct ? "Correct response." : "Incorrect response. Review the model answer.");
         }
+        const fallback = this.keywordReview(question, response);
+        const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
+        return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback);
+    }
+    keywordReview(question, response) {
         const normalized = response.toLowerCase();
         const keywordHits = question.keywords?.filter((keyword) => normalized.includes(keyword.toLowerCase())).length ?? 0;
         const ratio = keywordHits / (question.keywords?.length || 1);
         const awarded = Math.min(question.marks, Math.round(ratio * question.marks));
-        return this.answerRecord(attemptId, question, response, awarded, awarded >= Math.ceil(question.marks * 0.7), awarded === question.marks
-            ? "Excellent response."
-            : awarded > 0
-                ? "Partially correct response."
-                : "The response missed the expected concepts.");
+        return {
+            awarded,
+            correct: awarded >= Math.ceil(question.marks * 0.7),
+            aiFeedback: awarded === question.marks
+                ? "Excellent response."
+                : awarded > 0
+                    ? "Partially correct response."
+                    : "The response missed the expected concepts.",
+        };
     }
     answerRecord(attemptId, question, answer, awarded, correct, aiFeedback) {
         return {
             attemptId: new mongoose_2.Types.ObjectId(attemptId),
             questionId: question._id,
+            question,
             answer,
             awarded,
             correct,
@@ -104,17 +138,24 @@ let AttemptsService = class AttemptsService {
         };
     }
     publicAttempt(attempt) {
+        const student = this.populatedStudent(attempt.studentId);
         return {
             id: attempt.id,
-            studentId: attempt.studentId.toString(),
+            studentId: student?._id.toString() ?? attempt.studentId.toString(),
+            studentName: student?.fullName,
+            studentEmail: student?.email,
             status: attempt.status,
             startedAt: attempt.startedAt.toISOString(),
             submittedAt: attempt.submittedAt?.toISOString(),
             score: attempt.score,
             totalMarks: attempt.totalMarks,
             percent: attempt.percent,
+            aiSummary: attempt.aiSummary,
             createdAt: attempt.createdAt.toISOString(),
         };
+    }
+    populatedStudent(studentId) {
+        return "fullName" in studentId ? studentId : null;
     }
     publicAnswer(answer) {
         return {
@@ -128,6 +169,23 @@ let AttemptsService = class AttemptsService {
             createdAt: answer.createdAt.toISOString(),
         };
     }
+    persistedAnswer(answer) {
+        return {
+            attemptId: answer.attemptId,
+            questionId: answer.questionId,
+            answer: answer.answer,
+            awarded: answer.awarded,
+            correct: answer.correct,
+            aiFeedback: answer.aiFeedback,
+        };
+    }
+    fallbackTestSummary(score, totalMarks, percent, answers) {
+        const weakTopics = Array.from(new Set(answers.filter((answer) => !answer.correct).map((answer) => answer.question.topic)));
+        if (percent >= 70) {
+            return `You scored ${score}/${totalMarks} (${percent}%). Good work. Review the missed questions carefully and practise ${weakTopics.join(", ") || "the weaker topics"} to strengthen your accuracy.`;
+        }
+        return `You scored ${score}/${totalMarks} (${percent}%). Keep building. Focus first on ${weakTopics.join(", ") || "the topics you missed"}, then retry similar questions after reviewing the model explanations.`;
+    }
 };
 exports.AttemptsService = AttemptsService;
 exports.AttemptsService = AttemptsService = __decorate([
@@ -136,6 +194,7 @@ exports.AttemptsService = AttemptsService = __decorate([
     __param(1, (0, mongoose_1.InjectModel)(answer_schema_1.Answer.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        questions_service_1.QuestionsService])
+        questions_service_1.QuestionsService,
+        ai_marker_service_1.AiMarkerService])
 ], AttemptsService);
 //# sourceMappingURL=attempts.service.js.map

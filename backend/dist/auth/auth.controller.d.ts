@@ -1,5 +1,6 @@
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
+import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto } from "./dto";
 export declare class AuthController {
@@ -12,7 +13,9 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../common/user-role.type").UserRole;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
             createdAt: string;
         };
     }>;
@@ -22,7 +25,9 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../common/user-role.type").UserRole;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
             createdAt: string;
         };
     }>;
@@ -32,11 +37,14 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
-            role: import("../common/user-role.type").UserRole;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
             createdAt: string;
         };
     }>;
-    googleAdminLogin(response: Response): void;
-    googleAdminCallback(code: string | undefined, error: string | undefined, response: Response): Promise<void>;
-    private googleAdminRedirect;
+    googleLogin(role: UserRole, response: Response): void;
+    googleCallback(role: UserRole, code: string | undefined, error: string | undefined, response: Response): Promise<void>;
+    private googleRedirect;
+    private isGoogleRole;
 }

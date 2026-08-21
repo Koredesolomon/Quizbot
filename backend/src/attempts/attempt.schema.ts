@@ -27,6 +27,9 @@ export class Attempt {
   @Prop({ default: 0 })
   percent: number;
 
+  @Prop()
+  aiSummary?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }

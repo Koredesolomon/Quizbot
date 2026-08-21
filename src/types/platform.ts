@@ -9,13 +9,17 @@ export type Screen =
   | "marking"
   | "results"
   | "details"
+  | "student"
+  | "studentRegister"
+  | "studentDashboard"
   | "admin"
   | "comingSoon";
 
 export type QuestionType = "objective" | "theory";
+export type QuestionDifficulty = "easy" | "medium" | "hard";
 
 export type Question = {
-  id: number;
+  id: string;
   type: QuestionType;
   topic: string;
   prompt: string;
@@ -23,6 +27,10 @@ export type Question = {
   answer: string;
   explanation: string;
   marks: number;
+  difficulty?: QuestionDifficulty;
+  learningObjective?: string;
+  rubricPoints?: string[];
+  commonMistakes?: string[];
   keywords?: string[];
 };
 
@@ -52,6 +60,7 @@ export type StudentAttempt = {
   score?: number;
   totalMarks: number;
   percent?: number;
+  aiSummary?: string;
 };
 
 export type StudentFeedback = {

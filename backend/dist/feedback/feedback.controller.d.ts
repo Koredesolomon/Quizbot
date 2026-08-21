@@ -7,6 +7,8 @@ export declare class FeedbackController {
     create(user: JwtUser, body: CreateFeedbackDto): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("./feedback.schema").FeedbackStatus;

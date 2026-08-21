@@ -13,6 +13,10 @@ export declare class QuestionsController {
         answer: string;
         explanation: string;
         marks: number;
+        difficulty: import("./question.schema").QuestionDifficulty;
+        learningObjective: string | undefined;
+        rubricPoints: string[] | undefined;
+        commonMistakes: string[] | undefined;
         keywords: string[] | undefined;
         createdBy: string;
         createdAt: string;
@@ -26,6 +30,10 @@ export declare class QuestionsController {
         answer: string;
         explanation: string;
         marks: number;
+        difficulty: import("./question.schema").QuestionDifficulty;
+        learningObjective: string | undefined;
+        rubricPoints: string[] | undefined;
+        commonMistakes: string[] | undefined;
         keywords: string[] | undefined;
         createdBy: string;
         createdAt: string;
@@ -39,6 +47,10 @@ export declare class QuestionsController {
         answer: string;
         explanation: string;
         marks: number;
+        difficulty: import("./question.schema").QuestionDifficulty;
+        learningObjective: string | undefined;
+        rubricPoints: string[] | undefined;
+        commonMistakes: string[] | undefined;
         keywords: string[] | undefined;
         createdBy: string;
         createdAt: string;

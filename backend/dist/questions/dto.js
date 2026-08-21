@@ -20,6 +20,10 @@ class CreateQuestionDto {
     answer;
     explanation;
     marks;
+    difficulty;
+    learningObjective;
+    rubricPoints;
+    commonMistakes;
     keywords;
 }
 exports.CreateQuestionDto = CreateQuestionDto;
@@ -58,6 +62,28 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateQuestionDto.prototype, "marks", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(["easy", "medium", "hard"]),
+    __metadata("design:type", String)
+], CreateQuestionDto.prototype, "difficulty", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateQuestionDto.prototype, "learningObjective", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateQuestionDto.prototype, "rubricPoints", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateQuestionDto.prototype, "commonMistakes", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

@@ -5,6 +5,7 @@ import { Answer, AnswerSchema } from "./answer.schema";
 import { Attempt, AttemptSchema } from "./attempt.schema";
 import { AttemptsController } from "./attempts.controller";
 import { AttemptsService } from "./attempts.service";
+import { AiMarkerService } from "./ai-marker.service";
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AttemptsService } from "./attempts.service";
     ]),
   ],
   controllers: [AttemptsController],
-  providers: [AttemptsService],
+  providers: [AttemptsService, AiMarkerService],
   exports: [AttemptsService],
 })
 export class AttemptsModule {}

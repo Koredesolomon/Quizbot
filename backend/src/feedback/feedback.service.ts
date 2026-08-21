@@ -4,6 +4,12 @@ import { Model, Types } from "mongoose";
 import { CreateFeedbackDto } from "./dto";
 import { Feedback, FeedbackDocument } from "./feedback.schema";
 
+type PopulatedStudent = {
+  _id: Types.ObjectId;
+  fullName: string;
+  email: string;
+};
+
 @Injectable()
 export class FeedbackService {
   constructor(@InjectModel(Feedback.name) private readonly feedbackModel: Model<FeedbackDocument>) {}
@@ -20,25 +26,36 @@ export class FeedbackService {
   }
 
   async list() {
-    const feedback = await this.feedbackModel.find().sort({ createdAt: -1 }).exec();
+    const feedback = await this.feedbackModel.find().populate("studentId", "fullName email").sort({ createdAt: -1 }).exec();
     return feedback.map((item) => this.publicFeedback(item));
   }
 
   async markReviewed(id: string) {
-    const feedback = await this.feedbackModel.findByIdAndUpdate(id, { status: "reviewed" }, { new: true }).exec();
+    const feedback = await this.feedbackModel
+      .findByIdAndUpdate(id, { status: "reviewed" }, { new: true })
+      .populate("studentId", "fullName email")
+      .exec();
     if (!feedback) throw new NotFoundException("Feedback not found.");
 
     return this.publicFeedback(feedback);
   }
 
   private publicFeedback(feedback: FeedbackDocument) {
+    const student = this.populatedStudent(feedback.studentId);
+
     return {
       id: feedback.id,
-      studentId: feedback.studentId.toString(),
+      studentId: student?._id.toString() ?? feedback.studentId.toString(),
+      studentName: student?.fullName,
+      studentEmail: student?.email,
       rating: feedback.rating,
       message: feedback.message,
       status: feedback.status,
       createdAt: feedback.createdAt.toISOString(),
     };
+  }
+
+  private populatedStudent(studentId: Types.ObjectId | PopulatedStudent) {
+    return "fullName" in studentId ? studentId : null;
   }
 }

@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 
 export type QuestionType = "objective" | "theory";
+export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionDocument = HydratedDocument<Question>;
 
 @Schema({ timestamps: true })
@@ -26,6 +27,18 @@ export class Question {
 
   @Prop({ required: true, min: 1 })
   marks: number;
+
+  @Prop({ enum: ["easy", "medium", "hard"], default: "medium" })
+  difficulty: QuestionDifficulty;
+
+  @Prop({ trim: true })
+  learningObjective?: string;
+
+  @Prop({ type: [String], default: undefined })
+  rubricPoints?: string[];
+
+  @Prop({ type: [String], default: undefined })
+  commonMistakes?: string[];
 
   @Prop({ type: [String], default: undefined })
   keywords?: string[];

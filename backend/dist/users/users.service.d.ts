@@ -8,8 +8,28 @@ export declare class UsersService {
         fullName: string;
         email: string;
         passwordHash?: string;
+        avatarUrl?: string;
         authProvider?: "password" | "google";
         role: UserRole;
+    }): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    } & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }>>;
+    upsertPasswordAdmin(input: {
+        fullName: string;
+        email: string;
+        passwordHash: string;
     }): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
         _id: import("mongoose").Types.ObjectId;
     } & {
@@ -28,6 +48,26 @@ export declare class UsersService {
     findOrCreateGoogleAdmin(input: {
         fullName: string;
         email: string;
+    }): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    } & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }>>;
+    findOrCreateGoogleUser(input: {
+        fullName: string;
+        email: string;
+        avatarUrl?: string;
+        role: UserRole;
     }): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
         _id: import("mongoose").Types.ObjectId;
     } & {
@@ -77,7 +117,9 @@ export declare class UsersService {
         id: string;
         fullName: string;
         email: string;
+        avatarUrl: string | undefined;
         role: UserRole;
+        authProvider: import("./user.schema").AuthProvider;
         createdAt: string;
     };
 }

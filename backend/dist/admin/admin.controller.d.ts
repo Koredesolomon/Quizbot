@@ -9,17 +9,22 @@ export declare class AdminController {
     attemptsList(): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         status: import("../attempts/attempt.schema").AttemptStatus;
         startedAt: string;
         submittedAt: string | undefined;
         score: number;
         totalMarks: number;
         percent: number;
+        aiSummary: string | undefined;
         createdAt: string;
     }[]>;
     feedbackList(): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("../feedback/feedback.schema").FeedbackStatus;
@@ -28,6 +33,8 @@ export declare class AdminController {
     markFeedbackReviewed(id: string): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         rating: number;
         message: string;
         status: import("../feedback/feedback.schema").FeedbackStatus;
@@ -44,12 +51,15 @@ export declare class AdminController {
         watchlist: {
             id: string;
             studentId: string;
+            studentName: string | undefined;
+            studentEmail: string | undefined;
             status: import("../attempts/attempt.schema").AttemptStatus;
             startedAt: string;
             submittedAt: string | undefined;
             score: number;
             totalMarks: number;
             percent: number;
+            aiSummary: string | undefined;
             createdAt: string;
         }[];
     }>;

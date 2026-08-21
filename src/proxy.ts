@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 const publicPaths = ["/webinar", "/maintenance"];
 
 export function proxy(request: NextRequest) {
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
   const isPublicPath = publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 

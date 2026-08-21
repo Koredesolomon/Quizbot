@@ -89,9 +89,9 @@ export function TestInterface({
   onSubmit,
 }: {
   questions: Question[];
-  answers: Record<number, string>;
+  answers: Record<string, string>;
   currentQuestion: number;
-  onAnswer: (id: number, value: string) => void;
+  onAnswer: (id: string, value: string) => void;
   onCurrentQuestion: (index: number) => void;
   onBack: () => void;
   onSubmit: () => void;
@@ -150,7 +150,7 @@ export function TestInterface({
                     type="button"
                     onClick={() => onCurrentQuestion(index)}
                   >
-                    {item.id}
+                    {index + 1}
                   </button>
                 );
               })}
@@ -165,7 +165,7 @@ export function TestInterface({
           <section className="question-step p-5 sm:p-8" key={question.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold text-indigo-700">Question {question.id}</p>
+                <p className="text-xs font-bold text-indigo-700">Question {currentQuestion + 1}</p>
                 <h2 className="mt-2 text-xl font-black leading-7 text-slate-950">
                   <MathContent>{question.prompt}</MathContent>
                 </h2>
@@ -303,7 +303,7 @@ function WordAnswerBox({
   value,
   onChange,
 }: {
-  questionId: number;
+  questionId: string;
   value: string;
   onChange: (value: string) => void;
 }) {

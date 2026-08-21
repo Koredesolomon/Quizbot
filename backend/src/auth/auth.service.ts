@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
@@ -18,18 +18,23 @@ type GoogleProfileResponse = {
   email?: string;
   email_verified?: string | boolean;
   name?: string;
+  picture?: string;
   hd?: string;
   error?: string;
   error_description?: string;
 };
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService
   ) {}
+
+  async onModuleInit() {
+    await this.bootstrapConfiguredAdmin();
+  }
 
   async register(input: { fullName: string; email: string; password: string; role: UserRole }) {
     const passwordHash = await bcrypt.hash(input.password, 10);
@@ -53,21 +58,25 @@ export class AuthService {
     return this.authResponse(user);
   }
 
-  getGoogleAdminAuthorizationUrl() {
+  getGoogleAuthorizationUrl(role: UserRole) {
     const clientId = this.requiredConfig("GOOGLE_CLIENT_ID");
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: this.googleRedirectUri(),
+      redirect_uri: this.googleRedirectUri(role),
       response_type: "code",
       scope: "openid email profile",
       prompt: "select_account",
-      state: "admin",
+      state: role,
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  async loginGoogleAdmin(code: string) {
+  getGoogleAdminAuthorizationUrl() {
+    return this.getGoogleAuthorizationUrl("admin");
+  }
+
+  async loginGoogle(code: string, role: UserRole) {
     const clientId = this.requiredConfig("GOOGLE_CLIENT_ID");
     const clientSecret = this.requiredConfig("GOOGLE_CLIENT_SECRET");
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -77,7 +86,7 @@ export class AuthService {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: this.googleRedirectUri(),
+        redirect_uri: this.googleRedirectUri(role),
         grant_type: "authorization_code",
       }),
     });
@@ -101,14 +110,22 @@ export class AuthService {
     }
 
     const email = profile.email.toLowerCase();
-    this.assertGoogleAdminAllowed(email, profile.hd);
+    if (role === "admin") {
+      this.assertGoogleAdminAllowed(email, profile.hd);
+    }
 
-    const user = await this.users.findOrCreateGoogleAdmin({
+    const user = await this.users.findOrCreateGoogleUser({
       fullName: profile.name ?? email,
       email,
+      avatarUrl: profile.picture,
+      role,
     });
 
     return this.authResponse(user);
+  }
+
+  async loginGoogleAdmin(code: string) {
+    return this.loginGoogle(code, "admin");
   }
 
   private authResponse(user: UserDocument) {
@@ -124,10 +141,16 @@ export class AuthService {
     };
   }
 
-  private googleRedirectUri() {
+  private googleRedirectUri(role: UserRole) {
+    const configuredRedirectUri = this.config.get<string>(
+      role === "admin" ? "GOOGLE_ADMIN_REDIRECT_URI" : "GOOGLE_STUDENT_REDIRECT_URI"
+    );
+
+    if (configuredRedirectUri) return configuredRedirectUri;
+
     return (
       this.config.get<string>("GOOGLE_REDIRECT_URI") ??
-      `${this.config.get<string>("API_BASE_URL") ?? "http://localhost:4000"}/auth/google/admin/callback`
+      `${this.config.get<string>("API_BASE_URL") ?? "http://localhost:4000"}/auth/google/${role}/callback`
     );
   }
 
@@ -157,5 +180,21 @@ export class AuthService {
     }
 
     return value;
+  }
+
+  private async bootstrapConfiguredAdmin() {
+    const email = this.config.get<string>("ADMIN_EMAIL")?.trim().toLowerCase();
+    const password = this.config.get<string>("ADMIN_PASSWORD")?.trim();
+    const fullName = this.config.get<string>("ADMIN_NAME")?.trim() || "STEM-JUPEB Admin";
+
+    if (!email && !password) return;
+
+    if (!email || !password) {
+      console.warn("ADMIN_EMAIL and ADMIN_PASSWORD must both be set to seed the admin account.");
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await this.users.upsertPasswordAdmin({ fullName, email, passwordHash });
   }
 }

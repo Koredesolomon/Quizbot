@@ -2,7 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+For the full local app with MongoDB, backend API, and frontend:
+
+```bash
+npm run dev:all
+```
+
+This starts MongoDB through Docker Compose, then starts the Nest API and Next.js app.
+
+Frontend: [http://localhost:3000](http://localhost:3000)
+Backend: [http://localhost:4000](http://localhost:4000)
+
+To run only the frontend:
 
 ```bash
 npm run dev
@@ -15,6 +26,61 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Admin Question Uploads
+
+1. Start the full app with `npm run dev:all`.
+2. Open the admin dashboard in the app.
+3. Register or sign in as an admin.
+4. Use the question form for a single question, or the JSON upload/import control for bulk questions.
+
+Admin question saves require a backend admin session. Successful form and import actions are persisted to MongoDB through the Nest API.
+
+Question uploads can include AI engine metadata:
+
+```json
+{
+  "type": "theory",
+  "topic": "Dimensional analysis",
+  "prompt": "State two uses of dimensional analysis in Physics.",
+  "answer": "It checks equations and helps derive relationships.",
+  "explanation": "A strong answer mentions dimensional consistency and deriving relations.",
+  "marks": 5,
+  "difficulty": "medium",
+  "learningObjective": "Use dimensions to validate equations and reason about physical relationships.",
+  "rubricPoints": ["Mentions checking equations", "Mentions deriving relationships", "Uses correct Physics language"],
+  "commonMistakes": ["Only defines dimensions", "Gives examples without explaining uses"],
+  "keywords": ["check", "equations", "derive", "relationships"]
+}
+```
+
+## Student Attempts
+
+Students must register or sign in before starting any test. When questions are loaded from the backend, their attempts,
+answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
+
+## Hostinger VPS Development
+
+On a VPS, Docker and MongoDB run on the server, not on a student's or admin's device. The browser only opens the
+frontend URL.
+
+Basic VPS flow:
+
+```bash
+git clone YOUR_REPO_URL
+cd "Quiz bot"
+npm install
+npm install --prefix backend
+npm run dev:all
+```
+
+`npm run dev:all` starts MongoDB through Docker Compose, then starts the Nest backend and Next frontend. MongoDB is bound
+to `127.0.0.1:27017` so it is reachable by the backend on the VPS but not exposed publicly.
+
+For a longer-running VPS dev session, run the command inside `tmux` or `screen` so it keeps running after your SSH window
+closes.
+
+Production should use process management and HTTPS rather than Next/Nest watch-mode dev servers.
 
 ## LaTeX in Questions and Answers
 

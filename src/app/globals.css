@@ -30,8 +30,9 @@ html {
 body {
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(79, 70, 229, 0.1), transparent 30rem),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 42%, #eef4ff 100%);
+    radial-gradient(circle at 12% 8%, rgba(41, 171, 226, 0.12), transparent 26rem),
+    radial-gradient(circle at 88% 18%, rgba(123, 211, 137, 0.16), transparent 24rem),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 48%, #eef8f4 100%);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   transition:
@@ -47,9 +48,9 @@ html.theme-dark {
 
 html.theme-dark body {
   background:
-    radial-gradient(circle at 12% 0%, rgba(99, 102, 241, 0.24), transparent 28rem),
-    radial-gradient(circle at 90% 12%, rgba(16, 185, 129, 0.16), transparent 25rem),
-    linear-gradient(180deg, #080b13 0%, #111827 48%, #0f172a 100%);
+    radial-gradient(circle at 12% 0%, rgba(41, 171, 226, 0.2), transparent 28rem),
+    radial-gradient(circle at 90% 12%, rgba(123, 211, 137, 0.16), transparent 25rem),
+    linear-gradient(180deg, #071017 0%, #0f1b2a 48%, #08131f 100%);
 }
 
 .theme-dark {

@@ -4,7 +4,7 @@ import { formatBytes, parseAnswerValue } from "@/lib/answer-attachments";
 import { MathContent } from "./math-content";
 
 const buttonBase =
-  "inline-flex min-h-11 items-center justify-center rounded-lg font-black transition duration-150 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-55";
+  "inline-flex min-h-11 items-center justify-center rounded-full font-black transition duration-150 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-55";
 
 export function PrimaryButton({
   children,

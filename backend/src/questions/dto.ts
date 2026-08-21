@@ -31,6 +31,24 @@ export class CreateQuestionDto {
   marks: number;
 
   @IsOptional()
+  @IsIn(["easy", "medium", "hard"])
+  difficulty?: "easy" | "medium" | "hard";
+
+  @IsOptional()
+  @IsString()
+  learningObjective?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  rubricPoints?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  commonMistakes?: string[];
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   keywords?: string[];

@@ -7,24 +7,30 @@ export declare class AttemptsController {
     start(user: JwtUser): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         status: import("./attempt.schema").AttemptStatus;
         startedAt: string;
         submittedAt: string | undefined;
         score: number;
         totalMarks: number;
         percent: number;
+        aiSummary: string | undefined;
         createdAt: string;
     }>;
     submit(id: string, body: SubmitAttemptDto, user: JwtUser): Promise<{
         attempt: {
             id: string;
             studentId: string;
+            studentName: string | undefined;
+            studentEmail: string | undefined;
             status: import("./attempt.schema").AttemptStatus;
             startedAt: string;
             submittedAt: string | undefined;
             score: number;
             totalMarks: number;
             percent: number;
+            aiSummary: string | undefined;
             createdAt: string;
         };
         answers: {
@@ -41,12 +47,15 @@ export declare class AttemptsController {
     mine(user: JwtUser): Promise<{
         id: string;
         studentId: string;
+        studentName: string | undefined;
+        studentEmail: string | undefined;
         status: import("./attempt.schema").AttemptStatus;
         startedAt: string;
         submittedAt: string | undefined;
         score: number;
         totalMarks: number;
         percent: number;
+        aiSummary: string | undefined;
         createdAt: string;
     }[]>;
 }

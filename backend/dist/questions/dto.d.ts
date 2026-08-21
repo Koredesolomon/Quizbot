@@ -6,6 +6,10 @@ export declare class CreateQuestionDto {
     answer: string;
     explanation: string;
     marks: number;
+    difficulty?: "easy" | "medium" | "hard";
+    learningObjective?: string;
+    rubricPoints?: string[];
+    commonMistakes?: string[];
     keywords?: string[];
 }
 export declare class ImportQuestionsDto {

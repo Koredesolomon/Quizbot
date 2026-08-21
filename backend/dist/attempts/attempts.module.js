@@ -14,6 +14,7 @@ const answer_schema_1 = require("./answer.schema");
 const attempt_schema_1 = require("./attempt.schema");
 const attempts_controller_1 = require("./attempts.controller");
 const attempts_service_1 = require("./attempts.service");
+const ai_marker_service_1 = require("./ai-marker.service");
 let AttemptsModule = class AttemptsModule {
 };
 exports.AttemptsModule = AttemptsModule;
@@ -27,7 +28,7 @@ exports.AttemptsModule = AttemptsModule = __decorate([
             ]),
         ],
         controllers: [attempts_controller_1.AttemptsController],
-        providers: [attempts_service_1.AttemptsService],
+        providers: [attempts_service_1.AttemptsService, ai_marker_service_1.AiMarkerService],
         exports: [attempts_service_1.AttemptsService],
     })
 ], AttemptsModule);

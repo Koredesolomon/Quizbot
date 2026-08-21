@@ -26,6 +26,7 @@ export function Results({
   answeredCount,
   questions,
   totalMarks,
+  aiSummary,
   onFeedback,
   onBack,
   onDetails,
@@ -37,6 +38,7 @@ export function Results({
   answeredCount: number;
   questions: Question[];
   totalMarks: number;
+  aiSummary?: string;
   onFeedback: (message: string, rating: number) => void;
   onBack: () => void;
   onDetails: () => void;
@@ -68,14 +70,13 @@ export function Results({
         <Metric label="Unanswered" value={String(unanswered)} />
       </div>
       <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-        <strong className="block font-black text-emerald-700">
-          {percent >= 70 ? "Good foundation." : "Keep building."}
-        </strong>
-        <p className="mt-2 text-sm font-semibold leading-6 text-emerald-800">
-          {percent >= 70
-            ? "Review the explanations for missed questions and practise more dimensional analysis."
-            : "Focus on SI base quantities, instrument errors, and the difference between scalar and vector quantities."}
-        </p>
+        <strong className="block font-black text-emerald-700">AI Review</strong>
+        <div className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-emerald-800">
+          {aiSummary ||
+            (percent >= 70
+              ? "Good foundation. Review the explanations for missed questions and practise the weaker areas before your next attempt."
+              : "Keep building. Review the model explanations, focus on missed topics, and retry similar questions after studying.")}
+        </div>
       </div>
       <form
         className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
@@ -158,7 +159,7 @@ export function Details({
               type="button"
               onClick={() => onSelectDetail(index)}
             >
-              <span className="font-bold text-slate-700">Question {item.id}</span>
+              <span className="font-bold text-slate-700">Question {index + 1}</span>
               <strong className={item.correct ? "text-emerald-700" : "text-rose-700"}>
                 {item.awarded}/{item.marks}
               </strong>
@@ -171,7 +172,7 @@ export function Details({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase text-indigo-700">{question.topic}</p>
-            <h2 className="mt-2 text-2xl font-black">Question {question.id}</h2>
+            <h2 className="mt-2 text-2xl font-black">Question {selectedDetail + 1}</h2>
           </div>
           <StatusBadge tone={question.correct ? "available" : "wrong"}>
             {question.awarded}/{question.marks} marks

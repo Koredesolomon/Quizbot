@@ -14,6 +14,12 @@ Default API URL: `http://localhost:4000`
 
 ## MongoDB
 
+For local development, start MongoDB from the repo root:
+
+```bash
+docker compose up -d mongo
+```
+
 Set `MONGODB_URI` in `.env`.
 
 Local MongoDB:
@@ -93,6 +99,7 @@ Create an OAuth client in Google Cloud and add this redirect URI:
 
 ```bash
 http://localhost:4000/auth/google/admin/callback
+http://localhost:4000/auth/google/student/callback
 ```
 
 Then start the backend with:
@@ -107,3 +114,23 @@ npm run start:dev
 ```
 
 Use `GOOGLE_ADMIN_DOMAINS="example.com"` instead of `GOOGLE_ADMIN_EMAILS` only when every account in that domain should have admin access.
+
+Student Google login accepts any verified Google email. Admin Google login requires the email/domain allow-list above.
+
+If these values are not configured, password admin login still works, but Google admin login will show a configuration error.
+
+## AI marking and explanations
+
+Theory answers can be reviewed by OpenAI when an API key is configured:
+
+```env
+OPENAI_API_KEY="your-openai-api-key"
+OPENAI_MODEL="gpt-5.6-luna"
+OPENAI_REVIEW_REQUIRED="true"
+```
+
+Objective answers are still marked deterministically. Theory answers use the current keyword marker as a fallback, then
+call OpenAI for a rubric-style score and concise feedback when `OPENAI_API_KEY` is present.
+
+Set `OPENAI_REVIEW_REQUIRED=true` when you want real AI only. In that mode, missing or failing OpenAI configuration will
+return an error instead of silently using fallback text.
