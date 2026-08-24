@@ -109,7 +109,7 @@ The live webinar page supports Google Analytics 4 tracking. Create a GA4 web dat
 environment variable before building or deploying:
 
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-R5XF1VD9VF
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-2GKC0GD02N
 ```
 
 The tracking script is mounted only on `/webinar`, because that is the public live page.

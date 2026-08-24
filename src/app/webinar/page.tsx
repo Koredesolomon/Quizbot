@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { WebinarLanding } from "@/components/webinar-landing";
 
-const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-R5XF1VD9VF";
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-2GKC0GD02N";
 
 export const metadata: Metadata = {
   title: "Beyond Theory Webinar | TLCHub",
