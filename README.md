@@ -103,6 +103,17 @@ Admin question entry and JSON imports support LaTeX inside normal text fields. U
 }
 ```
 
+## Webinar Google Analytics
+
+The live webinar page supports Google Analytics 4 tracking. Create a GA4 web data stream, then set the frontend
+environment variable before building or deploying:
+
+```env
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-MSZ1V7MXYH
+```
+
+The tracking script is mounted only on `/webinar`, because that is the public live page.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

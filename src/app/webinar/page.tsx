@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { WebinarLanding } from "@/components/webinar-landing";
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function WebinarPage() {
-  return <WebinarLanding />;
+  return (
+    <>
+      <GoogleAnalytics measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+      <WebinarLanding />
+    </>
+  );
 }
