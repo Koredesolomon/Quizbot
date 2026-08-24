@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { WebinarLanding } from "@/components/webinar-landing";
 
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-MSZ1V7MXYH";
+
 export const metadata: Metadata = {
   title: "Beyond Theory Webinar | TLCHub",
   description:
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 export default function WebinarPage() {
   return (
     <>
-      <GoogleAnalytics measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+      <GoogleAnalytics measurementId={gaMeasurementId} />
       <WebinarLanding />
     </>
   );
