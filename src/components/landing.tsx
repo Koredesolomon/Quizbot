@@ -33,7 +33,7 @@ export function Landing({
         <div className="mt-14 grid w-full max-w-md grid-cols-3 gap-6 border-t border-[var(--line)] pt-5">
           <MiniStat value="AI" label="review" />
           <MiniStat value="24/7" label="practice" />
-          <MiniStat value="PHS" label="ready" />
+          <MiniStat value="All" label="levels" />
         </div>
       </div>
       <div className="content-rise-delay mx-auto mt-14 w-full max-w-5xl lg:mt-20">

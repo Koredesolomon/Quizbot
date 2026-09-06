@@ -15,7 +15,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "STEM-JUPEB Test Platform",
+  title: "TLCHub Quiz App",
   description: "AI-Powered STEM Practice for Smarter Learning and Better Results",
 };
 
