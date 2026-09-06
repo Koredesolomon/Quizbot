@@ -272,8 +272,10 @@ export default function Home() {
       .getQuestions()
       .then((backendQuestions) => {
         if (!ignore) {
-          setQuestions(backendQuestions);
-          setBackendQuestionsLoaded(true);
+          if (backendQuestions.length > 0) {
+            setQuestions(backendQuestions);
+            setBackendQuestionsLoaded(true);
+          }
         }
       })
       .catch(() => {
@@ -426,8 +428,12 @@ export default function Home() {
     };
 
     if (backendQuestionsLoaded) {
-      const backendAttempt = await api.startAttempt(studentSession.accessToken);
-      nextAttempt = toStudentAttempt(backendAttempt, questions.length, 0, activeStudentName);
+      try {
+        const backendAttempt = await api.startAttempt(studentSession.accessToken);
+        nextAttempt = toStudentAttempt(backendAttempt, questions.length, 0, activeStudentName);
+      } catch {
+        setBackendQuestionsLoaded(false);
+      }
     }
 
     setCurrentAttemptId(nextAttempt.id);
