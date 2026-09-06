@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ClipboardList, LogOut, Moon, Sun, UserCircle } from "lucide-react";
+import { BookOpen, ChevronDown, ClipboardList, LogIn, LogOut, Moon, Sun, UserCircle, UserPlus } from "lucide-react";
 import type { Screen } from "@/types/platform";
 
 export function Header({
@@ -70,34 +70,32 @@ export function Header({
   return (
     <header
       className={`sticky top-0 z-20 border-b backdrop-blur transition-colors duration-200 ${
-        isDark ? "border-white/10 bg-slate-950/86" : "border-slate-100 bg-white/82"
+        isDark ? "border-[var(--line)] bg-[#f7fbff]/95" : "border-[var(--line)] bg-[var(--background)]/90"
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+      <div className="relative mx-auto flex items-center justify-between px-4 py-4 sm:px-10">
         <button
-          className="flex items-center gap-3 text-left"
+          className="flex min-w-0 items-center gap-3 text-left"
           type="button"
           onClick={() => onNavigate("landing")}
           aria-label="Go to home"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 text-sm font-black text-white shadow-lg shadow-sky-100">
-            SJ
-          </span>
-          <span>
-            <span className="block text-sm font-black tracking-wide text-slate-950">STEM-JUPEB</span>
-            <span className="block text-xs font-semibold text-slate-500">AI test platform</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brand-logo h-auto w-36 shrink-0 sm:w-44" src="/Logo.png" alt="TLCHub" />
         </button>
-        <nav className="hidden items-center gap-7 text-sm font-black text-slate-500 lg:flex">
-          <button className="transition hover:text-slate-950" type="button" onClick={() => onNavigate("landing")}>
+        <nav className={`absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-sm font-black lg:flex ${isDark ? "text-[var(--brand-blue-deep)]" : "text-slate-500"}`}>
+          <button className="transition hover:text-[var(--brand-green)]" type="button" onClick={() => onNavigate("landing")}>
             Home
           </button>
-          <button className="transition hover:text-slate-950" type="button" onClick={() => onNavigate("subjects")}>
+          <button className="transition hover:text-[var(--brand-green)]" type="button" onClick={() => onNavigate("subjects")}>
             Subjects
           </button>
-          <button className="transition hover:text-slate-950" type="button" onClick={() => onNavigate("landing")}>
-            Feature
+          <button className="transition hover:text-[var(--brand-green)]" type="button" onClick={() => onNavigate("howItWorks")}>
+            How it works
           </button>
+          {/* <button className="transition hover:text-slate-950" type="button" onClick={() => onNavigate("landing")}>
+            Feature
+          </button> */}
         </nav>
         <div className="flex items-center gap-2">
           <button
@@ -230,21 +228,24 @@ export function Header({
             </div>
           ) : (
             <button
-              className="inline-flex h-10 items-center justify-center rounded-full border border-sky-100 bg-white px-4 text-sm font-black text-sky-700 transition hover:-translate-y-0.5 hover:shadow-md"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-transparent px-3 text-sm font-black text-[var(--brand-blue-deep)] transition hover:-translate-y-0.5 hover:border-[var(--brand-blue)] hover:bg-[var(--brand-ice)] hover:shadow-md sm:px-4"
               type="button"
               onClick={() => onNavigate("student")}
               title="Student sign in"
             >
-              <span>Sign in</span>
+              <LogIn aria-hidden="true" size={16} />
+              <span>Login</span>
             </button>
           )}
           {!firstName && (
             <button
-              className="hidden h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:shadow-xl sm:inline-flex"
+              className="hidden h-10 items-center justify-center gap-2 rounded-md bg-[var(--brand-green)] px-4 text-sm font-black text-white shadow-[0_8px_18px_rgba(8,124,34,0.2)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-green-bright)] hover:shadow-lg sm:inline-flex"
               type="button"
               onClick={() => onNavigate("studentRegister")}
+              title="Create student account"
             >
-              Register
+              <UserPlus aria-hidden="true" size={16} />
+              <span>Sign up</span>
             </button>
           )}
         </div>

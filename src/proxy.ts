@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const publicPaths = ["/webinar", "/maintenance"];
 
 export function proxy(request: NextRequest) {
-  if (process.env.NODE_ENV === "development") {
+  const maintenanceMode = process.env.MAINTENANCE_MODE === "true";
+
+  if (process.env.NODE_ENV === "development" || !maintenanceMode) {
     return NextResponse.next();
   }
 

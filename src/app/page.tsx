@@ -7,6 +7,7 @@ import { Header } from "@/components/header";
 import { Landing } from "@/components/landing";
 import {
   Courses,
+  HowItWorks,
   Overview,
   Programme,
   Subjects,
@@ -289,6 +290,7 @@ export default function Home() {
 
     window.localStorage.setItem(themeStorageKey, theme);
     document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    document.documentElement.classList.toggle("theme-light", theme === "light");
   }, [theme, themeLoaded]);
 
   useEffect(() => {
@@ -567,14 +569,16 @@ export default function Home() {
         isDark ? "theme-dark bg-slate-950 text-slate-100" : "theme-light bg-slate-50 text-slate-950"
       }`}
     >
-      <Header
-        theme={theme}
-        studentName={studentSession?.user.fullName}
-        studentAvatarUrl={studentSession?.user.avatarUrl}
-        onNavigate={setScreen}
-        onStudentSignOut={signOutStudent}
-        onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-      />
+      {screen !== "admin" && (
+        <Header
+          theme={theme}
+          studentName={studentSession?.user.fullName}
+          studentAvatarUrl={studentSession?.user.avatarUrl}
+          onNavigate={setScreen}
+          onStudentSignOut={signOutStudent}
+          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+        />
+      )}
 
       {screen === "landing" && (
         <Landing
@@ -582,6 +586,8 @@ export default function Home() {
           onBrowseSubjects={() => setScreen("subjects")}
         />
       )}
+
+      {screen === "howItWorks" && <HowItWorks onStart={() => setScreen("programme")} onBack={() => setScreen("landing")} />}
 
       {screen === "programme" && <Programme onNext={() => setScreen("subjects")} onBack={() => setScreen("landing")} />}
       {screen === "subjects" && (

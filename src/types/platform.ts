@@ -1,5 +1,6 @@
 export type Screen =
   | "landing"
+  | "howItWorks"
   | "programme"
   | "subjects"
   | "courses"

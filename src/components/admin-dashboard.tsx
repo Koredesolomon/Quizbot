@@ -4,23 +4,15 @@ import {
   BarChart3,
   Bell,
   BookOpenCheck,
-  CalendarDays,
   ChevronDown,
   ClipboardList,
-  FileUp,
   Gauge,
   LayoutDashboard,
   LibraryBig,
-  ListPlus,
   LogOut,
   Menu,
-  MoreVertical,
-  Plus,
   Search,
-  Send,
-  Settings,
   Sparkles,
-  Trophy,
   Upload,
   UserRound,
   Users,
@@ -28,7 +20,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
 import { MathContent } from "./math-content";
-import { PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
+import { GoogleIcon, PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 
 const emptyQuestion = {
   type: "objective",
@@ -89,12 +81,12 @@ export function AdminRegistration({
           <>
             <p>
               Already have an account?{" "}
-              <button className="font-black text-blue-400 hover:text-blue-300" type="button" onClick={onBack}>
+              <button className="font-black text-emerald-300 hover:text-emerald-200" type="button" onClick={onBack}>
                 Sign in
               </button>
             </p>
             <p>
-              Have an invitation? <span className="font-black text-blue-400">Join workspace</span>
+              Have an invitation? <span className="font-black text-emerald-300">Join workspace</span>
             </p>
           </>
         }
@@ -147,7 +139,7 @@ export function AdminRegistration({
           <label className="grid gap-2 text-sm font-bold text-slate-100">
             Role
             <select
-              className="h-11 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+              className="h-11 rounded-lg border border-sky-200 bg-sky-50 px-3 text-slate-950 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20"
               value={role}
               onChange={(event) => setRole(event.target.value)}
             >
@@ -193,7 +185,7 @@ export function AdminLogin({
         footer={
           <>
             <p>
-              <button className="font-black text-blue-400 hover:text-blue-300" type="button" onClick={onBack}>
+              <button className="font-black text-emerald-300 hover:text-emerald-200" type="button" onClick={onBack}>
                 Return to student site
               </button>
             </p>
@@ -244,11 +236,12 @@ export function AdminLogin({
 
           <AuthSubmitButton>Sign in</AuthSubmitButton>
           <button
-            className="mt-3 w-full text-center text-sm font-black text-blue-400 transition hover:text-blue-300"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 text-center text-sm font-black text-emerald-300 transition hover:text-emerald-200"
             type="button"
             onClick={onGoogleLogin}
           >
-            Continue with Google
+            <GoogleIcon className="h-5 w-5 shrink-0" />
+            Sign in with Google
           </button>
         </form>
       </AuthCard>
@@ -258,10 +251,8 @@ export function AdminLogin({
 
 function AuthScene({ children }: { children: ReactNode }) {
   return (
-    <section className="surface-enter relative -mt-px min-h-[calc(100vh-4.25rem)] overflow-hidden bg-[#090d16] px-4 py-16 text-white sm:px-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(37,99,235,0.18),transparent_26rem),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24rem),linear-gradient(180deg,rgba(15,23,42,0.86),rgba(2,6,23,0.96))]" />
-      <div className="absolute left-12 top-20 h-1 w-1 rounded-full bg-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.9)]" />
-      <div className="absolute bottom-20 right-24 h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.9)]" />
+    <section className="surface-enter relative -mt-px min-h-[calc(100vh-4.25rem)] overflow-hidden bg-black px-4 py-16 text-white sm:px-6">
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(0,0,0,0.98),rgba(6,71,155,0.55)_52%,rgba(8,124,34,0.42))]" />
       <div className="relative mx-auto flex min-h-[560px] max-w-6xl items-center justify-center">{children}</div>
     </section>
   );
@@ -279,7 +270,9 @@ function AuthCard({
   children: ReactNode;
 }) {
   return (
-    <div className="modal-card-enter w-full max-w-md rounded-lg border border-slate-700/80 bg-slate-900/72 p-6 shadow-2xl shadow-black/40 backdrop-blur sm:p-8">
+    <div className="modal-card-enter w-full max-w-md rounded-lg border border-white/15 bg-white/10 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="brand-logo mx-auto mb-6 h-auto w-56" src="/Logo.png" alt="TLCHub" />
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-black text-white">{title}</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{subtitle}</p>
@@ -309,7 +302,7 @@ function AuthField({
     <label className="grid gap-2 text-sm font-bold text-slate-100">
       {label}
       <input
-        className="h-11 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+        className="h-11 rounded-lg border border-sky-200 bg-white px-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20"
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -321,7 +314,7 @@ function AuthField({
 function AuthSubmitButton({ children }: { children: ReactNode }) {
   return (
     <button
-      className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 via-blue-600 to-emerald-600 px-4 text-sm font-black text-white shadow-xl shadow-blue-950/40 transition hover:-translate-y-0.5 hover:shadow-blue-500/20"
+      className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-xl shadow-blue-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-500 hover:shadow-emerald-950/20"
       type="submit"
     >
       {children}
@@ -355,6 +348,7 @@ export function AdminDashboard({
   const [form, setForm] = useState<QuestionForm>(emptyQuestion);
   const [importMessage, setImportMessage] = useState("");
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
 
   const completedAttempts = attempts.filter((attempt) => attempt.status === "completed");
@@ -420,23 +414,6 @@ export function AdminDashboard({
     questions.forEach((question) => groups.set(question.topic, (groups.get(question.topic) ?? 0) + 1));
     return Array.from(groups.entries()).sort((a, b) => b[1] - a[1]);
   }, [questions]);
-  const totalTopicQuestions = Math.max(1, topicCoverage.reduce((sum, [, count]) => sum + count, 0));
-  const activity = [
-    ...completedAttempts.slice(0, 2).map((attempt) => ({
-      id: `attempt-${attempt.id}`,
-      icon: Trophy,
-      tone: "emerald" as const,
-      title: `${attempt.student} completed PHS 001`,
-      meta: `${attempt.percent ?? 0}% score`,
-    })),
-    ...feedback.slice(0, 2).map((item) => ({
-      id: `feedback-${item.id}`,
-      icon: Bell,
-      tone: item.status === "new" ? ("orange" as const) : ("indigo" as const),
-      title: `${item.student} sent feedback`,
-      meta: `${item.rating}/5 rating`,
-    })),
-  ].slice(0, 4);
   const topQuizzes = topicCoverage.slice(0, 5).map(([topic, count]) => {
     return {
       topic,
@@ -537,35 +514,61 @@ export function AdminDashboard({
   };
 
   return (
-    <section className="surface-enter min-h-screen bg-slate-50 text-slate-950">
+    <section className="admin-shell surface-enter min-h-screen bg-slate-50 text-slate-950">
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
-        <aside className="hidden border-r border-slate-200 bg-white lg:flex lg:flex-col">
-          <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-8">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-600 text-lg font-black text-white">
-              Q
-            </span>
-            <strong className="text-xl font-black">QuizMaster</strong>
+        <aside className="admin-sidebar hidden border-r border-slate-200 bg-white lg:flex lg:flex-col">
+          <div className="relative flex h-20 items-center justify-between border-b border-slate-200 px-6">
+            <button className="rounded-sm text-left outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--brand-blue)]" type="button" onClick={onBack} aria-label="Return to student site">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="brand-logo h-auto w-40" src="/Logo.png" alt="TLCHub" />
+            </button>
+            <div className="admin-profile-top hidden">
+            <button
+              className="grid h-9 w-9 place-items-center rounded-full bg-[var(--brand-ice)] text-xs font-black text-[var(--brand-blue)] transition hover:bg-[var(--brand-blue)] hover:text-white"
+              type="button"
+              aria-label="Open admin profile"
+              aria-expanded={isProfileOpen}
+              onClick={() => setIsProfileOpen((open) => !open)}
+            >
+              {initials(adminName)}
+            </button>
+            {isProfileOpen && (
+              <div className="absolute left-5 right-5 top-[4.5rem] z-30 grid grid-cols-2 gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2 text-sm shadow-xl">
+                <div className="col-span-2 border-b border-[var(--line)] px-3 pb-3 pt-2">
+                  <strong className="block truncate text-[var(--ink)]">{adminName}</strong>
+                  <span className="mt-1 block truncate text-xs font-semibold text-[var(--ink-muted)]">{adminRole}</span>
+                </div>
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("question-studio"); }}>
+                  <LibraryBig size={16} /> Question bank
+                </button>
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("attempt-summary"); }}>
+                  <ClipboardList size={16} /> Attempts
+                </button>
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("feedback-review"); }}>
+                  <Bell size={16} /> Feedback
+                </button>
+                <div className="col-span-2 my-1 h-px bg-[var(--line)]" />
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); onBack(); }}>
+                  <BookOpenCheck size={16} /> Student tests
+                </button>
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-rose-700 transition hover:bg-rose-50" type="button" onClick={() => { setIsProfileOpen(false); onSignOut(); }}>
+                  <LogOut size={16} /> Sign out
+                </button>
+              </div>
+            )}
+            </div>
           </div>
           <nav className="flex-1 space-y-1 px-4 py-5 text-sm font-bold">
             <SidebarItem active icon={LayoutDashboard} label="Dashboard" />
-            <SidebarItem icon={Users} label="Users" />
-            <SidebarItem icon={LibraryBig} label="Quiz Management" />
-            <div className="ml-8 grid gap-3 border-l border-slate-200 py-2 pl-7 text-xs font-semibold text-slate-500">
-              <span>All Quizzes</span>
-              <span>Categories</span>
-              <span>Questions</span>
-            </div>
-            <SidebarItem icon={ClipboardList} label="Attempts" />
-            <SidebarItem icon={Trophy} label="Leaderboard" />
-            <SidebarItem icon={BarChart3} label="Analytics" />
-            <SidebarItem icon={BookOpenCheck} label="Certificates" />
+            <SidebarItem icon={LibraryBig} label="Question bank" onClick={() => openSection("question-studio")} />
+            <SidebarItem icon={ClipboardList} label="Attempts" onClick={() => openSection("attempt-summary")} />
+            <SidebarItem icon={Bell} label="Feedback" badge={unreadFeedback} onClick={() => openSection("feedback-review")} />
             <SidebarItem
-              icon={Bell}
-              label="Notifications"
+              icon={BarChart3}
+              label="Watchlist"
               badge={notificationCount}
-              onClick={() => setIsNotificationsOpen(true)}
+              onClick={() => openSection("performance-watchlist")}
             />
-            <SidebarItem icon={Settings} label="Settings" />
           </nav>
           <div className="border-t border-slate-200 p-4">
             <SecondaryButton className="w-full gap-2 text-sm" type="button" onClick={onBack}>
@@ -576,7 +579,7 @@ export function AdminDashboard({
         </aside>
 
         <div className="min-w-0">
-          <header className="flex min-h-20 flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-8">
+          <header className="admin-header hidden flex min-h-20 flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-8">
             <div className="flex items-center gap-4">
               <button
                 className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 lg:hidden"
@@ -600,7 +603,7 @@ export function AdminDashboard({
             <div className="flex items-center gap-4">
               <div className="relative">
                 <button
-                  className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700"
+                  className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-emerald-200 hover:text-emerald-700"
                   type="button"
                   aria-label="Notifications"
                   aria-expanded={isNotificationsOpen}
@@ -608,7 +611,7 @@ export function AdminDashboard({
                 >
                   <Bell size={19} />
                   {notificationCount > 0 && (
-                    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-black text-white">
+                    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-emerald-600 px-1 text-[10px] font-black text-white">
                       {notificationCount}
                     </span>
                   )}
@@ -625,7 +628,7 @@ export function AdminDashboard({
                       <span className="flex items-center gap-1">
                         {notificationCount > 0 && (
                           <button
-                            className="rounded-md px-2 py-1 text-xs font-black text-indigo-700 transition hover:bg-indigo-50"
+                            className="rounded-md px-2 py-1 text-xs font-black text-sky-700 transition hover:bg-sky-50"
                             type="button"
                             onClick={markAllNotificationsRead}
                           >
@@ -695,7 +698,7 @@ export function AdminDashboard({
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-emerald-500 text-sm font-black text-white">
+                <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-[#06479b] to-emerald-500 text-sm font-black text-white">
                   {initials(adminName)}
                 </div>
                 <span className="hidden sm:block">
@@ -707,23 +710,31 @@ export function AdminDashboard({
             </div>
           </header>
 
-          <main className="px-4 py-8 sm:px-8">
+          <main className="admin-main px-4 py-8 sm:px-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-black tracking-normal sm:text-3xl">Welcome back, {firstName(adminName)}</h1>
+                <h1 className="text-2xl font-black tracking-normal sm:text-3xl">Welcome back, {firstName(adminName)}.</h1>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
                   Here is what is happening with your quiz app today.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="inline-flex h-12 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm" type="button">
-                  <CalendarDays size={18} />
-                  Live database
+              <div className="relative flex flex-wrap gap-2">
+                <button
+                  className="flex h-12 items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-left transition hover:border-[var(--brand-blue)]"
+                  type="button"
+                  aria-expanded={isProfileOpen}
+                  onClick={() => setIsProfileOpen((open) => !open)}
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--brand-blue)] text-[10px] font-black text-white">{initials(adminName)}</span>
+                  <span className="hidden sm:block"><strong className="block text-xs font-black text-[var(--ink)]">{adminName}</strong><small className="block text-[10px] font-semibold text-[var(--ink-muted)]">{adminRole}</small></span>
+                  <ChevronDown className={`text-[var(--ink-muted)] transition ${isProfileOpen ? "rotate-180" : ""}`} size={15} />
                 </button>
-                <SecondaryButton className="h-12 gap-2 px-4 py-0 text-sm" type="button" onClick={onSignOut}>
-                  <LogOut size={16} />
-                  Lock
-                </SecondaryButton>
+                {isProfileOpen && (
+                  <div className="absolute right-0 top-14 z-30 grid w-60 grid-cols-2 gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2 text-sm shadow-xl">
+                    <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] hover:bg-[var(--brand-ice)]" type="button" onClick={() => { setIsProfileOpen(false); onBack(); }}><BookOpenCheck size={16} /> Student tests</button>
+                    <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-rose-700 hover:bg-rose-50" type="button" onClick={() => { setIsProfileOpen(false); onSignOut(); }}><LogOut size={16} /> Sign out</button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -735,7 +746,7 @@ export function AdminDashboard({
               <StatCard icon={Sparkles} tone="rose" label="Average Score" value={`${averageScore}%`} trend={`${needsAttention.length} watchlist`} detail="" />
             </div>
 
-            <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.95fr_0.95fr]">
+            <div className="mt-5 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
               <DashboardPanel className="min-h-[330px]" title="Attempt Summary" action="Live" id="attempt-summary">
                 <div className="grid h-full content-center gap-4 sm:grid-cols-3">
                   <SummaryTile label="Active" value={String(activeAttempts.length)} />
@@ -743,106 +754,18 @@ export function AdminDashboard({
                   <SummaryTile label="Completion" value={`${completionRate}%`} />
                 </div>
               </DashboardPanel>
-              <DashboardPanel className="min-h-[330px]" title="Quiz Categories">
-                <div className="grid items-center gap-5 sm:grid-cols-[180px_1fr] xl:grid-cols-1 2xl:grid-cols-[180px_1fr]">
-                  <CategoryDonut total={questions.length} />
-                  <div className="stagger-list space-y-4">
-                    {topicCoverage.slice(0, 5).map(([topic, count], index) => (
-                      <div className="flex items-center gap-3 text-sm" key={topic}>
-                        <span className={`h-2.5 w-2.5 rounded-full ${categoryDot(index)}`} />
-                        <span className="min-w-0 flex-1 truncate font-semibold text-slate-700">{topic}</span>
-                        <strong className="text-slate-900">{Math.round((count / totalTopicQuestions) * 100)}%</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </DashboardPanel>
-              <DashboardPanel title="Recent Activity" action="View all">
-                <div className="stagger-list space-y-4">
-                  {activity.map((item) => (
-                    <ActivityItem key={item.id} {...item} />
+              <DashboardPanel className="min-h-[330px]" title="Top Performing Quizzes">
+                <div className="stagger-list grid gap-3">
+                  {topQuizzes.slice(0, 4).map((quiz, index) => (
+                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3" key={quiz.topic}>
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black text-white ${quizIconTone(index)}`}>
+                        {topicInitials(quiz.topic)}
+                      </span>
+                      <span className="min-w-0 flex-1"><strong className="block truncate text-sm font-black text-slate-950">{quiz.topic}</strong><small className="mt-1 block text-xs font-semibold text-slate-500">{quiz.count} questions · {quiz.score}% average</small></span>
+                      <PerformanceBar value={quiz.score} tone="green" />
+                    </div>
                   ))}
-                  {activity.length === 0 && (
-                    <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                      Activity will appear when students submit attempts or feedback.
-                    </p>
-                  )}
                 </div>
-              </DashboardPanel>
-            </div>
-
-            <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
-              <DashboardPanel title="Top Performing Quizzes" action="View all quizzes">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs font-black uppercase text-slate-500">
-                        <th className="py-3 pr-4">Quiz</th>
-                        <th className="px-4 py-3">Attempts</th>
-                        <th className="px-4 py-3">Average Score</th>
-                        <th className="px-4 py-3">Completion Rate</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="py-3 pl-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="stagger-list">
-                      {topQuizzes.map((quiz, index) => (
-                        <tr className="border-b border-slate-100 last:border-0" key={quiz.topic}>
-                          <td className="py-4 pr-4">
-                            <div className="flex items-center gap-3">
-                              <span className={`grid h-9 w-9 place-items-center rounded-lg text-xs font-black text-white ${quizIconTone(index)}`}>
-                                {topicInitials(quiz.topic)}
-                              </span>
-                              <span>
-                                <strong className="block font-black text-slate-950">{quiz.topic}</strong>
-                                <small className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                                  {quiz.count} questions
-                                </small>
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-slate-700">{quiz.attempts.toLocaleString()}</td>
-                          <td className="px-4 py-4">
-                            <PerformanceBar value={quiz.score} tone="green" />
-                          </td>
-                          <td className="px-4 py-4">
-                            <PerformanceBar value={quiz.completion} tone="purple" />
-                          </td>
-                          <td className="px-4 py-4">
-                            <StatusBadge tone={quiz.status === "Active" ? "available" : "neutral"}>{quiz.status}</StatusBadge>
-                          </td>
-                          <td className="py-4 pl-4 text-right">
-                            <button className="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" type="button" aria-label={`More actions for ${quiz.topic}`}>
-                              <MoreVertical size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </DashboardPanel>
-
-              <DashboardPanel className="bg-indigo-600 text-white shadow-indigo-200" title="Quick Actions">
-                <div className="stagger-list space-y-3">
-                  <QuickActionButton icon={Plus} label="Create New Quiz" />
-                  <QuickActionButton icon={ListPlus} label="Add Question" />
-                  <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg bg-white px-4 text-sm font-bold text-slate-950 shadow-sm transition hover:-translate-y-0.5">
-                    <Upload size={18} className="text-indigo-700" />
-                    Import Question JSON
-                    <input
-                      className="sr-only"
-                      type="file"
-                      accept="application/json"
-                      onChange={(event) => void importQuestions(event.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  <QuickActionButton icon={Send} label="Send Notification" />
-                  <QuickActionButton icon={FileUp} label="Export Report" />
-                </div>
-                {importMessage && (
-                  <p className="mt-4 rounded-lg bg-white/15 p-3 text-sm font-bold leading-6 text-white">{importMessage}</p>
-                )}
               </DashboardPanel>
             </div>
 
@@ -853,7 +776,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700">
                     Type
                     <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-indigo-400"
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
                       value={form.type}
                       onChange={(event) => setForm({ ...form, type: event.target.value as QuestionForm["type"] })}
                     >
@@ -864,7 +787,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700">
                     Difficulty
                     <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-indigo-400"
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
                       value={form.difficulty}
                       onChange={(event) => setForm({ ...form, difficulty: event.target.value as QuestionForm["difficulty"] })}
                     >
@@ -881,7 +804,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                     Prompt
                     <textarea
-                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                       value={form.prompt}
                       onChange={(event) => setForm({ ...form, prompt: event.target.value })}
                       placeholder="Example: Find $x$ if $$2x + 3 = 11$$"
@@ -891,7 +814,7 @@ export function AdminDashboard({
                     <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                       Options
                       <textarea
-                        className="min-h-28 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                        className="min-h-28 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                         value={form.options}
                         onChange={(event) => setForm({ ...form, options: event.target.value })}
                         placeholder={"$x = 2$\n$x = 4$\n$x = 7$\n$x = 11$"}
@@ -908,7 +831,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                     Explanation
                     <textarea
-                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                       value={form.explanation}
                       onChange={(event) => setForm({ ...form, explanation: event.target.value })}
                       placeholder="Example: Subtract 3, then divide by 2: $x = \\frac{8}{2} = 4$."
@@ -917,7 +840,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                     Rubric Points
                     <textarea
-                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                       value={form.rubricPoints}
                       onChange={(event) => setForm({ ...form, rubricPoints: event.target.value })}
                       placeholder={"Mention the correct principle\nUse the correct unit\nShow the required relationship"}
@@ -926,7 +849,7 @@ export function AdminDashboard({
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
                     Common Mistakes
                     <textarea
-                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-indigo-400"
+                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                       value={form.commonMistakes}
                       onChange={(event) => setForm({ ...form, commonMistakes: event.target.value })}
                       placeholder={"Confusing base and derived quantities\nUsing the wrong unit\nSkipping the explanation"}
@@ -944,7 +867,7 @@ export function AdminDashboard({
                   <PrimaryButton type="button" onClick={addQuestion}>
                     Publish Question
                   </PrimaryButton>
-                  <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 text-sm font-black text-indigo-700 transition hover:-translate-y-0.5 hover:shadow-md">
+                  <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-black text-sky-700 transition hover:-translate-y-0.5 hover:shadow-md">
                     <Upload size={16} />
                     Import JSON
                     <input
@@ -955,6 +878,9 @@ export function AdminDashboard({
                     />
                   </label>
                 </div>
+                {importMessage && (
+                  <p className="mt-4 rounded-lg bg-[var(--brand-mint)] p-3 text-sm font-bold text-[var(--brand-green)]">{importMessage}</p>
+                )}
               </DashboardPanel>
 
               <DashboardPanel title="LaTeX Preview">
@@ -982,7 +908,7 @@ export function AdminDashboard({
                       </div>
                       <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.message}</p>
                       <div className="mt-3 flex items-center justify-between gap-3">
-                        <span className="text-xs font-black text-indigo-700">{item.rating}/5 rating</span>
+                        <span className="text-xs font-black text-sky-700">{item.rating}/5 rating</span>
                         {item.status === "new" && (
                           <SecondaryButton
                             className="h-9 min-h-9 px-3 py-0 text-xs"
@@ -1037,7 +963,7 @@ function Field({
     <label className="grid gap-1 text-sm font-bold text-slate-700">
       {label}
       <input
-        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-indigo-400"
+        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1073,7 +999,7 @@ function SidebarItem({
   return (
     <button
       className={`interactive-lift flex min-h-12 w-full items-center gap-4 rounded-lg px-4 text-left ${
-        active ? "bg-indigo-50 text-indigo-700" : "text-slate-950 hover:bg-slate-50"
+        active ? "bg-sky-50 text-sky-700" : "text-slate-950 hover:bg-slate-50"
       }`}
       type="button"
       onClick={onClick}
@@ -1081,7 +1007,7 @@ function SidebarItem({
       <Icon size={20} />
       <span className="min-w-0 flex-1">{label}</span>
       {badge > 0 && (
-        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-indigo-600 px-1 text-[10px] font-black text-white">
+        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#06479b] px-1 text-[10px] font-black text-white">
           {badge}
         </span>
       )}
@@ -1105,7 +1031,7 @@ function StatCard({
   detail: string;
 }) {
   const tones = {
-    purple: "bg-indigo-50 text-indigo-700",
+    purple: "bg-sky-50 text-sky-700",
     green: "bg-emerald-100 text-emerald-600",
     blue: "bg-blue-100 text-blue-600",
     orange: "bg-orange-100 text-orange-600",
@@ -1151,7 +1077,7 @@ function DashboardPanel({
     >
       <div className="mb-5 flex items-center justify-between gap-3">
         <h2 className="text-lg font-black">{title}</h2>
-        {action && <button className="text-sm font-bold text-indigo-700" type="button">{action}</button>}
+        {action && <button className="text-sm font-bold text-sky-700" type="button">{action}</button>}
       </div>
       {children}
     </div>
@@ -1177,7 +1103,7 @@ function NotificationCard({
 }) {
   const tones = {
     orange: "border-orange-200 bg-orange-50 text-orange-700",
-    indigo: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    indigo: "border-sky-200 bg-sky-50 text-sky-700",
     rose: "border-rose-200 bg-rose-50 text-rose-700",
   };
   const isRead = state === "read";
@@ -1229,70 +1155,13 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CategoryDonut({ total }: { total: number }) {
-  return (
-    <div className="relative mx-auto h-44 w-44">
-      <div
-        className="h-full w-full rounded-full"
-        style={{
-          background:
-            "conic-gradient(#4f46e5 0 40%, #10b981 40% 65%, #f97316 65% 80%, #e11d48 80% 90%, #94a3b8 90% 100%)",
-        }}
-      />
-      <div className="absolute inset-10 grid place-items-center rounded-full bg-white text-center shadow-inner">
-        <strong className="block text-2xl font-black">{total}</strong>
-        <small className="block text-xs font-bold text-slate-500">Total</small>
-      </div>
-    </div>
-  );
-}
-
-function ActivityItem({
-  icon: Icon,
-  tone,
-  title,
-  meta,
-}: {
-  icon: LucideIcon;
-  tone: "emerald" | "orange" | "indigo";
-  title: string;
-  meta: string;
-}) {
-  const tones = {
-    emerald: "bg-emerald-100 text-emerald-600",
-    orange: "bg-orange-100 text-orange-600",
-    indigo: "bg-indigo-50 text-indigo-700",
-  };
-
-  return (
-    <div className="interactive-lift flex items-start gap-4 rounded-lg p-1">
-      <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg ${tones[tone]}`}>
-        <Icon size={19} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <strong className="block text-sm font-bold leading-6 text-slate-950">{title}</strong>
-        <small className="mt-1 block text-xs font-semibold text-slate-500">{meta}</small>
-      </span>
-    </div>
-  );
-}
-
-function QuickActionButton({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <button className="interactive-lift flex min-h-12 w-full items-center gap-3 rounded-lg bg-white px-4 text-left text-sm font-bold text-slate-950 shadow-sm" type="button">
-      <Icon size={18} className="text-indigo-700" />
-      {label}
-    </button>
-  );
-}
-
 function PerformanceBar({ value, tone }: { value: number; tone: "green" | "purple" }) {
   return (
     <div className="flex items-center gap-3">
       <span className="w-10 text-sm font-bold text-slate-700">{value}%</span>
       <span className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-200">
         <span
-          className={`bar-fill block h-full rounded-full ${tone === "green" ? "bg-emerald-500" : "bg-indigo-600"}`}
+          className={`bar-fill block h-full rounded-full ${tone === "green" ? "bg-emerald-500" : "bg-[#06479b]"}`}
           style={{ width: `${value}%` }}
         />
       </span>
@@ -1300,12 +1169,8 @@ function PerformanceBar({ value, tone }: { value: number; tone: "green" | "purpl
   );
 }
 
-function categoryDot(index: number) {
-  return ["bg-indigo-600", "bg-emerald-500", "bg-orange-500", "bg-rose-600", "bg-slate-400"][index % 5];
-}
-
 function quizIconTone(index: number) {
-  return ["bg-orange-400", "bg-sky-500", "bg-emerald-500", "bg-indigo-600", "bg-rose-600"][index % 5];
+  return ["bg-orange-400", "bg-sky-500", "bg-emerald-500", "bg-[#06479b]", "bg-rose-600"][index % 5];
 }
 
 function topicInitials(topic: string) {

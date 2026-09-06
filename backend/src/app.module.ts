@@ -5,6 +5,7 @@ import { AdminModule } from "./admin/admin.module";
 import { AttemptsModule } from "./attempts/attempts.module";
 import { AuthModule } from "./auth/auth.module";
 import { FeedbackModule } from "./feedback/feedback.module";
+import { HealthController } from "./health.controller";
 import { QuestionsModule } from "./questions/questions.module";
 import { UsersModule } from "./users/users.module";
 
@@ -19,5 +20,6 @@ import { UsersModule } from "./users/users.module";
     FeedbackModule,
     AdminModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

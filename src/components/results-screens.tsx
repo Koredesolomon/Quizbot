@@ -6,11 +6,11 @@ import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton,
 export function Marking() {
   return (
     <Panel title="AI is reviewing your answers..." subtitle="This may take a few seconds.">
-      <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-indigo-50 bg-gradient-to-br from-indigo-600 to-emerald-500 text-4xl font-black text-white shadow-2xl shadow-indigo-200">
+      <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-sky-50 bg-[#082b63] text-4xl font-black text-white shadow-2xl shadow-sky-100">
         AI
       </div>
       <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-slate-200">
-        <div className="marking-progress h-full w-2/5 rounded-full bg-gradient-to-r from-indigo-600 to-emerald-500" />
+        <div className="marking-progress h-full w-2/5 rounded-full bg-emerald-600" />
       </div>
       <p className="mt-4 text-center text-sm font-semibold text-slate-500">
         Checking answers, explanations, and advice.
@@ -95,7 +95,7 @@ export function Results({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <strong className="text-sm font-black text-slate-900">Platform Feedback</strong>
           <select
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400"
             defaultValue="5"
             name="rating"
           >
@@ -107,7 +107,7 @@ export function Results({
           </select>
         </div>
         <textarea
-          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
           name="feedback"
           placeholder="Share your opinion about the test platform..."
         />
@@ -143,16 +143,16 @@ export function Details({
   const question = marked[selectedDetail] ?? marked[0];
 
   return (
-      <section className="surface-enter mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+      <section className="surface-enter mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-10 lg:grid-cols-[0.8fr_1.2fr]">
       <div className="content-rise rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
         <BackButton className="mb-5" label="Summary" onClick={onBack} />
         <h2 className="text-2xl font-black">Detailed Results</h2>
         <div className="stagger-list mt-5 space-y-2">
           {marked.map((item, index) => (
             <button
-              className={`interactive-lift flex min-h-12 w-full items-center justify-between rounded-lg border p-3 text-left hover:border-indigo-200 ${
+              className={`interactive-lift flex min-h-12 w-full items-center justify-between rounded-lg border p-3 text-left hover:border-emerald-200 ${
                 selectedDetail === index
-                  ? "selected-pop border-indigo-300 bg-indigo-50"
+                  ? "selected-pop border-emerald-300 bg-emerald-50"
                   : "border-slate-200 bg-white"
               }`}
               key={item.id}
@@ -171,7 +171,7 @@ export function Details({
       <div className="content-rise-delay rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase text-indigo-700">{question.topic}</p>
+            <p className="text-xs font-black uppercase text-emerald-700">{question.topic}</p>
             <h2 className="mt-2 text-2xl font-black">Question {selectedDetail + 1}</h2>
           </div>
           <StatusBadge tone={question.correct ? "available" : "wrong"}>
@@ -188,8 +188,8 @@ export function Details({
 
         <div className="stagger-list mt-6 grid gap-3 sm:grid-cols-3">
           {topicBreakdown.map((topic) => (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4" key={topic.topic}>
-              <strong className="block text-lg font-black text-indigo-800">{topic.percent}%</strong>
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4" key={topic.topic}>
+              <strong className="block text-lg font-black text-sky-700">{topic.percent}%</strong>
               <small className="mt-1 block text-xs font-bold leading-5 text-slate-500">{topic.topic}</small>
             </div>
           ))}

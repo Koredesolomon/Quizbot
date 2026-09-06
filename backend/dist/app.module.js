@@ -14,6 +14,7 @@ const admin_module_1 = require("./admin/admin.module");
 const attempts_module_1 = require("./attempts/attempts.module");
 const auth_module_1 = require("./auth/auth.module");
 const feedback_module_1 = require("./feedback/feedback.module");
+const health_controller_1 = require("./health.controller");
 const questions_module_1 = require("./questions/questions.module");
 const users_module_1 = require("./users/users.module");
 let AppModule = class AppModule {
@@ -31,6 +32,7 @@ exports.AppModule = AppModule = __decorate([
             feedback_module_1.FeedbackModule,
             admin_module_1.AdminModule,
         ],
+        controllers: [health_controller_1.HealthController],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

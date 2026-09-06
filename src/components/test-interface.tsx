@@ -110,7 +110,7 @@ export function TestInterface({
 
   if (!question) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <section className="mx-auto max-w-3xl px-4 py-10 sm:px-10">
         <BackButton className="mb-4" label="Overview" onClick={onBack} />
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/70">
           <h2 className="text-2xl font-black text-slate-950">No questions available</h2>
@@ -123,13 +123,13 @@ export function TestInterface({
   }
 
   return (
-    <section className="surface-enter relative mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <section className="surface-enter relative mx-auto max-w-6xl px-4 py-8 sm:px-10">
       <BackButton className="mb-4" label="Overview" onClick={onBack} />
       <div className="relative">
         <div className="grid min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/70 lg:grid-cols-[280px_1fr]">
           <aside className="flex flex-col gap-6 border-b border-slate-200 bg-slate-50 p-5 lg:border-b-0 lg:border-r">
             <div>
-              <p className="text-xs font-black uppercase text-slate-500">PHS 001 - Topic 1</p>
+              <p className="text-xs font-black uppercase text-emerald-700">PHS 001 - Topic 1</p>
               <h2 className="mt-2 text-xl font-black">Questions</h2>
             </div>
             <div className="stagger-list grid grid-cols-5 gap-2">
@@ -141,7 +141,7 @@ export function TestInterface({
                   <button
                     className={`interactive-lift aspect-square rounded-lg border text-sm font-black transition ${
                       isCurrent
-                        ? "border-indigo-600 bg-indigo-600 text-white"
+                        ? "border-[#082b63] bg-[#082b63] text-white"
                         : isAnswered
                           ? "border-emerald-200 bg-emerald-100 text-emerald-700"
                           : "border-slate-300 bg-white text-slate-600"
@@ -156,7 +156,7 @@ export function TestInterface({
               })}
             </div>
             <div className="mt-auto grid gap-2 text-xs font-bold text-slate-500">
-              <LegendItem className="bg-indigo-600" label="Current" />
+              <LegendItem className="bg-[#082b63]" label="Current" />
               <LegendItem className="bg-emerald-500" label="Answered" />
               <LegendItem className="border border-slate-300 bg-white" label="Not answered" />
             </div>
@@ -165,12 +165,12 @@ export function TestInterface({
           <section className="question-step p-5 sm:p-8" key={question.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold text-indigo-700">Question {currentQuestion + 1}</p>
+                <p className="text-xs font-bold text-emerald-700">Question {currentQuestion + 1}</p>
                 <h2 className="mt-2 text-xl font-black leading-7 text-slate-950">
                   <MathContent>{question.prompt}</MathContent>
                 </h2>
               </div>
-              <span className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-800">
+              <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-black text-sky-700">
                 {question.marks} marks
               </span>
             </div>
@@ -179,7 +179,7 @@ export function TestInterface({
               <div className="mt-6 space-y-3">
                 {question.options?.map((option, index) => (
                   <label
-                    className={`interactive-lift flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 hover:border-indigo-200 ${
+                    className={`interactive-lift flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 hover:border-emerald-200 ${
                       answers[question.id] === option ? "selected-pop" : ""
                     }`}
                     key={option}
@@ -428,12 +428,12 @@ function WordAnswerBox({
 
   return (
     <div className="content-rise mt-6">
-      <div className="focus-glow overflow-hidden rounded-lg border border-indigo-300 bg-white shadow-sm shadow-indigo-100 transition focus-within:border-indigo-500">
+      <div className="focus-glow overflow-hidden rounded-lg border border-sky-300 bg-white shadow-sm shadow-sky-100 transition focus-within:border-emerald-500">
         <div className="flex min-h-10 flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-3 py-2">
           {answerTools.map(({ label, command, icon: Icon }, index) => (
             <button
               aria-label={label}
-              className={`grid h-8 w-8 place-items-center rounded-md text-slate-500 transition hover:-translate-y-0.5 hover:bg-white hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 active:translate-y-0 ${
+              className={`grid h-8 w-8 place-items-center rounded-md text-slate-500 transition hover:-translate-y-0.5 hover:bg-white hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-emerald-300 active:translate-y-0 ${
                 index === 5 || index === 8 || index === 11 || index === 15 ? "ml-1 border-l border-slate-200 pl-1" : ""
               }`}
               key={label}
@@ -456,7 +456,7 @@ function WordAnswerBox({
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
-              className="interactive-lift inline-flex min-h-10 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 hover:shadow-md"
+              className="interactive-lift inline-flex min-h-10 items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 text-sm font-black text-sky-700 hover:shadow-md"
               type="button"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -483,7 +483,7 @@ function WordAnswerBox({
                   className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
                   key={attachment.id}
                 >
-                  <FileText aria-hidden="true" className="shrink-0 text-indigo-700" size={17} />
+                  <FileText aria-hidden="true" className="shrink-0 text-sky-700" size={17} />
                   <span className="min-w-0 flex-1">
                     <strong className="block truncate text-sm font-black text-slate-900">{attachment.name}</strong>
                     <small className="block text-xs font-bold text-slate-500">{formatBytes(attachment.size)}</small>
