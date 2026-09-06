@@ -16,7 +16,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "STEM-JUPEB Test Platform",
-  description: "AI-marked practice tests for STEM-JUPEB learners.",
+  description: "AI-Powered STEM Practice for Smarter Learning and Better Results",
 };
 
 export default function RootLayout({

@@ -20,8 +20,7 @@ export function Landing({
           Study with a little more <em className="font-medium text-[var(--brand-blue)]">clarity.</em>
         </h1>
         <p className="mt-7 max-w-2xl text-base leading-8 text-[var(--ink-muted)] sm:text-lg">
-          Take STEM-JUPEB practice tests, see exactly where you lost marks, and turn every attempt into a better next
-          session.
+          AI-Powered STEM Practice for Smarter Learning and Better Results
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
           <PrimaryButton className="rounded-md bg-[var(--brand-green)] px-6 shadow-[0_12px_24px_rgba(8,124,34,0.24)] hover:bg-[var(--brand-green-bright)]" type="button" onClick={onStart}>
