@@ -59,6 +59,20 @@ Question uploads can include AI engine metadata:
 Students must register or sign in before starting any test. When questions are loaded from the backend, their attempts,
 answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
 
+## Welcome Emails
+
+The backend can send a welcome email after first signup. Configure SMTP on the backend server:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=smtp-username
+SMTP_PASS=smtp-password
+SMTP_FROM=TLCHub <no-reply@mytlchub.com>
+```
+
+Signup does not fail if email delivery is unavailable; the backend logs the mail error and continues.
+
 ## AI Grading
 
 The backend marks objective questions exactly and sends theory answers to OpenAI for rubric-style grading when an API key

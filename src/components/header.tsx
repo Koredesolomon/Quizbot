@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ClipboardList, LogIn, LogOut, Moon, Sun, UserCircle, UserPlus } from "lucide-react";
+import type { ReactNode } from "react";
+import { BookOpen, ChevronDown, ClipboardList, LogIn, LogOut, Menu, Moon, Sun, UserCircle, UserPlus, X } from "lucide-react";
 import type { Screen } from "@/types/platform";
 
 export function Header({
@@ -29,10 +30,12 @@ export function Header({
       .map((part) => part[0]?.toUpperCase())
       .join("") || "ST";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isProfileOpen) {
+    if (!isProfileOpen && !isMobileMenuOpen) {
       return;
     }
 
@@ -40,11 +43,16 @@ export function Header({
       if (!profileMenuRef.current?.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
+
+      if (!mobileMenuRef.current?.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsProfileOpen(false);
+        setIsMobileMenuOpen(false);
       }
     }
 
@@ -55,7 +63,13 @@ export function Header({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isProfileOpen]);
+  }, [isMobileMenuOpen, isProfileOpen]);
+
+  const handleMobileNavigate = (screen: Screen) => {
+    setIsMobileMenuOpen(false);
+    setIsProfileOpen(false);
+    onNavigate(screen);
+  };
 
   const handleProfileNavigate = (screen: Screen) => {
     setIsProfileOpen(false);
@@ -64,6 +78,11 @@ export function Header({
 
   const handleProfileSignOut = () => {
     setIsProfileOpen(false);
+    onStudentSignOut();
+  };
+
+  const handleMobileSignOut = () => {
+    setIsMobileMenuOpen(false);
     onStudentSignOut();
   };
 
@@ -109,14 +128,79 @@ export function Header({
           >
             {isDark ? <Sun aria-hidden="true" size={17} /> : <Moon aria-hidden="true" size={17} />}
           </button>
-          <button
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-100 bg-sky-50 text-sm font-black text-sky-700 transition hover:-translate-y-0.5 hover:shadow-md lg:hidden"
-            type="button"
-            onClick={() => onNavigate("subjects")}
-            title="Browse tests"
-          >
-            <BookOpen aria-hidden="true" size={17} />
-          </button>
+          <div className="relative lg:hidden" ref={mobileMenuRef}>
+            <button
+              aria-expanded={isMobileMenuOpen}
+              aria-haspopup="menu"
+              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm font-black transition hover:-translate-y-0.5 hover:shadow-md ${
+                isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-sky-100 bg-sky-50 text-sky-700"
+              }`}
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen((open) => !open);
+                setIsProfileOpen(false);
+              }}
+              title="Menu"
+            >
+              {isMobileMenuOpen ? <X aria-hidden="true" size={18} /> : <Menu aria-hidden="true" size={18} />}
+            </button>
+            {isMobileMenuOpen && (
+              <div
+                className={`absolute right-0 mt-3 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-lg border p-2 text-sm shadow-xl ${
+                  isDark ? "border-slate-800 bg-slate-950 text-slate-100" : "border-slate-100 bg-white text-slate-700"
+                }`}
+                role="menu"
+              >
+                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("landing")}>
+                  <UserCircle aria-hidden="true" size={16} />
+                  Home
+                </MobileMenuButton>
+                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("subjects")}>
+                  <BookOpen aria-hidden="true" size={16} />
+                  Subjects
+                </MobileMenuButton>
+                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("howItWorks")}>
+                  <ClipboardList aria-hidden="true" size={16} />
+                  How it works
+                </MobileMenuButton>
+                <div className={`my-2 h-px ${isDark ? "bg-slate-800" : "bg-slate-100"}`} />
+                {firstName ? (
+                  <>
+                    <div className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-slate-500"}`}>
+                      <span className="block text-xs font-bold uppercase tracking-wide">Signed in as</span>
+                      <span className={`block truncate font-black ${isDark ? "text-white" : "text-slate-950"}`}>
+                        {studentName}
+                      </span>
+                    </div>
+                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentDashboard")}>
+                      <UserCircle aria-hidden="true" size={16} />
+                      Dashboard
+                    </MobileMenuButton>
+                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("overview")}>
+                      <ClipboardList aria-hidden="true" size={16} />
+                      Test overview
+                    </MobileMenuButton>
+                    <MobileMenuButton isDark={isDark} danger onClick={handleMobileSignOut}>
+                      <LogOut aria-hidden="true" size={16} />
+                      Sign out
+                    </MobileMenuButton>
+                  </>
+                ) : (
+                  <>
+                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("student")}>
+                      <LogIn aria-hidden="true" size={16} />
+                      Login
+                    </MobileMenuButton>
+                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentRegister")}>
+                      <UserPlus aria-hidden="true" size={16} />
+                      Sign up
+                    </MobileMenuButton>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {firstName ? (
             <div className="relative" ref={profileMenuRef}>
               <button
@@ -251,5 +335,36 @@ export function Header({
         </div>
       </div>
     </header>
+  );
+}
+
+function MobileMenuButton({
+  children,
+  danger = false,
+  isDark,
+  onClick,
+}: {
+  children: ReactNode;
+  danger?: boolean;
+  isDark: boolean;
+  onClick: () => void;
+}) {
+  const hoverClass = danger
+    ? isDark
+      ? "hover:bg-rose-950/50 hover:text-rose-200"
+      : "hover:bg-rose-50 hover:text-rose-600"
+    : isDark
+      ? "hover:bg-slate-900"
+      : "hover:bg-sky-50 hover:text-sky-700";
+
+  return (
+    <button
+      className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left font-bold transition ${hoverClass}`}
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }

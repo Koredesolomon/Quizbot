@@ -33,6 +33,36 @@ export class UsersService {
     });
   }
 
+  async createOrAttachPasswordUser(input: {
+    fullName: string;
+    email: string;
+    passwordHash: string;
+    role: UserRole;
+  }) {
+    const email = input.email.toLowerCase();
+    const existing = await this.findByEmail(email);
+
+    if (existing) {
+      if (existing.passwordHash) {
+        throw new ConflictException("Email is already registered.");
+      }
+
+      existing.fullName = input.fullName || existing.fullName;
+      existing.passwordHash = input.passwordHash;
+      existing.role = input.role;
+      existing.authProvider = "password";
+      return existing.save();
+    }
+
+    return this.create({
+      fullName: input.fullName,
+      email,
+      passwordHash: input.passwordHash,
+      authProvider: "password",
+      role: input.role,
+    });
+  }
+
   async upsertPasswordAdmin(input: { fullName: string; email: string; passwordHash: string }) {
     const email = input.email.toLowerCase();
     const existing = await this.findByEmail(email);

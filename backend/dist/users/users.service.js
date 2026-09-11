@@ -37,6 +37,27 @@ let UsersService = class UsersService {
             role: input.role,
         });
     }
+    async createOrAttachPasswordUser(input) {
+        const email = input.email.toLowerCase();
+        const existing = await this.findByEmail(email);
+        if (existing) {
+            if (existing.passwordHash) {
+                throw new common_1.ConflictException("Email is already registered.");
+            }
+            existing.fullName = input.fullName || existing.fullName;
+            existing.passwordHash = input.passwordHash;
+            existing.role = input.role;
+            existing.authProvider = "password";
+            return existing.save();
+        }
+        return this.create({
+            fullName: input.fullName,
+            email,
+            passwordHash: input.passwordHash,
+            authProvider: "password",
+            role: input.role,
+        });
+    }
     async upsertPasswordAdmin(input) {
         const email = input.email.toLowerCase();
         const existing = await this.findByEmail(email);

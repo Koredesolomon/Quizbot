@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowRight, Check, LogIn, UserPlus } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowRight, Check, Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 import type * as api from "@/lib/api";
 import { BackButton, GoogleIcon, PrimaryButton } from "./ui";
 
@@ -21,9 +22,11 @@ export function StudentAuth({
   onBack: () => void;
 }) {
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -71,7 +74,7 @@ export function StudentAuth({
               event.preventDefault();
               setError("");
 
-              if (!email.trim() || !password.trim() || (isRegister && !fullName.trim())) {
+              if (!email.trim() || !password.trim() || (isRegister && (!firstName.trim() || !lastName.trim()))) {
                 setError("Complete all required fields.");
                 return;
               }
@@ -85,7 +88,7 @@ export function StudentAuth({
               try {
                 if (isRegister) {
                   await onRegister({
-                    fullName: fullName.trim(),
+                    fullName: `${firstName.trim()} ${lastName.trim()}`,
                     email: email.trim().toLowerCase(),
                     password,
                   });
@@ -105,6 +108,25 @@ export function StudentAuth({
             <div className="mb-2">
               <span className="text-xs font-black uppercase tracking-[0.16em] text-[var(--brand-green)]">{isRegister ? "New here?" : "Welcome back"}</span>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--ink)]">{isRegister ? "Create an account" : "Sign in to continue"}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--ink-muted)]">
+                {isRegister
+                  ? "Keep your quiz progress, feedback, and revision support in one place."
+                  : "Continue with your saved attempts, scores, and AI feedback."}
+              </p>
+            </div>
+            <div className="grid gap-3">
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-sm font-black text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--brand-blue)] hover:text-[var(--brand-blue)] hover:shadow-md"
+                disabled={busy}
+                type="button"
+                onClick={onGoogleLogin}
+              >
+                <GoogleIcon className="h-5 w-5 shrink-0" />
+                Continue with Google
+              </button>
+            </div>
+            <div className="flex items-center gap-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+              <span className="h-px flex-1 bg-[var(--line)]" /> or <span className="h-px flex-1 bg-[var(--line)]" />
             </div>
             <div className="inline-grid grid-cols-2 rounded-md border border-[var(--line)] bg-[var(--brand-ice)] p-1">
               <button
@@ -129,9 +151,29 @@ export function StudentAuth({
               </button>
             </div>
 
-            {isRegister && <StudentField label="Full name" type="text" value={fullName} onChange={setFullName} />}
+            {isRegister && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StudentField label="First name" type="text" value={firstName} onChange={setFirstName} />
+                <StudentField label="Last name" type="text" value={lastName} onChange={setLastName} />
+              </div>
+            )}
             <StudentField label="Email address" type="email" value={email} onChange={setEmail} />
-            <StudentField label="Password" type="password" value={password} onChange={setPassword} />
+            <StudentField
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={setPassword}
+              trailing={
+                <button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="grid h-9 w-9 place-items-center rounded-md text-[var(--ink-muted)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]"
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
+                </button>
+              }
+            />
 
             {(error || authError) && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error || authError}</p>}
 
@@ -139,18 +181,21 @@ export function StudentAuth({
               {busy ? "Please wait..." : isRegister ? "Create student account" : "Sign in"}
               {!busy && <ArrowRight aria-hidden="true" className="ml-2" size={17} />}
             </PrimaryButton>
-            <div className="flex items-center gap-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-              <span className="h-px flex-1 bg-[var(--line)]" /> or <span className="h-px flex-1 bg-[var(--line)]" />
-            </div>
             <button
-              className="inline-flex min-h-11 items-center justify-center gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-sm font-black text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--brand-blue)] hover:text-[var(--brand-blue)] hover:shadow-md"
-              disabled={busy}
+              className="text-center text-sm font-bold text-[var(--ink-muted)] transition hover:text-[var(--brand-blue)]"
               type="button"
-              onClick={onGoogleLogin}
+              onClick={() => {
+                setMode(isRegister ? "login" : "register");
+                setError("");
+              }}
             >
-              <GoogleIcon className="h-5 w-5 shrink-0" />
-              {isRegister ? "Sign up with Google" : "Sign in with Google"}
+              {isRegister ? "Already have an account? " : "Need an account? "}
+              <span className="font-black text-[var(--brand-green)]">{isRegister ? "Sign in" : "Create one"}</span>
             </button>
+            <p className="text-center text-xs font-semibold leading-5 text-[var(--ink-muted)]">
+              By continuing, you agree to our <span className="font-black text-[var(--ink)]">Terms</span> and{" "}
+              <span className="font-black text-[var(--ink)]">Privacy Policy</span>.
+            </p>
           </form>
         </div>
       </div>
@@ -163,21 +208,26 @@ function StudentField({
   type = "text",
   value,
   onChange,
+  trailing,
 }: {
   label: string;
   type?: string;
   value: string;
   onChange: (value: string) => void;
+  trailing?: ReactNode;
 }) {
   return (
     <label className="grid gap-2 text-sm font-black text-[var(--ink)]">
       {label}
-      <input
-        className="h-12 rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-[var(--ink)] outline-none transition placeholder:text-[var(--ink-muted)] focus:border-[var(--brand-green)] focus:bg-[var(--surface)] focus:ring-4 focus:ring-green-500/10"
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <span className="flex h-12 items-center rounded-md border border-[var(--line)] bg-[var(--surface-muted)] transition focus-within:border-[var(--brand-green)] focus-within:bg-[var(--surface)] focus-within:ring-4 focus-within:ring-green-500/10">
+        <input
+          className="h-full min-w-0 flex-1 rounded-md bg-transparent px-3 text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)]"
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {trailing && <span className="pr-1">{trailing}</span>}
+      </span>
     </label>
   );
 }

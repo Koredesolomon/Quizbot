@@ -2,12 +2,15 @@ import { OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { UserRole } from "../common/user-role.type";
+import { MailService } from "../mail/mail.service";
 import { UsersService } from "../users/users.service";
 export declare class AuthService implements OnModuleInit {
     private readonly users;
     private readonly jwt;
     private readonly config;
-    constructor(users: UsersService, jwt: JwtService, config: ConfigService);
+    private readonly mail;
+    private readonly logger;
+    constructor(users: UsersService, jwt: JwtService, config: ConfigService, mail: MailService);
     onModuleInit(): Promise<void>;
     register(input: {
         fullName: string;
@@ -55,6 +58,7 @@ export declare class AuthService implements OnModuleInit {
             createdAt: string;
         };
     }>;
+    private sendWelcomeEmail;
     loginGoogleAdmin(code: string): Promise<{
         accessToken: string;
         user: {

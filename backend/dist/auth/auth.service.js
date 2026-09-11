@@ -8,38 +8,50 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = require("bcryptjs");
+const mail_service_1 = require("../mail/mail.service");
 const users_service_1 = require("../users/users.service");
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     users;
     jwt;
     config;
-    constructor(users, jwt, config) {
+    mail;
+    logger = new common_1.Logger(AuthService_1.name);
+    constructor(users, jwt, config, mail) {
         this.users = users;
         this.jwt = jwt;
         this.config = config;
+        this.mail = mail;
     }
     async onModuleInit() {
         await this.bootstrapConfiguredAdmin();
     }
     async register(input) {
         const passwordHash = await bcrypt.hash(input.password, 10);
-        const user = await this.users.create({
+        const user = await this.users.createOrAttachPasswordUser({
             fullName: input.fullName,
             email: input.email,
             passwordHash,
             role: input.role,
         });
+        await this.sendWelcomeEmail(user);
         return this.authResponse(user);
     }
     async login(input) {
         const user = await this.users.findByEmail(input.email);
-        if (!user || !user.passwordHash || !(await bcrypt.compare(input.password, user.passwordHash))) {
+        if (!user) {
+            throw new common_1.UnauthorizedException("Invalid email or password.");
+        }
+        if (!user.passwordHash) {
+            throw new common_1.UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
+        }
+        if (!(await bcrypt.compare(input.password, user.passwordHash))) {
             throw new common_1.UnauthorizedException("Invalid email or password.");
         }
         return this.authResponse(user);
@@ -89,13 +101,30 @@ let AuthService = class AuthService {
         if (role === "admin") {
             this.assertGoogleAdminAllowed(email, profile.hd);
         }
+        const existingUser = await this.users.findByEmail(email);
         const user = await this.users.findOrCreateGoogleUser({
             fullName: profile.name ?? email,
             email,
             avatarUrl: profile.picture,
             role,
         });
+        if (!existingUser) {
+            await this.sendWelcomeEmail(user);
+        }
         return this.authResponse(user);
+    }
+    async sendWelcomeEmail(user) {
+        try {
+            await this.mail.sendWelcomeEmail({
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`Welcome email could not be sent to ${user.email}: ${message}`);
+        }
     }
     async loginGoogleAdmin(code) {
         return this.loginGoogle(code, "admin");
@@ -158,10 +187,11 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [users_service_1.UsersService,
         jwt_1.JwtService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        mail_service_1.MailService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

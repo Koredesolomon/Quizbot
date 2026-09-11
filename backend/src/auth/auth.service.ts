@@ -1,8 +1,9 @@
-import { Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import type { UserRole } from "../common/user-role.type";
+import { MailService } from "../mail/mail.service";
 import type { UserDocument } from "../users/user.schema";
 import { UsersService } from "../users/users.service";
 
@@ -26,10 +27,13 @@ type GoogleProfileResponse = {
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly mail: MailService
   ) {}
 
   async onModuleInit() {
@@ -38,12 +42,13 @@ export class AuthService implements OnModuleInit {
 
   async register(input: { fullName: string; email: string; password: string; role: UserRole }) {
     const passwordHash = await bcrypt.hash(input.password, 10);
-    const user = await this.users.create({
+    const user = await this.users.createOrAttachPasswordUser({
       fullName: input.fullName,
       email: input.email,
       passwordHash,
       role: input.role,
     });
+    await this.sendWelcomeEmail(user);
 
     return this.authResponse(user);
   }
@@ -51,7 +56,15 @@ export class AuthService implements OnModuleInit {
   async login(input: { email: string; password: string }) {
     const user = await this.users.findByEmail(input.email);
 
-    if (!user || !user.passwordHash || !(await bcrypt.compare(input.password, user.passwordHash))) {
+    if (!user) {
+      throw new UnauthorizedException("Invalid email or password.");
+    }
+
+    if (!user.passwordHash) {
+      throw new UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
+    }
+
+    if (!(await bcrypt.compare(input.password, user.passwordHash))) {
       throw new UnauthorizedException("Invalid email or password.");
     }
 
@@ -114,14 +127,31 @@ export class AuthService implements OnModuleInit {
       this.assertGoogleAdminAllowed(email, profile.hd);
     }
 
+    const existingUser = await this.users.findByEmail(email);
     const user = await this.users.findOrCreateGoogleUser({
       fullName: profile.name ?? email,
       email,
       avatarUrl: profile.picture,
       role,
     });
+    if (!existingUser) {
+      await this.sendWelcomeEmail(user);
+    }
 
     return this.authResponse(user);
+  }
+
+  private async sendWelcomeEmail(user: UserDocument) {
+    try {
+      await this.mail.sendWelcomeEmail({
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Welcome email could not be sent to ${user.email}: ${message}`);
+    }
   }
 
   async loginGoogleAdmin(code: string) {
