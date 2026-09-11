@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { QuestionDocument } from "../questions/question.schema";
 
@@ -39,6 +39,8 @@ type OpenAiResponse = {
 
 @Injectable()
 export class AiMarkerService {
+  private readonly logger = new Logger(AiMarkerService.name);
+
   constructor(private readonly config: ConfigService) {}
 
   async reviewTheoryAnswer(question: QuestionDocument, response: string, fallback: AnswerReview): Promise<AnswerReview> {
@@ -53,7 +55,7 @@ export class AiMarkerService {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: this.config.get<string>("OPENAI_MODEL") ?? "gpt-5.6-luna",
+          model: this.model(),
           input: [
             {
               role: "system",
@@ -106,6 +108,7 @@ export class AiMarkerService {
       });
 
       if (!result.ok) {
+        await this.logOpenAiFailure("answer review", result);
         return this.fallbackOrThrow(fallback, `OpenAI answer review failed with status ${result.status}.`);
       }
 
@@ -121,6 +124,7 @@ export class AiMarkerService {
       };
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
+      this.logger.warn(`OpenAI answer review failed: ${this.errorMessage(error)}`);
       if (this.isReviewRequired()) {
         throw new ServiceUnavailableException("OpenAI answer review failed.");
       }
@@ -140,7 +144,7 @@ export class AiMarkerService {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: this.config.get<string>("OPENAI_MODEL") ?? "gpt-5.6-luna",
+          model: this.model(),
           input: [
             {
               role: "system",
@@ -183,6 +187,7 @@ export class AiMarkerService {
       });
 
       if (!result.ok) {
+        await this.logOpenAiFailure("test review", result);
         return this.fallbackOrThrow(fallback, `OpenAI test review failed with status ${result.status}.`);
       }
 
@@ -207,6 +212,7 @@ export class AiMarkerService {
         .join("\n\n");
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
+      this.logger.warn(`OpenAI test review failed: ${this.errorMessage(error)}`);
       if (this.isReviewRequired()) {
         throw new ServiceUnavailableException("OpenAI test review failed.");
       }
@@ -226,6 +232,10 @@ export class AiMarkerService {
     return this.config.get<string>("OPENAI_REVIEW_REQUIRED") === "true";
   }
 
+  private model() {
+    return this.config.get<string>("OPENAI_MODEL")?.trim() || "gpt-5";
+  }
+
   private listSection(title: string, items: string[]) {
     const cleanItems = items.map((item) => item.trim()).filter(Boolean);
     if (cleanItems.length === 0) return "";
@@ -241,5 +251,15 @@ export class AiMarkerService {
       .map((content) => content.text)
       .filter(Boolean)
       .join("\n");
+  }
+
+  private async logOpenAiFailure(context: string, result: Response) {
+    const body = await result.text().catch(() => "");
+    const details = body ? `: ${body.slice(0, 500)}` : "";
+    this.logger.warn(`OpenAI ${context} failed with status ${result.status}${details}`);
+  }
+
+  private errorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 }

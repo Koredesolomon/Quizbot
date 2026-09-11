@@ -125,7 +125,7 @@ Theory answers can be reviewed by OpenAI when an API key is configured:
 
 ```env
 OPENAI_API_KEY="your-openai-api-key"
-OPENAI_MODEL="gpt-5.6-luna"
+OPENAI_MODEL="gpt-5"
 OPENAI_REVIEW_REQUIRED="true"
 ```
 
@@ -134,3 +134,6 @@ call OpenAI for a rubric-style score and concise feedback when `OPENAI_API_KEY` 
 
 Set `OPENAI_REVIEW_REQUIRED=true` when you want real AI only. In that mode, missing or failing OpenAI configuration will
 return an error instead of silently using fallback text.
+
+For production, set these values in the backend process environment on the server that runs the Nest API. The browser
+frontend should only receive `NEXT_PUBLIC_API_URL`; never expose `OPENAI_API_KEY` in frontend environment variables.

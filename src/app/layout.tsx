@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import "katex/dist/katex.min.css";
+import "@copilotkit/react-core/v2/styles.css";
+import { AiAssistantProvider } from "@/components/ai-assistant-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,7 +38,7 @@ export default function RootLayout({
             __html: `(() => { try { const theme = localStorage.getItem("stem-jupeb-theme"); document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light"); } catch (_) { document.documentElement.classList.add("theme-light"); } })();`,
           }}
         />
-        {children}
+        <AiAssistantProvider>{children}</AiAssistantProvider>
       </body>
     </html>
   );

@@ -59,6 +59,41 @@ Question uploads can include AI engine metadata:
 Students must register or sign in before starting any test. When questions are loaded from the backend, their attempts,
 answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
 
+## AI Grading
+
+The backend marks objective questions exactly and sends theory answers to OpenAI for rubric-style grading when an API key
+is configured. Completed attempts also receive a student-facing AI review that is shown on the results screen.
+
+Set these on the backend server:
+
+```env
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-5
+OPENAI_REVIEW_REQUIRED=true
+```
+
+Use `OPENAI_REVIEW_REQUIRED=true` when the live site should fail loudly if OpenAI is not configured or unavailable. Use
+`false` during testing if you want the keyword fallback to keep submissions working.
+
+## In-App AI Assistant
+
+The app also includes a visible TLCHub Copilot sidebar powered by CopilotKit. It guides students with explanations,
+corrections, topic-based reading suggestions, practice tasks, and interactive hints. During a live test it is instructed
+to help with concepts and progressive hints without revealing final answers. After results are available, it can use the
+marked answers, model answers, and AI feedback to explain corrections.
+
+It can also help admins review quiz content, rubric quality, and topic coverage.
+
+Set these on the Next.js server that renders the frontend:
+
+```env
+OPENAI_API_KEY=your-openai-api-key
+COPILOTKIT_MODEL=openai/gpt-5-mini
+```
+
+The sidebar reads safe app context such as the current screen, quiz progress, recent results, and admin content counts.
+It does not receive stored access tokens or passwords.
+
 ## Hostinger VPS Development
 
 On a VPS, Docker and MongoDB run on the server, not on a student's or admin's device. The browser only opens the

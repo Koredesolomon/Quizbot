@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDashboard, AdminLogin, AdminRegistration, type AdminAccount } from "@/components/admin-dashboard";
+import { TlchubAiAssistant } from "@/components/ai-assistant";
 import { Header } from "@/components/header";
 import { Landing } from "@/components/landing";
 import {
@@ -751,6 +752,20 @@ export default function Home() {
       {screen === "comingSoon" && (
         <ComingSoon onAvailable={() => setScreen("overview")} onBack={() => setScreen(comingSoonBackScreen)} />
       )}
+      <TlchubAiAssistant
+        screen={screen}
+        questions={questions}
+        answers={answers}
+        marked={marked}
+        attempts={attempts}
+        feedback={feedback}
+        currentQuestion={currentQuestion}
+        studentName={studentSession?.user.fullName}
+        adminName={adminAccount?.name}
+        isAdmin={screen === "admin" && adminUnlocked}
+        isStudentSignedIn={Boolean(studentSession)}
+        aiSummary={aiSummary}
+      />
     </main>
   );
 }
