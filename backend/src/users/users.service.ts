@@ -117,6 +117,17 @@ export class UsersService {
     return this.userModel.findById(id).exec();
   }
 
+  async updateProfile(id: string, input: { avatarUrl?: string | null }) {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) return null;
+
+    if ("avatarUrl" in input) {
+      user.avatarUrl = input.avatarUrl?.trim() || undefined;
+    }
+
+    return user.save();
+  }
+
   publicUser(user: UserDocument) {
     return {
       id: user.id,

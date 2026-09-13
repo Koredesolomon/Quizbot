@@ -29,6 +29,7 @@ export function Header({
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join("") || "ST";
+  const firstInitial = firstName?.[0]?.toUpperCase() || "S";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -86,6 +87,82 @@ export function Header({
     onStudentSignOut();
   };
 
+  const mobileMenu = (
+    <div className="relative lg:hidden" ref={mobileMenuRef}>
+      <button
+        aria-expanded={isMobileMenuOpen}
+        aria-haspopup="menu"
+        aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm font-black transition hover:-translate-y-0.5 hover:shadow-md ${
+          isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-sky-100 bg-sky-50 text-sky-700"
+        }`}
+        type="button"
+        onClick={() => {
+          setIsMobileMenuOpen((open) => !open);
+          setIsProfileOpen(false);
+        }}
+        title="Menu"
+      >
+        {isMobileMenuOpen ? <X aria-hidden="true" size={18} /> : <Menu aria-hidden="true" size={18} />}
+      </button>
+      {isMobileMenuOpen && (
+        <div
+          className={`fixed left-[5%] right-[5%] top-[4.75rem] z-30 overflow-hidden rounded-lg border p-2 text-sm shadow-xl ${
+            isDark ? "border-slate-800 bg-slate-950 text-slate-100" : "border-slate-100 bg-white text-slate-700"
+          }`}
+          role="menu"
+        >
+          <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("landing")}>
+            <UserCircle aria-hidden="true" size={16} />
+            Home
+          </MobileMenuButton>
+          <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("subjects")}>
+            <BookOpen aria-hidden="true" size={16} />
+            Subjects
+          </MobileMenuButton>
+          <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("howItWorks")}>
+            <ClipboardList aria-hidden="true" size={16} />
+            How it works
+          </MobileMenuButton>
+          <div className={`my-2 h-px ${isDark ? "bg-slate-800" : "bg-slate-100"}`} />
+          {firstName ? (
+            <>
+              <div className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-slate-500"}`}>
+                <span className="block text-xs font-bold uppercase tracking-wide">Signed in as</span>
+                <span className={`block truncate font-black ${isDark ? "text-white" : "text-slate-950"}`}>
+                  {studentName}
+                </span>
+              </div>
+              <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentDashboard")}>
+                <UserCircle aria-hidden="true" size={16} />
+                Dashboard
+              </MobileMenuButton>
+              <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("overview")}>
+                <ClipboardList aria-hidden="true" size={16} />
+                Test overview
+              </MobileMenuButton>
+              <MobileMenuButton isDark={isDark} danger onClick={handleMobileSignOut}>
+                <LogOut aria-hidden="true" size={16} />
+                Sign out
+              </MobileMenuButton>
+            </>
+          ) : (
+            <>
+              <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("student")}>
+                <LogIn aria-hidden="true" size={16} />
+                Login
+              </MobileMenuButton>
+              <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentRegister")}>
+                <UserPlus aria-hidden="true" size={16} />
+                Sign up
+              </MobileMenuButton>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <header
       className={`sticky top-0 z-20 border-b backdrop-blur transition-colors duration-200 ${
@@ -100,7 +177,7 @@ export function Header({
           aria-label="Go to home"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="brand-logo h-auto w-36 shrink-0 sm:w-44" src="/Logo.png" alt="TLCHub" />
+          <img className="brand-logo -ml-6 h-auto w-36 shrink-0 sm:-ml-8 sm:w-44" src="/Logo.png" alt="TLCHub" />
         </button>
         <nav className={`absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-sm font-black lg:flex ${isDark ? "text-[var(--brand-blue-deep)]" : "text-slate-500"}`}>
           <button className="transition hover:text-[var(--brand-green)]" type="button" onClick={() => onNavigate("landing")}>
@@ -128,79 +205,6 @@ export function Header({
           >
             {isDark ? <Sun aria-hidden="true" size={17} /> : <Moon aria-hidden="true" size={17} />}
           </button>
-          <div className="relative lg:hidden" ref={mobileMenuRef}>
-            <button
-              aria-expanded={isMobileMenuOpen}
-              aria-haspopup="menu"
-              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm font-black transition hover:-translate-y-0.5 hover:shadow-md ${
-                isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-sky-100 bg-sky-50 text-sky-700"
-              }`}
-              type="button"
-              onClick={() => {
-                setIsMobileMenuOpen((open) => !open);
-                setIsProfileOpen(false);
-              }}
-              title="Menu"
-            >
-              {isMobileMenuOpen ? <X aria-hidden="true" size={18} /> : <Menu aria-hidden="true" size={18} />}
-            </button>
-            {isMobileMenuOpen && (
-              <div
-                className={`absolute right-0 mt-3 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-lg border p-2 text-sm shadow-xl ${
-                  isDark ? "border-slate-800 bg-slate-950 text-slate-100" : "border-slate-100 bg-white text-slate-700"
-                }`}
-                role="menu"
-              >
-                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("landing")}>
-                  <UserCircle aria-hidden="true" size={16} />
-                  Home
-                </MobileMenuButton>
-                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("subjects")}>
-                  <BookOpen aria-hidden="true" size={16} />
-                  Subjects
-                </MobileMenuButton>
-                <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("howItWorks")}>
-                  <ClipboardList aria-hidden="true" size={16} />
-                  How it works
-                </MobileMenuButton>
-                <div className={`my-2 h-px ${isDark ? "bg-slate-800" : "bg-slate-100"}`} />
-                {firstName ? (
-                  <>
-                    <div className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-slate-500"}`}>
-                      <span className="block text-xs font-bold uppercase tracking-wide">Signed in as</span>
-                      <span className={`block truncate font-black ${isDark ? "text-white" : "text-slate-950"}`}>
-                        {studentName}
-                      </span>
-                    </div>
-                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentDashboard")}>
-                      <UserCircle aria-hidden="true" size={16} />
-                      Dashboard
-                    </MobileMenuButton>
-                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("overview")}>
-                      <ClipboardList aria-hidden="true" size={16} />
-                      Test overview
-                    </MobileMenuButton>
-                    <MobileMenuButton isDark={isDark} danger onClick={handleMobileSignOut}>
-                      <LogOut aria-hidden="true" size={16} />
-                      Sign out
-                    </MobileMenuButton>
-                  </>
-                ) : (
-                  <>
-                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("student")}>
-                      <LogIn aria-hidden="true" size={16} />
-                      Login
-                    </MobileMenuButton>
-                    <MobileMenuButton isDark={isDark} onClick={() => handleMobileNavigate("studentRegister")}>
-                      <UserPlus aria-hidden="true" size={16} />
-                      Sign up
-                    </MobileMenuButton>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
           {firstName ? (
             <div className="relative" ref={profileMenuRef}>
               <button
@@ -218,10 +222,9 @@ export function Header({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img className="h-full w-full object-cover" src={studentAvatarUrl} alt="" referrerPolicy="no-referrer" />
                   ) : (
-                    initials
+                    <span className="grid h-full w-full place-items-center">{firstInitial}</span>
                   )}
                 </span>
-                <span className="hidden max-w-24 truncate sm:inline">{firstName}</span>
                 <ChevronDown
                   aria-hidden="true"
                   className={`transition ${isProfileOpen ? "rotate-180" : ""}`}
@@ -332,6 +335,7 @@ export function Header({
               <span>Sign up</span>
             </button>
           )}
+          {mobileMenu}
         </div>
       </div>
     </header>

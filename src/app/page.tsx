@@ -516,6 +516,33 @@ export default function Home() {
     ]);
   };
 
+  const saveUpdatedStudent = (user: api.AuthUser) => {
+    if (!studentSession) return;
+
+    saveStudentSession({
+      ...studentSession,
+      user,
+    });
+  };
+
+  const uploadStudentAvatar = async (file: File) => {
+    if (!studentSession?.accessToken) {
+      throw new Error("Sign in before updating your profile image.");
+    }
+
+    const response = await api.uploadProfileAvatar(file, studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+  };
+
+  const removeStudentAvatar = async () => {
+    if (!studentSession?.accessToken) {
+      throw new Error("Sign in before updating your profile image.");
+    }
+
+    const response = await api.removeProfileAvatar(studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+  };
+
   const registerAdmin = async (account: AdminAccount) => {
     setAdminAuthError("");
     const response = await api.registerAdmin({
@@ -636,6 +663,8 @@ export default function Home() {
           onBrowseSubjects={() => setScreen("subjects")}
           onViewOverview={() => setScreen("overview")}
           onResumeTest={currentAttemptId ? () => setScreen("test") : undefined}
+          onRemoveProfileAvatar={removeStudentAvatar}
+          onUploadProfileAvatar={uploadStudentAvatar}
         />
       )}
       {(screen === "student" || screen === "studentRegister") && (

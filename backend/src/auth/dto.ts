@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsNotEmpty, IsString, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl, MinLength } from "class-validator";
 
 export class RegisterDto {
   @IsString()
@@ -25,4 +25,11 @@ export class LoginDto {
 export class RegisterWithRoleDto extends RegisterDto {
   @IsIn(["admin", "student"])
   role: "admin" | "student";
+}
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
+  avatarUrl?: string | null;
 }

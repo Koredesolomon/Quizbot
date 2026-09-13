@@ -10,3 +10,6 @@ export declare class LoginDto {
 export declare class RegisterWithRoleDto extends RegisterDto {
     role: "admin" | "student";
 }
+export declare class UpdateProfileDto {
+    avatarUrl?: string | null;
+}

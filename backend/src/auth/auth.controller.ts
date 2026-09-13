@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
+import { CurrentUser } from "../common/current-user.decorator";
+import type { JwtUser } from "../common/jwt-user.type";
 import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto } from "./dto";
+import { LoginDto, RegisterDto, UpdateProfileDto } from "./dto";
+import { JwtAuthGuard } from "./jwt-auth.guard";
+
+type UploadedProfileImage = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+};
 
 @Controller("auth")
 export class AuthController {
@@ -25,6 +36,25 @@ export class AuthController {
   @Post("login")
   login(@Body() body: LoginDto) {
     return this.auth.login(body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("me/profile")
+  updateProfile(@CurrentUser() user: JwtUser, @Body() body: UpdateProfileDto) {
+    return this.auth.updateProfile(user.sub, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor("avatar", { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @Post("me/profile/avatar")
+  uploadProfileAvatar(@CurrentUser() user: JwtUser, @UploadedFile() file: UploadedProfileImage | undefined) {
+    return this.auth.updateProfileAvatar(user.sub, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("me/profile/avatar")
+  removeProfileAvatar(@CurrentUser() user: JwtUser) {
+    return this.auth.removeProfileAvatar(user.sub);
   }
 
   @Get("google/:role")

@@ -1,8 +1,15 @@
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
+import type { JwtUser } from "../common/jwt-user.type";
 import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto } from "./dto";
+import { LoginDto, RegisterDto, UpdateProfileDto } from "./dto";
+type UploadedProfileImage = {
+    buffer: Buffer;
+    originalname: string;
+    mimetype: string;
+    size: number;
+};
 export declare class AuthController {
     private readonly auth;
     private readonly config;
@@ -43,8 +50,42 @@ export declare class AuthController {
             createdAt: string;
         };
     }>;
+    updateProfile(user: JwtUser, body: UpdateProfileDto): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
+            createdAt: string;
+        };
+    }>;
+    uploadProfileAvatar(user: JwtUser, file: UploadedProfileImage | undefined): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
+            createdAt: string;
+        };
+    }>;
+    removeProfileAvatar(user: JwtUser): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
+            createdAt: string;
+        };
+    }>;
     googleLogin(role: UserRole, response: Response): void;
     googleCallback(role: UserRole, code: string | undefined, error: string | undefined, response: Response): Promise<void>;
     private googleRedirect;
     private isGoogleRole;
 }
+export {};

@@ -133,6 +133,23 @@ export declare class UsersService {
     } & Required<{
         _id: import("mongoose").Types.ObjectId;
     }>) | null>;
+    updateProfile(id: string, input: {
+        avatarUrl?: string | null;
+    }): Promise<(import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, User, {}, import("mongoose").DefaultSchemaOptions> & User & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    } & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }>) | null>;
     publicUser(user: UserDocument): {
         id: string;
         fullName: string;

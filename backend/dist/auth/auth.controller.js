@@ -15,8 +15,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const platform_express_1 = require("@nestjs/platform-express");
+const current_user_decorator_1 = require("../common/current-user.decorator");
 const auth_service_1 = require("./auth.service");
 const dto_1 = require("./dto");
+const jwt_auth_guard_1 = require("./jwt-auth.guard");
 let AuthController = class AuthController {
     auth;
     config;
@@ -32,6 +35,15 @@ let AuthController = class AuthController {
     }
     login(body) {
         return this.auth.login(body);
+    }
+    updateProfile(user, body) {
+        return this.auth.updateProfile(user.sub, body);
+    }
+    uploadProfileAvatar(user, file) {
+        return this.auth.updateProfileAvatar(user.sub, file);
+    }
+    removeProfileAvatar(user) {
+        return this.auth.removeProfileAvatar(user.sub);
     }
     googleLogin(role, response) {
         const frontendUrl = this.config.get("FRONTEND_ORIGIN") ?? "http://localhost:3000";
@@ -101,6 +113,33 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.LoginDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Patch)("me/profile"),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, dto_1.UpdateProfileDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("avatar", { limits: { fileSize: 2 * 1024 * 1024 } })),
+    (0, common_1.Post)("me/profile/avatar"),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "uploadProfileAvatar", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Delete)("me/profile/avatar"),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "removeProfileAvatar", null);
 __decorate([
     (0, common_1.Get)("google/:role"),
     __param(0, (0, common_1.Param)("role")),

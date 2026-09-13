@@ -1,7 +1,9 @@
-import { Injectable, Logger, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { UserRole } from "../common/user-role.type";
 import { MailService } from "../mail/mail.service";
 import type { UserDocument } from "../users/user.schema";
@@ -23,6 +25,13 @@ type GoogleProfileResponse = {
   hd?: string;
   error?: string;
   error_description?: string;
+};
+
+type ProfileImageUpload = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
 };
 
 @Injectable()
@@ -69,6 +78,60 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.authResponse(user);
+  }
+
+  async updateProfile(userId: string, input: { avatarUrl?: string | null }) {
+    const user = await this.users.updateProfile(userId, input);
+    if (!user) {
+      throw new NotFoundException("User account was not found.");
+    }
+
+    return {
+      user: this.users.publicUser(user),
+    };
+  }
+
+  async updateProfileAvatar(userId: string, file: ProfileImageUpload | undefined) {
+    if (!file) {
+      throw new BadRequestException("Choose an image to upload.");
+    }
+
+    const extension = this.profileImageExtension(file.mimetype);
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new NotFoundException("User account was not found.");
+    }
+
+    const uploadsDirectory = this.profileImageDirectory();
+    await mkdir(uploadsDirectory, { recursive: true });
+
+    const fileName = `${userId}-${Date.now()}${extension}`;
+    await writeFile(join(uploadsDirectory, fileName), file.buffer);
+
+    const previousAvatarUrl = user.avatarUrl;
+    user.avatarUrl = `${this.publicApiBaseUrl()}/uploads/profile-images/${fileName}`;
+    await user.save();
+    await this.deleteUploadedProfileImage(previousAvatarUrl);
+
+    return {
+      user: this.users.publicUser(user),
+    };
+  }
+
+  async removeProfileAvatar(userId: string) {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new NotFoundException("User account was not found.");
+    }
+
+    const previousAvatarUrl = user.avatarUrl;
+    user.avatarUrl = undefined;
+    await user.save();
+    await this.deleteUploadedProfileImage(previousAvatarUrl);
+
+    return {
+      user: this.users.publicUser(user),
+    };
   }
 
   getGoogleAuthorizationUrl(role: UserRole) {
@@ -210,6 +273,56 @@ export class AuthService implements OnModuleInit {
     }
 
     return value;
+  }
+
+  private profileImageExtension(mimetype: string) {
+    const extensions: Record<string, string> = {
+      "image/gif": ".gif",
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+    };
+    const extension = extensions[mimetype];
+
+    if (!extension) {
+      throw new BadRequestException("Upload a PNG, JPG, WEBP, or GIF image.");
+    }
+
+    return extension;
+  }
+
+  private profileImageDirectory() {
+    return join(process.cwd(), "uploads", "profile-images");
+  }
+
+  private publicApiBaseUrl() {
+    return (
+      this.config.get<string>("API_PUBLIC_URL") ??
+      this.config.get<string>("API_BASE_URL") ??
+      `http://localhost:${this.config.get<number>("PORT") ?? 4000}`
+    ).replace(/\/$/, "");
+  }
+
+  private async deleteUploadedProfileImage(avatarUrl?: string) {
+    const fileName = this.uploadedProfileImageFileName(avatarUrl);
+    if (!fileName) return;
+
+    try {
+      await unlink(join(this.profileImageDirectory(), fileName));
+    } catch {
+      // The database profile has already been updated; a missing old file should not block the request.
+    }
+  }
+
+  private uploadedProfileImageFileName(avatarUrl?: string) {
+    const marker = "/uploads/profile-images/";
+    const markerIndex = avatarUrl?.indexOf(marker) ?? -1;
+    if (markerIndex === -1 || !avatarUrl) return null;
+
+    const fileName = decodeURIComponent(avatarUrl.slice(markerIndex + marker.length).split(/[?#]/)[0] ?? "");
+    if (!fileName || fileName.includes("/") || fileName.includes("\\")) return null;
+
+    return fileName;
   }
 
   private async bootstrapConfiguredAdmin() {

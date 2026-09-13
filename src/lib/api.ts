@@ -76,8 +76,9 @@ export type AdminAnalytics = {
 
 async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
 
-  if (!headers.has("Content-Type") && options.body) {
+  if (!headers.has("Content-Type") && options.body && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -126,6 +127,32 @@ export function login(input: { email: string; password: string }) {
   return apiRequest<AuthResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateProfile(input: { avatarUrl?: string | null }, token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile", {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function uploadProfileAvatar(file: File, token: string) {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile/avatar", {
+    method: "POST",
+    token,
+    body: formData,
+  });
+}
+
+export function removeProfileAvatar(token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile/avatar", {
+    method: "DELETE",
+    token,
   });
 }
 
