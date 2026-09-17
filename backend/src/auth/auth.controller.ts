@@ -4,6 +4,8 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { JwtUser } from "../common/jwt-user.type";
+import { Roles } from "../common/roles.decorator";
+import { RolesGuard } from "../common/roles.guard";
 import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto, UpdateProfileDto } from "./dto";
@@ -23,6 +25,8 @@ export class AuthController {
     private readonly config: ConfigService
   ) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
   @Post("register-admin")
   registerAdmin(@Body() body: RegisterDto) {
     return this.auth.register({ ...body, role: "admin" });
@@ -99,6 +103,7 @@ export class AuthController {
           avatarUrl: result.user.avatarUrl ?? "",
           authProvider: result.user.authProvider,
           createdAt: result.user.createdAt,
+          userRole: result.user.role,
         })
       );
     } catch (callbackError) {

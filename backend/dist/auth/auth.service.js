@@ -147,6 +147,9 @@ let AuthService = AuthService_1 = class AuthService {
             this.assertGoogleAdminAllowed(email, profile.hd);
         }
         const existingUser = await this.users.findByEmail(email);
+        if (existingUser && existingUser.role !== role && role === "student") {
+            throw new common_1.UnauthorizedException("Use the admin Google sign-in for this account.");
+        }
         const user = await this.users.findOrCreateGoogleUser({
             fullName: profile.name ?? email,
             email,

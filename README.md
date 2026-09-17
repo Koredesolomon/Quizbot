@@ -31,7 +31,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 1. Start the full app with `npm run dev:all`.
 2. Open the admin dashboard in the app.
-3. Register or sign in as an admin.
+3. Sign in as an admin. Seed the first admin with the backend `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables.
 4. Use the question form for a single question, or the JSON upload/import control for bulk questions.
 
 Admin question saves require a backend admin session. Successful form and import actions are persisted to MongoDB through the Nest API.

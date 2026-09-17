@@ -191,6 +191,10 @@ export class AuthService implements OnModuleInit {
     }
 
     const existingUser = await this.users.findByEmail(email);
+    if (existingUser && existingUser.role !== role && role === "student") {
+      throw new UnauthorizedException("Use the admin Google sign-in for this account.");
+    }
+
     const user = await this.users.findOrCreateGoogleUser({
       fullName: profile.name ?? email,
       email,

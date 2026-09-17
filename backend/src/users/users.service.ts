@@ -49,7 +49,7 @@ export class UsersService {
 
       existing.fullName = input.fullName || existing.fullName;
       existing.passwordHash = input.passwordHash;
-      existing.role = input.role;
+      existing.role = input.role === "admin" ? "admin" : existing.role;
       existing.authProvider = "password";
       return existing.save();
     }
@@ -96,7 +96,7 @@ export class UsersService {
       existing.fullName = input.fullName || existing.fullName;
       existing.avatarUrl = input.avatarUrl || existing.avatarUrl;
       existing.authProvider = "google";
-      existing.role = input.role;
+      existing.role = input.role === "admin" ? "admin" : existing.role;
       return existing.save();
     }
 

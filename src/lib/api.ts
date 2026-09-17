@@ -109,9 +109,10 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T>
   return response.json() as Promise<T>;
 }
 
-export function registerAdmin(input: { fullName: string; email: string; password: string }) {
+export function registerAdmin(input: { fullName: string; email: string; password: string }, token: string) {
   return apiRequest<AuthResponse>("/auth/register-admin", {
     method: "POST",
+    token,
     body: JSON.stringify(input),
   });
 }

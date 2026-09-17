@@ -36,7 +36,7 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
 
 ## First endpoints
 
-- `POST /auth/register-admin`
+- `POST /auth/register-admin` admin only
 - `POST /auth/register-student`
 - `POST /auth/login`
 - `GET /auth/google/admin`
@@ -53,7 +53,7 @@ Questions, users, attempts, answers, and feedback are persisted in MongoDB.
 
 ## Uploading questions
 
-1. Register or login as an admin.
+1. Login as an admin. Seed the first admin with `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 2. Copy the returned `accessToken`.
 3. Upload a question:
 

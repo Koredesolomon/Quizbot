@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AdminDashboard, AdminLogin, AdminRegistration, type AdminAccount } from "@/components/admin-dashboard";
+import { AdminDashboard, AdminLogin, type AdminAccount } from "@/components/admin-dashboard";
 import { TlchubAiAssistant } from "@/components/ai-assistant";
 import { Header } from "@/components/header";
 import { Landing } from "@/components/landing";
@@ -70,7 +70,7 @@ function getGoogleCallback(): GoogleCallback {
         fullName,
         email,
         avatarUrl: params.get("avatarUrl") || undefined,
-        role: "student",
+        role: params.get("userRole") === "admin" ? "admin" : "student",
         authProvider: "google",
         createdAt: params.get("createdAt") ?? new Date().toISOString(),
       },
@@ -192,7 +192,6 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [themeLoaded, setThemeLoaded] = useState(false);
   const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
-  const [adminAuthMode, setAdminAuthMode] = useState<"login" | "register">("login");
   const [adminAuthError, setAdminAuthError] = useState("");
   const [studentSession, setStudentSession] = useState<api.AuthResponse | null>(null);
   const [studentAuthError, setStudentAuthError] = useState("");
@@ -363,6 +362,10 @@ export default function Home() {
 
   const registerStudent = async (input: { fullName: string; email: string; password: string }) => {
     const nextSession = await api.registerStudent(input);
+    if (nextSession.user.role !== "student") {
+      throw new Error("Use a student account to take tests.");
+    }
+
     saveStudentSession(nextSession);
     setScreen("studentDashboard");
     return nextSession;
@@ -543,27 +546,6 @@ export default function Home() {
     saveUpdatedStudent(response.user);
   };
 
-  const registerAdmin = async (account: AdminAccount) => {
-    setAdminAuthError("");
-    const response = await api.registerAdmin({
-      fullName: account.name,
-      email: account.email,
-      password: account.accessCode,
-    });
-    const nextAccount: AdminAccount = {
-      ...account,
-      name: response.user.fullName,
-      email: response.user.email,
-      accessToken: response.accessToken,
-      authProvider: "password",
-    };
-
-    setAdminAccount(nextAccount);
-    setAdminUnlocked(true);
-    window.localStorage.setItem(adminStorageKey, JSON.stringify(nextAccount));
-    return true;
-  };
-
   const continueWithGoogle = async (role: "admin" | "student") => {
     if (role === "admin") {
       setAdminAuthError("");
@@ -591,7 +573,6 @@ export default function Home() {
     setAdminAccount(null);
     setAdminUnlocked(false);
     setAdminAuthError("");
-    setAdminAuthMode("login");
     window.localStorage.removeItem(adminStorageKey);
   };
 
@@ -715,9 +696,7 @@ export default function Home() {
         />
       )}
       {screen === "admin" && (
-        !adminAccount && adminAuthMode === "register" ? (
-          <AdminRegistration onRegister={registerAdmin} onBack={() => setAdminAuthMode("login")} />
-        ) : adminAccount && adminUnlocked && adminAccount.accessToken ? (
+        adminAccount && adminUnlocked && adminAccount.accessToken ? (
           <AdminDashboard
             adminName={adminAccount.name}
             adminRole={adminAccount.role}
@@ -735,7 +714,7 @@ export default function Home() {
                 current.map((item) => (item.id === id ? { ...item, status: "reviewed" } : item))
               );
             }}
-            onSignOut={() => setAdminUnlocked(false)}
+            onSignOut={clearAdminSession}
             onBack={() => setScreen("landing")}
           />
         ) : (
@@ -746,9 +725,7 @@ export default function Home() {
               setAdminAuthError("");
 
               if (adminAccount?.authProvider === "google") {
-                const unlocked = email === adminAccount.email && Boolean(adminAccount.accessToken);
-                setAdminUnlocked(unlocked);
-                return unlocked;
+                throw new Error("Use Google sign-in to access this admin account.");
               }
 
               return api.login({ email, password: accessCode }).then((response) => {

@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const platform_express_1 = require("@nestjs/platform-express");
 const current_user_decorator_1 = require("../common/current-user.decorator");
+const roles_decorator_1 = require("../common/roles.decorator");
+const roles_guard_1 = require("../common/roles.guard");
 const auth_service_1 = require("./auth.service");
 const dto_1 = require("./dto");
 const jwt_auth_guard_1 = require("./jwt-auth.guard");
@@ -76,6 +78,7 @@ let AuthController = class AuthController {
                 avatarUrl: result.user.avatarUrl ?? "",
                 authProvider: result.user.authProvider,
                 createdAt: result.user.createdAt,
+                userRole: result.user.role,
             }));
         }
         catch (callbackError) {
@@ -93,6 +96,8 @@ let AuthController = class AuthController {
 };
 exports.AuthController = AuthController;
 __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)("admin"),
     (0, common_1.Post)("register-admin"),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
