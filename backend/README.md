@@ -39,6 +39,12 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
 - `POST /auth/register-admin` admin only
 - `POST /auth/register-student`
 - `POST /auth/login`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
+- `GET /content/courses`
+- `POST /content/courses` admin only
+- `POST /content/courses/:id/lessons` admin only
+- `POST /content/courses/:id/quizzes` admin only
 - `GET /auth/google/admin`
 - `GET /auth/google/admin/callback`
 - `GET /questions`
@@ -50,6 +56,8 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
 - `GET /admin/analytics` admin only
 
 Questions, users, attempts, answers, and feedback are persisted in MongoDB.
+Password login accepts either the account email address or username.
+Student course registration is stored on the user profile and controls which courses appear on the student dashboard.
 
 ## Uploading questions
 
@@ -152,3 +160,5 @@ SMTP_FROM="TLCHub <no-reply@mytlchub.com>"
 
 If SMTP is not configured or the mail provider is temporarily unavailable, signup still succeeds and the backend logs the
 mail delivery issue.
+
+Forgot-password emails use the same SMTP settings. Reset tokens expire after one hour and are cleared after a successful password change.

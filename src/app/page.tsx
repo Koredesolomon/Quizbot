@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDashboard, AdminLogin, type AdminAccount } from "@/components/admin-dashboard";
 import { TlchubAiAssistant } from "@/components/ai-assistant";
@@ -15,6 +15,7 @@ import {
   Topics,
 } from "@/components/selection-screens";
 import { ComingSoon, Details, Marking, Results } from "@/components/results-screens";
+import { PasswordReset } from "@/components/password-reset";
 import { StudentAuth } from "@/components/student-auth";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { TestInterface } from "@/components/test-interface";
@@ -28,12 +29,46 @@ const adminStorageKey = "stem-jupeb-admin-account";
 const studentStorageKey = "stem-jupeb-student-session";
 const themeStorageKey = "stem-jupeb-theme";
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const screens = new Set<Screen>([
+  "landing",
+  "howItWorks",
+  "programme",
+  "subjects",
+  "courses",
+  "topics",
+  "overview",
+  "test",
+  "marking",
+  "results",
+  "details",
+  "student",
+  "studentRegister",
+  "studentDashboard",
+  "passwordReset",
+  "admin",
+  "comingSoon",
+]);
 
 type GoogleCallback =
   | { role: "admin"; account: AdminAccount; error?: never }
   | { role: "student"; session: api.AuthResponse; error?: never }
   | { role: "admin" | "student"; error: string }
   | null;
+
+type PasswordResetCallback = { token: string; email: string } | null;
+
+function getPasswordResetCallback(): PasswordResetCallback {
+  if (typeof window === "undefined" || !window.location.hash.includes("resetPassword=1")) return null;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const token = params.get("token") ?? "";
+  if (!token) return null;
+
+  return {
+    token,
+    email: params.get("email") ?? "",
+  };
+}
 
 function getGoogleCallback(): GoogleCallback {
   if (typeof window === "undefined" || !window.location.hash.includes("authGoogle=1")) return null;
@@ -68,12 +103,14 @@ function getGoogleCallback(): GoogleCallback {
       user: {
         id: params.get("id") ?? "",
         fullName,
-        email,
-        avatarUrl: params.get("avatarUrl") || undefined,
-        role: params.get("userRole") === "admin" ? "admin" : "student",
-        authProvider: "google",
-        createdAt: params.get("createdAt") ?? new Date().toISOString(),
-      },
+          email,
+          username: params.get("username") || undefined,
+          avatarUrl: params.get("avatarUrl") || undefined,
+          role: params.get("userRole") === "admin" ? "admin" : "student",
+          authProvider: "google",
+          registeredCourses: params.get("registeredCourses")?.split(",").filter(Boolean) ?? [],
+          createdAt: params.get("createdAt") ?? new Date().toISOString(),
+        },
     },
   };
 }
@@ -105,9 +142,14 @@ function isAdminChannelHash() {
   return params.get("admin") === "1";
 }
 
+function isScreen(value: unknown): value is Screen {
+  return typeof value === "string" && screens.has(value as Screen);
+}
+
 function toQuestionPayload(question: Question): Omit<Question, "id"> {
   return {
     type: question.type,
+    subject: question.subject,
     topic: question.topic,
     prompt: question.prompt,
     options: question.options,
@@ -180,6 +222,7 @@ export default function Home() {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>("landing");
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
+  const [courses, setCourses] = useState<api.CourseContent[]>([]);
   const [backendQuestionsLoaded, setBackendQuestionsLoaded] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -196,8 +239,51 @@ export default function Home() {
   const [studentSession, setStudentSession] = useState<api.AuthResponse | null>(null);
   const [studentAuthError, setStudentAuthError] = useState("");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [passwordResetToken, setPasswordResetToken] = useState("");
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [comingSoonBackScreen, setComingSoonBackScreen] = useState<Screen>("subjects");
+  const historyReadyRef = useRef(false);
+  const restoringHistoryRef = useRef(false);
   const activeStudentName = studentSession?.user.fullName ?? studentName;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const currentState = window.history.state;
+    if (!isScreen(currentState?.tlcScreen)) {
+      window.history.replaceState({ ...currentState, tlcScreen: screen }, "", window.location.pathname + window.location.search);
+    }
+
+    historyReadyRef.current = true;
+
+    const handlePopState = (event: PopStateEvent) => {
+      const nextScreen = event.state?.tlcScreen;
+      if (!isScreen(nextScreen)) return;
+
+      restoringHistoryRef.current = true;
+      setScreen(nextScreen);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [screen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !historyReadyRef.current) return;
+
+    if (restoringHistoryRef.current) {
+      restoringHistoryRef.current = false;
+      return;
+    }
+
+    if (window.history.state?.tlcScreen === screen) return;
+
+    window.history.pushState(
+      { ...(window.history.state ?? {}), tlcScreen: screen },
+      "",
+      window.location.pathname + window.location.search
+    );
+  }, [screen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -206,6 +292,15 @@ export default function Home() {
       const savedTheme = window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
       setTheme(savedTheme);
       setThemeLoaded(true);
+      const resetCallback = getPasswordResetCallback();
+      if (resetCallback) {
+        setPasswordResetToken(resetCallback.token);
+        setPasswordResetEmail(resetCallback.email);
+        setScreen("passwordReset");
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+
       const shouldOpenAdminChannel = isAdminChannelHash();
 
       const googleCallback = getGoogleCallback() ?? getGoogleAdminCallback();
@@ -268,18 +363,18 @@ export default function Home() {
   useEffect(() => {
     let ignore = false;
 
-    api
-      .getQuestions()
-      .then((backendQuestions) => {
+    Promise.all([api.getQuestions(), api.getCourses()])
+      .then(([backendQuestions, backendCourses]) => {
         if (!ignore) {
           if (backendQuestions.length > 0) {
             setQuestions(backendQuestions);
             setBackendQuestionsLoaded(true);
           }
+          setCourses(backendCourses);
         }
       })
       .catch(() => {
-        // Keep starter questions available when the backend is not running locally.
+        // Keep starter content available when the backend is not running locally.
       });
 
     return () => {
@@ -349,7 +444,7 @@ export default function Home() {
     return nextSession;
   };
 
-  const loginStudent = async (input: { email: string; password: string }) => {
+  const loginStudent = async (input: { identifier: string; password: string }) => {
     const nextSession = await api.login(input);
     if (nextSession.user.role !== "student") {
       throw new Error("Use a student account to take tests.");
@@ -360,7 +455,7 @@ export default function Home() {
     return nextSession;
   };
 
-  const registerStudent = async (input: { fullName: string; email: string; password: string }) => {
+  const registerStudent = async (input: { fullName: string; email: string; username?: string; password: string }) => {
     const nextSession = await api.registerStudent(input);
     if (nextSession.user.role !== "student") {
       throw new Error("Use a student account to take tests.");
@@ -501,6 +596,45 @@ export default function Home() {
     setCurrentQuestion(0);
   };
 
+  const createCourse = async (input: {
+    title: string;
+    code: string;
+    subject: string;
+    description?: string;
+    status?: "draft" | "published";
+  }) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving courses.");
+    }
+
+    await api.createCourse(input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
+  const addLesson = async (
+    courseId: string,
+    input: { title: string; description?: string; videoUrl?: string; materialUrl?: string }
+  ) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving lessons.");
+    }
+
+    await api.addLesson(courseId, input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
+  const addQuiz = async (
+    courseId: string,
+    input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
+  ) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving quizzes.");
+    }
+
+    await api.addQuiz(courseId, input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
   const submitFeedback = (message: string, rating: number) => {
     if (studentSession?.accessToken) {
       void api.submitFeedback({ message, rating }, studentSession.accessToken).catch(() => undefined);
@@ -546,6 +680,17 @@ export default function Home() {
     saveUpdatedStudent(response.user);
   };
 
+  const registerStudentCourse = async (courseCode: string) => {
+    if (!studentSession?.accessToken) {
+      setScreen("student");
+      return;
+    }
+
+    const response = await api.registerCourse(courseCode, studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+    setScreen("topics");
+  };
+
   const continueWithGoogle = async (role: "admin" | "student") => {
     if (role === "admin") {
       setAdminAuthError("");
@@ -574,6 +719,12 @@ export default function Home() {
     setAdminUnlocked(false);
     setAdminAuthError("");
     window.localStorage.removeItem(adminStorageKey);
+  };
+
+  const openPasswordReset = (email = "") => {
+    setPasswordResetToken("");
+    setPasswordResetEmail(email);
+    setScreen("passwordReset");
   };
 
   const isDark = theme === "dark";
@@ -614,7 +765,9 @@ export default function Home() {
       )}
       {screen === "courses" && (
         <Courses
+          registeredCourses={studentSession?.user.registeredCourses ?? []}
           onPHS001={() => setScreen("topics")}
+          onRegisterCourse={registerStudentCourse}
           onComingSoon={() => showComingSoon("courses")}
           onBack={() => setScreen("subjects")}
         />
@@ -640,7 +793,13 @@ export default function Home() {
           attempts={attempts}
           questionCount={questions.length}
           totalMarks={totalMarks}
-          onStartPractice={() => setScreen("overview")}
+          onStartPractice={() => {
+            if ((studentSession.user.registeredCourses ?? []).includes("PHS 001")) {
+              setScreen("overview");
+            } else {
+              setScreen("subjects");
+            }
+          }}
           onBrowseSubjects={() => setScreen("subjects")}
           onViewOverview={() => setScreen("overview")}
           onResumeTest={currentAttemptId ? () => setScreen("test") : undefined}
@@ -656,7 +815,21 @@ export default function Home() {
           onLogin={loginStudent}
           onRegister={registerStudent}
           onGoogleLogin={() => void continueWithGoogle("student")}
+          onForgotPassword={openPasswordReset}
           onBack={() => setScreen(studentSession ? "studentDashboard" : "landing")}
+        />
+      )}
+      {screen === "passwordReset" && (
+        <PasswordReset
+          initialEmail={passwordResetEmail}
+          token={passwordResetToken}
+          onRequestReset={api.forgotPassword}
+          onResetPassword={api.resetPassword}
+          onBack={() => {
+            setPasswordResetToken("");
+            setPasswordResetEmail("");
+            setScreen("landing");
+          }}
         />
       )}
       {screen === "test" && (
@@ -700,9 +873,13 @@ export default function Home() {
           <AdminDashboard
             adminName={adminAccount.name}
             adminRole={adminAccount.role}
+            courses={courses}
             questions={questions}
             attempts={attempts}
             feedback={feedback}
+            onCreateCourse={createCourse}
+            onAddLesson={addLesson}
+            onAddQuiz={addQuiz}
             onAddQuestion={addQuestion}
             onImportQuestions={importQuestions}
             onReviewFeedback={(id) => {
@@ -721,14 +898,10 @@ export default function Home() {
           <AdminLogin
             adminEmail={adminAccount?.email ?? ""}
             authError={adminAuthError}
-            onUnlock={(email, accessCode) => {
+            onUnlock={(identifier, accessCode) => {
               setAdminAuthError("");
 
-              if (adminAccount?.authProvider === "google") {
-                throw new Error("Use Google sign-in to access this admin account.");
-              }
-
-              return api.login({ email, password: accessCode }).then((response) => {
+              return api.login({ identifier, password: accessCode }).then((response) => {
                 if (response.user.role !== "admin") return false;
 
                 const nextAccount: AdminAccount = {
@@ -748,6 +921,7 @@ export default function Home() {
               });
             }}
             onGoogleLogin={() => void continueWithGoogle("admin")}
+            onForgotPassword={openPasswordReset}
             onBack={() => {
               clearAdminSession();
               setScreen("landing");

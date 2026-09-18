@@ -9,6 +9,13 @@ type WelcomeEmailInput = {
   role: "admin" | "student";
 };
 
+type PasswordResetEmailInput = {
+  fullName: string;
+  email: string;
+  token: string;
+  expiresAt: Date;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -46,6 +53,42 @@ export class MailService {
         "The TLCHub Team",
       ].join("\n"),
       html: this.welcomeHtml({ ...input, appUrl, firstName, roleLabel }),
+    });
+  }
+
+  async sendPasswordResetEmail(input: PasswordResetEmailInput) {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      this.logger.log("Password reset email skipped because SMTP is not configured.");
+      return;
+    }
+
+    const appUrl = (this.config.get<string>("FRONTEND_ORIGIN") ?? "https://mytlchub.com").replace(/\/$/, "");
+    const firstName = input.fullName.trim().split(/\s+/)[0] || "there";
+    const resetUrl = `${appUrl}/#${new URLSearchParams({
+      resetPassword: "1",
+      token: input.token,
+      email: input.email,
+    }).toString()}`;
+
+    await transporter.sendMail({
+      from: this.mailFrom(),
+      to: input.email,
+      subject: "Reset your TLCHub password",
+      text: [
+        `Hi ${firstName},`,
+        "",
+        "Use this link to reset your TLCHub password:",
+        resetUrl,
+        "",
+        `This link expires at ${input.expiresAt.toISOString()}.`,
+        "",
+        "If you did not request a password reset, you can ignore this email.",
+        "",
+        "Best,",
+        "The TLCHub Team",
+      ].join("\n"),
+      html: this.passwordResetHtml({ firstName, resetUrl, expiresAt: input.expiresAt }),
     });
   }
 
@@ -106,6 +149,44 @@ export class MailService {
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.7;">${body}</p>
                 <a href="${this.escapeHtml(appUrl)}" style="display:inline-block;background:#087c22;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 18px;border-radius:8px;">Open TLCHub</a>
                 <p style="margin:28px 0 0;font-size:13px;line-height:1.6;color:#5e7086;">If you did not create this account, you can ignore this email.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  }
+
+  private passwordResetHtml({
+    firstName,
+    resetUrl,
+    expiresAt,
+  }: {
+    firstName: string;
+    resetUrl: string;
+    expiresAt: Date;
+  }) {
+    return `<!doctype html>
+<html>
+  <body style="margin:0;background:#f7fbff;font-family:Arial,Helvetica,sans-serif;color:#10243f;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #d5e2f0;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="background:#082b63;padding:28px 32px;color:#ffffff;">
+                <div style="font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8de19a;">TLCHub</div>
+                <h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Reset your password</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:30px 32px;">
+                <p style="margin:0 0 16px;font-size:16px;line-height:1.7;">Hi ${this.escapeHtml(firstName)},</p>
+                <p style="margin:0 0 24px;font-size:16px;line-height:1.7;">Use this secure link to create a new TLCHub password.</p>
+                <a href="${this.escapeHtml(resetUrl)}" style="display:inline-block;background:#087c22;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 18px;border-radius:8px;">Reset password</a>
+                <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#5e7086;">This link expires at ${this.escapeHtml(expiresAt.toISOString())}. If you did not request it, you can ignore this email.</p>
               </td>
             </tr>
           </table>

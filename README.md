@@ -32,7 +32,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 1. Start the full app with `npm run dev:all`.
 2. Open the admin dashboard in the app.
 3. Sign in as an admin. Seed the first admin with the backend `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables.
-4. Use the question form for a single question, or the JSON upload/import control for bulk questions.
+4. Build a course, add lessons/quizzes, then use the question form for a single question or the JSON upload/import control for bulk questions.
 
 Admin question saves require a backend admin session. Successful form and import actions are persisted to MongoDB through the Nest API.
 
@@ -58,6 +58,8 @@ Question uploads can include AI engine metadata:
 
 Students must register or sign in before starting any test. When questions are loaded from the backend, their attempts,
 answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
+Password sign-in accepts either the account email address or username.
+Courses do not appear on a student dashboard by default; the student must register an available course first.
 
 ## Welcome Emails
 
@@ -72,6 +74,7 @@ SMTP_FROM=TLCHub <no-reply@mytlchub.com>
 ```
 
 Signup does not fail if email delivery is unavailable; the backend logs the mail error and continues.
+Forgot-password emails use the same SMTP settings. Reset links expire after one hour.
 
 ## AI Grading
 

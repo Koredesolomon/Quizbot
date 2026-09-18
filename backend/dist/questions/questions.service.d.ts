@@ -7,6 +7,7 @@ export declare class QuestionsService {
     list(): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;
@@ -24,6 +25,7 @@ export declare class QuestionsService {
     create(input: CreateQuestionDto, adminId: string): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;
@@ -41,6 +43,7 @@ export declare class QuestionsService {
     import(questions: CreateQuestionDto[], adminId: string): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;
@@ -75,6 +78,7 @@ export declare class QuestionsService {
     publicQuestion(question: QuestionDocument): {
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;

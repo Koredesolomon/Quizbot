@@ -21,6 +21,7 @@ export declare class AuthService implements OnModuleInit {
     register(input: {
         fullName: string;
         email: string;
+        username?: string;
         password: string;
         role: UserRole;
     }): Promise<{
@@ -29,14 +30,16 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
     login(input: {
-        email: string;
+        identifier: string;
         password: string;
     }): Promise<{
         accessToken: string;
@@ -44,11 +47,24 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
+    }>;
+    requestPasswordReset(input: {
+        email: string;
+    }): Promise<{
+        message: string;
+    }>;
+    resetPassword(input: {
+        token: string;
+        password: string;
+    }): Promise<{
+        message: string;
     }>;
     updateProfile(userId: string, input: {
         avatarUrl?: string | null;
@@ -57,9 +73,26 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
+            createdAt: string;
+        };
+    }>;
+    registerCourse(userId: string, input: {
+        courseCode: string;
+    }): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -68,9 +101,11 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -79,9 +114,11 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -93,22 +130,27 @@ export declare class AuthService implements OnModuleInit {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
     private sendWelcomeEmail;
+    private sendPasswordResetEmail;
     loginGoogleAdmin(code: string): Promise<{
         accessToken: string;
         user: {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -121,6 +163,7 @@ export declare class AuthService implements OnModuleInit {
     private publicApiBaseUrl;
     private deleteUploadedProfileImage;
     private uploadedProfileImageFileName;
+    private passwordResetTokenHash;
     private bootstrapConfiguredAdmin;
 }
 export {};

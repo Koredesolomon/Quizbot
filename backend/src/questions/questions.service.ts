@@ -51,6 +51,7 @@ export class QuestionsService {
     return {
       id: question.id,
       type: question.type,
+      subject: question.subject ?? "Physics",
       topic: question.topic,
       prompt: question.prompt,
       options: question.options,

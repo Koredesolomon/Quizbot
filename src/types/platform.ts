@@ -13,6 +13,7 @@ export type Screen =
   | "student"
   | "studentRegister"
   | "studentDashboard"
+  | "passwordReset"
   | "admin"
   | "comingSoon";
 
@@ -22,6 +23,7 @@ export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type Question = {
   id: string;
   type: QuestionType;
+  subject?: string;
   topic: string;
   prompt: string;
   options?: string[];

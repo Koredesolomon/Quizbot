@@ -1,5 +1,6 @@
 export declare class CreateQuestionDto {
     type: "objective" | "theory";
+    subject?: string;
     topic: string;
     prompt: string;
     options?: string[];

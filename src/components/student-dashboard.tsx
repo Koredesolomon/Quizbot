@@ -58,6 +58,8 @@ export function StudentDashboard({
     : 0;
   const completion = questionCount ? Math.round((completedAttempts.reduce((sum, attempt) => sum + attempt.answered, 0) / Math.max(1, completedAttempts.length)) / questionCount * 100) : 0;
   const firstName = student.fullName.split(/\s+/)[0];
+  const registeredCourses = student.registeredCourses ?? [];
+  const hasPhs001 = registeredCourses.includes("PHS 001");
   const [avatarError, setAvatarError] = useState("");
   const [avatarStatus, setAvatarStatus] = useState("");
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
@@ -189,7 +191,7 @@ export function StudentDashboard({
                   {avatarStatus && <p className="mt-3 text-sm font-bold text-[var(--brand-green)]">{avatarStatus}</p>}
                   <div className="mt-6 flex flex-wrap justify-center gap-3">
                     <PrimaryButton className="bg-[var(--brand-green)]" type="button" onClick={onStartPractice}>
-                      <Play size={16} /> Start Practice
+                      <Play size={16} /> {hasPhs001 ? "Start Practice" : "Register a course"}
                     </PrimaryButton>
                     <SecondaryButton disabled={isSavingAvatar} type="button" onClick={() => avatarInputRef.current?.click()}>
                       <Camera size={16} /> {student.avatarUrl ? "Replace image" : "Add image"}
@@ -197,8 +199,21 @@ export function StudentDashboard({
                   </div>
                 </div>
               </div>
-              <div className="mt-8 flex items-center justify-between"><div><h2 className="text-xl font-black text-[var(--ink)]">My course</h2><p className="mt-1 text-sm font-semibold text-[var(--ink-muted)]">Physics · PHS 001</p></div><button className="text-xs font-black text-[var(--brand-blue)]" type="button" onClick={onBrowseSubjects}>View subjects <ChevronRight className="inline" size={14} /></button></div>
-              <button className="mt-4 w-full rounded-xl border-2 border-[var(--brand-blue)] bg-[var(--surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg" type="button" onClick={onViewOverview}><div className="flex items-start justify-between gap-4"><span className="grid h-12 w-12 place-items-center rounded-lg bg-[var(--brand-ice)] text-[var(--brand-blue)]"><BookOpen size={22} /></span><span className="rounded-full bg-[var(--brand-mint)] px-3 py-1 text-[10px] font-black uppercase text-[var(--brand-green)]">Active</span></div><strong className="mt-5 block text-lg font-black text-[var(--ink)]">Physical Quantities and Measurement</strong><span className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">PHS 001 · Topic 1</span><div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--brand-ice)]"><div className="h-full rounded-full bg-[var(--brand-green)]" style={{ width: `${completion}%` }} /></div><div className="mt-2 flex justify-between text-xs font-bold text-[var(--ink-muted)]"><span>{completion}% progress</span><span>{totalMarks} marks available</span></div></button>
+              <div className="mt-8 flex items-center justify-between"><div><h2 className="text-xl font-black text-[var(--ink)]">My course</h2><p className="mt-1 text-sm font-semibold text-[var(--ink-muted)]">{hasPhs001 ? "Physics · PHS 001" : "No course registered yet"}</p></div><button className="text-xs font-black text-[var(--brand-blue)]" type="button" onClick={onBrowseSubjects}>View subjects <ChevronRight className="inline" size={14} /></button></div>
+              {hasPhs001 ? (
+                <button className="mt-4 w-full rounded-xl border-2 border-[var(--brand-blue)] bg-[var(--surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg" type="button" onClick={onViewOverview}><div className="flex items-start justify-between gap-4"><span className="grid h-12 w-12 place-items-center rounded-lg bg-[var(--brand-ice)] text-[var(--brand-blue)]"><BookOpen size={22} /></span><span className="rounded-full bg-[var(--brand-mint)] px-3 py-1 text-[10px] font-black uppercase text-[var(--brand-green)]">Active</span></div><strong className="mt-5 block text-lg font-black text-[var(--ink)]">Physical Quantities and Measurement</strong><span className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">PHS 001 · Topic 1</span><div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--brand-ice)]"><div className="h-full rounded-full bg-[var(--brand-green)]" style={{ width: `${completion}%` }} /></div><div className="mt-2 flex justify-between text-xs font-bold text-[var(--ink-muted)]"><span>{completion}% progress</span><span>{totalMarks} marks available</span></div></button>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-5 text-center">
+                  <BookOpen className="mx-auto text-[var(--brand-blue)]" size={30} />
+                  <strong className="mt-3 block text-lg font-black text-[var(--ink)]">Register a course to begin</strong>
+                  <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[var(--ink-muted)]">
+                    Your dashboard will show course topics, progress, and attempts after you register.
+                  </p>
+                  <PrimaryButton className="mt-5" type="button" onClick={onBrowseSubjects}>
+                    Register course
+                  </PrimaryButton>
+                </div>
+              )}
               <div className="mt-8 grid gap-3 sm:grid-cols-3"><DashboardStat icon={Trophy} label="Best score" value={`${bestScore}%`} tone="emerald" /><DashboardStat icon={BarChart3} label="Average" value={`${averageScore}%`} tone="sky" /><DashboardStat icon={RotateCcw} label="Attempts" value={String(completedAttempts.length)} tone="indigo" /></div>
             </main>
 
@@ -211,7 +226,7 @@ export function StudentDashboard({
                 <div className="mt-5 rounded-lg bg-[var(--brand-ice)] p-4">
                   <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--brand-blue)]">Next focus</span>
                   <strong className="mt-2 block text-sm font-black text-[var(--ink)]">
-                    {activeAttempt ? "Finish your active test" : "Start PHS 001 Topic 1"}
+                    {activeAttempt ? "Finish your active test" : hasPhs001 ? "Start PHS 001 Topic 1" : "Register your first course"}
                   </strong>
                   <span className="mt-1 block text-xs font-semibold text-[var(--ink-muted)]">
                     {activeAttempt ? `Started ${formatDate(activeAttempt.startedAt)}` : "Ready whenever you are"}
@@ -220,6 +235,10 @@ export function StudentDashboard({
                     <SecondaryButton className="mt-4 h-9 min-h-9 w-full px-3 py-0 text-xs" type="button" onClick={onResumeTest}>
                       <Play size={14} /> Resume
                     </SecondaryButton>
+                  ) : !hasPhs001 ? (
+                    <PrimaryButton className="mt-4 h-9 min-h-9 w-full px-3 py-0 text-xs" type="button" onClick={onBrowseSubjects}>
+                      Register
+                    </PrimaryButton>
                   ) : (
                     <PrimaryButton className="mt-4 h-9 min-h-9 w-full px-3 py-0 text-xs" type="button" onClick={onStartPractice}>
                       <Play size={14} /> Begin

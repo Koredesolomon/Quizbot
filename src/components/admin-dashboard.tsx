@@ -18,12 +18,14 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type * as api from "@/lib/api";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { GoogleIcon, PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 
 const emptyQuestion = {
   type: "objective",
+  subject: "Physics",
   topic: "Physical quantities and units",
   prompt: "",
   options: "Option A\nOption B\nOption C\nOption D",
@@ -39,6 +41,8 @@ const emptyQuestion = {
 
 type QuestionForm = typeof emptyQuestion;
 
+const subjectOptions = ["Physics", "Mathematics", "Chemistry", "Biology"];
+
 type AdminNotification = {
   id: string;
   tone: "orange" | "indigo" | "rose";
@@ -47,6 +51,29 @@ type AdminNotification = {
   cta: string;
   feedbackId?: string;
   targetId?: string;
+};
+
+const emptyCourseForm = {
+  title: "",
+  code: "",
+  subject: "Physics",
+  description: "",
+  status: "draft" as "draft" | "published",
+};
+
+const emptyLessonForm = {
+  title: "",
+  description: "",
+  videoUrl: "",
+  materialUrl: "",
+};
+
+const emptyQuizForm = {
+  title: "",
+  description: "",
+  timeLimitMinutes: 10,
+  attemptsAllowed: 1,
+  passingPercent: 50,
 };
 
 export type AdminAccount = {
@@ -63,15 +90,17 @@ export function AdminLogin({
   authError = "",
   onUnlock,
   onGoogleLogin,
+  onForgotPassword,
   onBack,
 }: {
   adminEmail: string;
   authError?: string;
-  onUnlock: (email: string, accessCode: string) => boolean | Promise<boolean>;
+  onUnlock: (identifier: string, accessCode: string) => boolean | Promise<boolean>;
   onGoogleLogin: () => void;
+  onForgotPassword: (email: string) => void;
   onBack: () => void;
 }) {
-  const [email, setEmail] = useState(adminEmail);
+  const [identifier, setIdentifier] = useState(adminEmail);
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
 
@@ -95,7 +124,7 @@ export function AdminLogin({
           onSubmit={async (event) => {
             event.preventDefault();
             try {
-              const unlocked = await Promise.resolve(onUnlock(email.trim().toLowerCase(), accessCode.trim()));
+              const unlocked = await Promise.resolve(onUnlock(identifier.trim().toLowerCase(), accessCode.trim()));
 
               if (!unlocked) {
                 setError("Incorrect admin email or password.");
@@ -111,11 +140,11 @@ export function AdminLogin({
         >
           <div className="grid gap-4">
             <AuthField
-              label="Email"
-              type="email"
-              value={email}
+              label="Email or username"
+              type="text"
+              value={identifier}
               onChange={(value) => {
-                setEmail(value);
+                setIdentifier(value);
                 setError("");
               }}
             />
@@ -133,6 +162,13 @@ export function AdminLogin({
           {(error || authError) && <p className="mt-3 text-sm font-bold text-rose-300">{error || authError}</p>}
 
           <AuthSubmitButton>Sign in</AuthSubmitButton>
+          <button
+            className="mt-3 inline-flex w-full items-center justify-center text-center text-sm font-black text-sky-200 transition hover:text-white"
+            type="button"
+            onClick={() => onForgotPassword(identifier.trim().toLowerCase())}
+          >
+            Forgot password?
+          </button>
           <button
             className="mt-3 inline-flex w-full items-center justify-center gap-2 text-center text-sm font-black text-emerald-300 transition hover:text-emerald-200"
             type="button"
@@ -223,9 +259,13 @@ function AuthSubmitButton({ children }: { children: ReactNode }) {
 export function AdminDashboard({
   adminName = "Solomon Admin",
   adminRole = "Administrator",
+  courses,
   questions,
   attempts,
   feedback,
+  onCreateCourse,
+  onAddLesson,
+  onAddQuiz,
   onAddQuestion,
   onImportQuestions,
   onReviewFeedback,
@@ -234,9 +274,25 @@ export function AdminDashboard({
 }: {
   adminName?: string;
   adminRole?: string;
+  courses: api.CourseContent[];
   questions: Question[];
   attempts: StudentAttempt[];
   feedback: StudentFeedback[];
+  onCreateCourse: (input: {
+    title: string;
+    code: string;
+    subject: string;
+    description?: string;
+    status?: "draft" | "published";
+  }) => void | Promise<void>;
+  onAddLesson: (
+    courseId: string,
+    input: { title: string; description?: string; videoUrl?: string; materialUrl?: string }
+  ) => void | Promise<void>;
+  onAddQuiz: (
+    courseId: string,
+    input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
+  ) => void | Promise<void>;
   onAddQuestion: (question: Question) => void | Promise<void>;
   onImportQuestions: (questions: Question[]) => void | Promise<void>;
   onReviewFeedback: (id: string) => void;
@@ -244,6 +300,11 @@ export function AdminDashboard({
   onBack: () => void;
 }) {
   const [form, setForm] = useState<QuestionForm>(emptyQuestion);
+  const [courseForm, setCourseForm] = useState(emptyCourseForm);
+  const [lessonForm, setLessonForm] = useState(emptyLessonForm);
+  const [quizForm, setQuizForm] = useState(emptyQuizForm);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [contentMessage, setContentMessage] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -323,6 +384,81 @@ export function AdminDashboard({
     };
   });
 
+  const activeCourseId = selectedCourseId || courses[0]?.id || "";
+  const activeCourse = courses.find((course) => course.id === activeCourseId) ?? courses[0];
+
+  const createCourse = async () => {
+    if (!courseForm.title.trim() || !courseForm.code.trim() || !courseForm.subject.trim()) {
+      setContentMessage("Complete the course title, code, and subject.");
+      return;
+    }
+
+    try {
+      await onCreateCourse({
+        title: courseForm.title.trim(),
+        code: courseForm.code.trim(),
+        subject: courseForm.subject.trim(),
+        description: courseForm.description.trim() || undefined,
+        status: courseForm.status,
+      });
+      setCourseForm(emptyCourseForm);
+      setContentMessage("Course saved.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Course could not be saved.");
+    }
+  };
+
+  const addLesson = async () => {
+    if (!activeCourseId) {
+      setContentMessage("Create or select a course before adding lessons.");
+      return;
+    }
+
+    if (!lessonForm.title.trim()) {
+      setContentMessage("Enter a lesson title.");
+      return;
+    }
+
+    try {
+      await onAddLesson(activeCourseId, {
+        title: lessonForm.title.trim(),
+        description: lessonForm.description.trim() || undefined,
+        videoUrl: lessonForm.videoUrl.trim() || undefined,
+        materialUrl: lessonForm.materialUrl.trim() || undefined,
+      });
+      setLessonForm(emptyLessonForm);
+      setContentMessage("Lesson added.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Lesson could not be saved.");
+    }
+  };
+
+  const addQuiz = async () => {
+    if (!activeCourseId) {
+      setContentMessage("Create or select a course before adding quizzes.");
+      return;
+    }
+
+    if (!quizForm.title.trim()) {
+      setContentMessage("Enter a quiz title.");
+      return;
+    }
+
+    try {
+      await onAddQuiz(activeCourseId, {
+        title: quizForm.title.trim(),
+        description: quizForm.description.trim() || undefined,
+        timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
+        attemptsAllowed: Math.max(1, Number(quizForm.attemptsAllowed) || 1),
+        passingPercent: Math.min(100, Math.max(0, Number(quizForm.passingPercent) || 0)),
+      });
+      setQuizForm(emptyQuizForm);
+      setContentMessage("Quiz added.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Quiz could not be saved.");
+    }
+  };
+
   const addQuestion = async () => {
     const prompt = form.prompt.trim();
     const answer = form.answer.trim();
@@ -332,8 +468,8 @@ export function AdminDashboard({
       .map((option) => option.trim())
       .filter(Boolean);
 
-    if (!prompt || !answer || !explanation || (form.type === "objective" && options.length < 2)) {
-      setImportMessage("Complete the prompt, answer, explanation, and at least two options.");
+    if (!form.subject.trim() || !prompt || !answer || !explanation || (form.type === "objective" && options.length < 2)) {
+      setImportMessage("Complete the subject, question, answer, explanation, and at least two options.");
       return;
     }
 
@@ -341,6 +477,7 @@ export function AdminDashboard({
       await onAddQuestion({
         id: nextQuestionId(questions),
         type: form.type as Question["type"],
+        subject: form.subject.trim(),
         topic: form.topic.trim() || "General",
         prompt,
         options: form.type === "objective" ? options : undefined,
@@ -439,6 +576,9 @@ export function AdminDashboard({
                 <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("question-studio"); }}>
                   <LibraryBig size={16} /> Question bank
                 </button>
+                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("course-builder"); }}>
+                  <BookOpenCheck size={16} /> Course builder
+                </button>
                 <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-bold text-[var(--ink)] transition hover:bg-[var(--brand-ice)] hover:text-[var(--brand-blue)]" type="button" onClick={() => { setIsProfileOpen(false); openSection("attempt-summary"); }}>
                   <ClipboardList size={16} /> Attempts
                 </button>
@@ -458,6 +598,7 @@ export function AdminDashboard({
           </div>
           <nav className="flex-1 space-y-1 px-4 py-5 text-sm font-bold">
             <SidebarItem active icon={LayoutDashboard} label="Dashboard" />
+            <SidebarItem icon={BookOpenCheck} label="Course builder" onClick={() => openSection("course-builder")} />
             <SidebarItem icon={LibraryBig} label="Question bank" onClick={() => openSection("question-studio")} />
             <SidebarItem icon={ClipboardList} label="Attempts" onClick={() => openSection("attempt-summary")} />
             <SidebarItem icon={Bell} label="Feedback" badge={unreadFeedback} onClick={() => openSection("feedback-review")} />
@@ -667,9 +808,136 @@ export function AdminDashboard({
               </DashboardPanel>
             </div>
 
+            <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+              <DashboardPanel title="Course Builder" action="Courses · Lessons · Quizzes" id="course-builder">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Course title" value={courseForm.title} onChange={(value) => setCourseForm({ ...courseForm, title: value })} />
+                  <Field label="Course code" value={courseForm.code} onChange={(value) => setCourseForm({ ...courseForm, code: value })} />
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Subject
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                      value={courseForm.subject}
+                      onChange={(event) => setCourseForm({ ...courseForm, subject: event.target.value })}
+                    >
+                      {subjectOptions.map((subject) => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Status
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                      value={courseForm.status}
+                      onChange={(event) => setCourseForm({ ...courseForm, status: event.target.value as typeof courseForm.status })}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                    Course description
+                    <textarea
+                      className="min-h-20 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                      value={courseForm.description}
+                      onChange={(event) => setCourseForm({ ...courseForm, description: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <PrimaryButton className="mt-4" type="button" onClick={createCourse}>
+                  Save Course
+                </PrimaryButton>
+
+                <div className="mt-6 border-t border-slate-200 pt-5">
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Active course
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                      value={activeCourseId}
+                      onChange={(event) => setSelectedCourseId(event.target.value)}
+                    >
+                      {courses.length ? (
+                        courses.map((course) => (
+                          <option key={course.id} value={course.id}>{course.code} · {course.title}</option>
+                        ))
+                      ) : (
+                        <option value="">Create a course first</option>
+                      )}
+                    </select>
+                  </label>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <Field label="Lesson title" value={lessonForm.title} onChange={(value) => setLessonForm({ ...lessonForm, title: value })} />
+                    <Field label="Lesson video URL" value={lessonForm.videoUrl} onChange={(value) => setLessonForm({ ...lessonForm, videoUrl: value })} />
+                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                      Lesson description
+                      <textarea
+                        className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                        value={lessonForm.description}
+                        onChange={(event) => setLessonForm({ ...lessonForm, description: event.target.value })}
+                      />
+                    </label>
+                    <Field label="Material URL" value={lessonForm.materialUrl} onChange={(value) => setLessonForm({ ...lessonForm, materialUrl: value })} />
+                  </div>
+                  <SecondaryButton className="mt-4" type="button" onClick={addLesson}>
+                    Add Lesson
+                  </SecondaryButton>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <Field label="Quiz title" value={quizForm.title} onChange={(value) => setQuizForm({ ...quizForm, title: value })} />
+                    <Field label="Time limit" type="number" value={String(quizForm.timeLimitMinutes)} onChange={(value) => setQuizForm({ ...quizForm, timeLimitMinutes: Number(value) })} />
+                    <Field label="Attempts" type="number" value={String(quizForm.attemptsAllowed)} onChange={(value) => setQuizForm({ ...quizForm, attemptsAllowed: Number(value) })} />
+                    <Field label="Passing %" type="number" value={String(quizForm.passingPercent)} onChange={(value) => setQuizForm({ ...quizForm, passingPercent: Number(value) })} />
+                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                      Quiz description
+                      <textarea
+                        className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                        value={quizForm.description}
+                        onChange={(event) => setQuizForm({ ...quizForm, description: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <SecondaryButton className="mt-4" type="button" onClick={addQuiz}>
+                    Add Quiz
+                  </SecondaryButton>
+                </div>
+                {contentMessage && (
+                  <p className="mt-4 rounded-lg bg-[var(--brand-mint)] p-3 text-sm font-bold text-[var(--brand-green)]">{contentMessage}</p>
+                )}
+              </DashboardPanel>
+
+              <DashboardPanel title="Course Structure">
+                {activeCourse ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <span className="text-[10px] font-black uppercase tracking-wide text-sky-700">{activeCourse.subject}</span>
+                      <strong className="mt-1 block text-base font-black text-slate-950">{activeCourse.code} · {activeCourse.title}</strong>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{activeCourse.description || "No description yet."}</p>
+                    </div>
+                    <StructureList title="Lessons" items={activeCourse.lessons.map((lesson) => lesson.title)} empty="No lessons yet." />
+                    <StructureList title="Quizzes" items={activeCourse.quizzes.map((quiz) => `${quiz.title} · ${quiz.timeLimitMinutes} min`)} empty="No quizzes yet." />
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold leading-6 text-slate-500">Create a course to start adding lessons and quizzes.</p>
+                )}
+              </DashboardPanel>
+            </div>
+
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
               <DashboardPanel title="Question Studio" action="LaTeX enabled" id="question-studio">
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Subject
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                      value={form.subject}
+                      onChange={(event) => setForm({ ...form, subject: event.target.value })}
+                    >
+                      {subjectOptions.map((subject) => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))}
+                    </select>
+                  </label>
                   <Field label="Topic" value={form.topic} onChange={(value) => setForm({ ...form, topic: value })} />
                   <label className="grid gap-1 text-sm font-bold text-slate-700">
                     Type
@@ -700,12 +968,12 @@ export function AdminDashboard({
                     onChange={(value) => setForm({ ...form, learningObjective: value })}
                   />
                   <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
-                    Prompt
+                    Question box
                     <textarea
-                      className="min-h-24 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
+                      className="min-h-36 resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-400"
                       value={form.prompt}
                       onChange={(event) => setForm({ ...form, prompt: event.target.value })}
-                      placeholder="Example: Find $x$ if $$2x + 3 = 11$$"
+                      placeholder="Type the full question. Example: Find $x$ if $$2x + 3 = 11$$"
                     />
                   </label>
                   {form.type === "objective" && (
@@ -783,7 +1051,8 @@ export function AdminDashboard({
 
               <DashboardPanel title="LaTeX Preview">
                 <div className="stagger-list space-y-3 text-sm font-semibold leading-7 text-slate-900">
-                  <PreviewLine label="Prompt" value={form.prompt || "Question prompt preview"} />
+                  <PreviewLine label="Subject" value={form.subject || "Subject preview"} />
+                  <PreviewLine label="Question" value={form.prompt || "Question preview"} />
                   {form.type === "objective" && (
                     <PreviewLine label="Options" value={form.options || "Options preview"} />
                   )}
@@ -876,6 +1145,25 @@ function PreviewLine({ label, value }: { label: string; value: string }) {
       <strong className="block text-xs font-black uppercase text-slate-500">{label}</strong>
       <div className="mt-1 rounded-lg border border-slate-200 bg-white p-3">
         <MathContent>{value}</MathContent>
+      </div>
+    </div>
+  );
+}
+
+function StructureList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
+  return (
+    <div>
+      <strong className="block text-xs font-black uppercase tracking-wide text-slate-500">{title}</strong>
+      <div className="mt-2 grid gap-2">
+        {items.length ? (
+          items.map((item, index) => (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm font-bold text-slate-800" key={`${item}-${index}`}>
+              {item}
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm font-semibold text-slate-500">{empty}</p>
+        )}
       </div>
     </div>
   );
@@ -1103,6 +1391,7 @@ function normalizeQuestion(question: Partial<Question>, index: number): Question
   return {
     id: String(question.id ?? index + 1),
     type,
+    subject: question.subject || "Physics",
     topic: question.topic || "General",
     prompt: question.prompt,
     options: type === "objective" ? options : undefined,

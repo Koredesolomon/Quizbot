@@ -7,6 +7,7 @@ export declare class QuestionsController {
     list(): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;
@@ -24,6 +25,7 @@ export declare class QuestionsController {
     create(body: CreateQuestionDto, user: JwtUser): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;
@@ -41,6 +43,7 @@ export declare class QuestionsController {
     import(body: ImportQuestionsDto, user: JwtUser): Promise<{
         id: string;
         type: import("./question.schema").QuestionType;
+        subject: string;
         topic: string;
         prompt: string;
         options: string[] | undefined;

@@ -13,6 +13,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const admin_module_1 = require("./admin/admin.module");
 const attempts_module_1 = require("./attempts/attempts.module");
 const auth_module_1 = require("./auth/auth.module");
+const content_module_1 = require("./content/content.module");
 const feedback_module_1 = require("./feedback/feedback.module");
 const health_controller_1 = require("./health.controller");
 const questions_module_1 = require("./questions/questions.module");
@@ -27,6 +28,7 @@ exports.AppModule = AppModule = __decorate([
             mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/quiz-bot"),
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
+            content_module_1.ContentModule,
             questions_module_1.QuestionsModule,
             attempts_module_1.AttemptsModule,
             feedback_module_1.FeedbackModule,

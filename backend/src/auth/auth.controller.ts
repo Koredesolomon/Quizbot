@@ -8,7 +8,7 @@ import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto, UpdateProfileDto } from "./dto";
+import { ForgotPasswordDto, LoginDto, RegisterCourseDto, RegisterDto, ResetPasswordDto, UpdateProfileDto } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 
 type UploadedProfileImage = {
@@ -42,10 +42,26 @@ export class AuthController {
     return this.auth.login(body);
   }
 
+  @Post("forgot-password")
+  forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.auth.requestPasswordReset(body);
+  }
+
+  @Post("reset-password")
+  resetPassword(@Body() body: ResetPasswordDto) {
+    return this.auth.resetPassword(body);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch("me/profile")
   updateProfile(@CurrentUser() user: JwtUser, @Body() body: UpdateProfileDto) {
     return this.auth.updateProfile(user.sub, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("me/courses")
+  registerCourse(@CurrentUser() user: JwtUser, @Body() body: RegisterCourseDto) {
+    return this.auth.registerCourse(user.sub, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -99,11 +115,13 @@ export class AuthController {
           accessToken: result.accessToken,
           id: result.user.id,
           email: result.user.email,
+          username: result.user.username ?? "",
           name: result.user.fullName,
           avatarUrl: result.user.avatarUrl ?? "",
           authProvider: result.user.authProvider,
           createdAt: result.user.createdAt,
           userRole: result.user.role,
+          registeredCourses: result.user.registeredCourses.join(","),
         })
       );
     } catch (callbackError) {

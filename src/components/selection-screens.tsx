@@ -126,14 +126,20 @@ export function Subjects({
 }
 
 export function Courses({
+  registeredCourses,
   onPHS001,
+  onRegisterCourse,
   onComingSoon,
   onBack,
 }: {
+  registeredCourses: string[];
   onPHS001: () => void;
+  onRegisterCourse: (courseCode: string) => void | Promise<void>;
   onComingSoon: () => void;
   onBack: () => void;
 }) {
+  const isPhs001Registered = registeredCourses.includes("PHS 001");
+
   return (
     <Panel title="Physics Courses" subtitle="Choose a course.">
       <BackButton className="mb-5" label="Subjects" onClick={onBack} />
@@ -143,17 +149,29 @@ export function Courses({
             className={index === 0 ? rowClass : lockedRowClass}
             key={course}
             type="button"
-            onClick={index === 0 ? onPHS001 : onComingSoon}
+            onClick={() => {
+              if (index !== 0) {
+                onComingSoon();
+                return;
+              }
+
+              if (isPhs001Registered) {
+                onPHS001();
+                return;
+              }
+
+              void onRegisterCourse(course);
+            }}
           >
             <TileIcon>{index + 1}</TileIcon>
             <span className="min-w-0 flex-1">
               <strong className="block text-sm font-black">{course}</strong>
               <small className="mt-1 block text-xs font-semibold text-slate-500">
-                {index === 0 ? "Available" : "Coming Soon"}
+                {index === 0 ? (isPhs001Registered ? "Registered" : "Available to register") : "Coming Soon"}
               </small>
             </span>
             <StatusBadge tone={index === 0 ? "available" : "neutral"}>
-              {index === 0 ? "Available" : "Locked"}
+              {index === 0 ? (isPhs001Registered ? "Continue" : "Register") : "Locked"}
             </StatusBadge>
           </button>
         ))}

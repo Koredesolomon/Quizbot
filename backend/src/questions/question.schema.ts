@@ -10,6 +10,9 @@ export class Question {
   @Prop({ enum: ["objective", "theory"], required: true })
   type: QuestionType;
 
+  @Prop({ default: "Physics", trim: true })
+  subject: string;
+
   @Prop({ required: true, trim: true })
   topic: string;
 

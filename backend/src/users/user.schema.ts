@@ -13,6 +13,9 @@ export class User {
   @Prop({ required: true, lowercase: true, trim: true, unique: true })
   email: string;
 
+  @Prop({ lowercase: true, trim: true, unique: true, sparse: true })
+  username?: string;
+
   @Prop()
   passwordHash?: string;
 
@@ -24,6 +27,15 @@ export class User {
 
   @Prop({ enum: ["admin", "student"], required: true })
   role: UserRole;
+
+  @Prop({ type: [String], default: [] })
+  registeredCourses: string[];
+
+  @Prop()
+  passwordResetTokenHash?: string;
+
+  @Prop()
+  passwordResetExpiresAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;

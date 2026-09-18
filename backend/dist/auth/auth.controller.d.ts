@@ -3,7 +3,7 @@ import type { Response } from "express";
 import type { JwtUser } from "../common/jwt-user.type";
 import type { UserRole } from "../common/user-role.type";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto, UpdateProfileDto } from "./dto";
+import { ForgotPasswordDto, LoginDto, RegisterCourseDto, RegisterDto, ResetPasswordDto, UpdateProfileDto } from "./dto";
 type UploadedProfileImage = {
     buffer: Buffer;
     originalname: string;
@@ -20,9 +20,11 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -32,9 +34,11 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -44,20 +48,43 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
+    }>;
+    forgotPassword(body: ForgotPasswordDto): Promise<{
+        message: string;
+    }>;
+    resetPassword(body: ResetPasswordDto): Promise<{
+        message: string;
     }>;
     updateProfile(user: JwtUser, body: UpdateProfileDto): Promise<{
         user: {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
+            createdAt: string;
+        };
+    }>;
+    registerCourse(user: JwtUser, body: RegisterCourseDto): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            username: string | undefined;
+            avatarUrl: string | undefined;
+            role: UserRole;
+            authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -66,9 +93,11 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;
@@ -77,9 +106,11 @@ export declare class AuthController {
             id: string;
             fullName: string;
             email: string;
+            username: string | undefined;
             avatarUrl: string | undefined;
             role: UserRole;
             authProvider: import("../users/user.schema").AuthProvider;
+            registeredCourses: string[];
             createdAt: string;
         };
     }>;

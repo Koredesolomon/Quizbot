@@ -5,6 +5,10 @@ export class CreateQuestionDto {
   @IsIn(["objective", "theory"])
   type: "objective" | "theory";
 
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
   @IsString()
   @IsNotEmpty()
   topic: string;

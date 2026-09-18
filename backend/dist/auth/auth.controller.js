@@ -38,8 +38,17 @@ let AuthController = class AuthController {
     login(body) {
         return this.auth.login(body);
     }
+    forgotPassword(body) {
+        return this.auth.requestPasswordReset(body);
+    }
+    resetPassword(body) {
+        return this.auth.resetPassword(body);
+    }
     updateProfile(user, body) {
         return this.auth.updateProfile(user.sub, body);
+    }
+    registerCourse(user, body) {
+        return this.auth.registerCourse(user.sub, body);
     }
     uploadProfileAvatar(user, file) {
         return this.auth.updateProfileAvatar(user.sub, file);
@@ -74,11 +83,13 @@ let AuthController = class AuthController {
                 accessToken: result.accessToken,
                 id: result.user.id,
                 email: result.user.email,
+                username: result.user.username ?? "",
                 name: result.user.fullName,
                 avatarUrl: result.user.avatarUrl ?? "",
                 authProvider: result.user.authProvider,
                 createdAt: result.user.createdAt,
                 userRole: result.user.role,
+                registeredCourses: result.user.registeredCourses.join(","),
             }));
         }
         catch (callbackError) {
@@ -119,6 +130,20 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([
+    (0, common_1.Post)("forgot-password"),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.ForgotPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)("reset-password"),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resetPassword", null);
+__decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Patch)("me/profile"),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
@@ -127,6 +152,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, dto_1.UpdateProfileDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)("me/courses"),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, dto_1.RegisterCourseDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "registerCourse", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("avatar", { limits: { fileSize: 2 * 1024 * 1024 } })),

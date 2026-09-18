@@ -39,16 +39,30 @@ function renderMathText(value: string) {
 
 function renderTextWithAutoMath(value: string) {
   const dimensionPattern = /\b(?:[MLT](?:\^-?\d+)?){2,}\b/g;
+  const simpleLatexPattern =
+    /\b[A-Za-z][A-Za-z0-9]*(?:\s*[A-Za-z][A-Za-z0-9]*)?\s*(?:\^\{[^{}\n]+\}|_\{[^{}\n]+\})(?:\s*(?:\^\{[^{}\n]+\}|_\{[^{}\n]+\}))?/g;
+  const mathMatches = [
+    ...Array.from(value.matchAll(dimensionPattern), (match) => ({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      value: toDimensionLatex(match[0]),
+    })),
+    ...Array.from(value.matchAll(simpleLatexPattern), (match) => ({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      value: match[0].replace(/\s+/g, ""),
+    })),
+  ].sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+
   let cursor = 0;
   let html = "";
 
-  for (const match of value.matchAll(dimensionPattern)) {
-    const start = match.index ?? 0;
-    const expression = match[0];
+  for (const match of mathMatches) {
+    if (match.start < cursor) continue;
 
-    html += escapeHtml(value.slice(cursor, start)).replace(/\n/g, "<br />");
-    html += renderKatex(toDimensionLatex(expression), false);
-    cursor = start + expression.length;
+    html += escapeHtml(value.slice(cursor, match.start)).replace(/\n/g, "<br />");
+    html += renderKatex(match.value, false);
+    cursor = match.end;
   }
 
   html += escapeHtml(value.slice(cursor)).replace(/\n/g, "<br />");

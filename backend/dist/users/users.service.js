@@ -24,13 +24,18 @@ let UsersService = class UsersService {
     }
     async create(input) {
         const email = input.email.toLowerCase();
+        const username = this.normalizeUsername(input.username);
         const existing = await this.findByEmail(email);
         if (existing) {
             throw new common_1.ConflictException("Email is already registered.");
         }
+        if (username && (await this.findByUsername(username))) {
+            throw new common_1.ConflictException("Username is already taken.");
+        }
         return this.userModel.create({
             fullName: input.fullName,
             email,
+            username,
             passwordHash: input.passwordHash,
             avatarUrl: input.avatarUrl,
             authProvider: input.authProvider ?? "password",
@@ -39,10 +44,18 @@ let UsersService = class UsersService {
     }
     async createOrAttachPasswordUser(input) {
         const email = input.email.toLowerCase();
+        const username = this.normalizeUsername(input.username);
         const existing = await this.findByEmail(email);
         if (existing) {
             if (existing.passwordHash) {
                 throw new common_1.ConflictException("Email is already registered.");
+            }
+            if (username) {
+                const usernameOwner = await this.findByUsername(username);
+                if (usernameOwner && usernameOwner.id !== existing.id) {
+                    throw new common_1.ConflictException("Username is already taken.");
+                }
+                existing.username = username;
             }
             existing.fullName = input.fullName || existing.fullName;
             existing.passwordHash = input.passwordHash;
@@ -53,6 +66,7 @@ let UsersService = class UsersService {
         return this.create({
             fullName: input.fullName,
             email,
+            username,
             passwordHash: input.passwordHash,
             authProvider: "password",
             role: input.role,
@@ -100,8 +114,47 @@ let UsersService = class UsersService {
     findByEmail(email) {
         return this.userModel.findOne({ email: email.toLowerCase() }).exec();
     }
+    findByUsername(username) {
+        return this.userModel.findOne({ username: this.normalizeUsername(username) }).exec();
+    }
+    findByEmailOrUsername(identifier) {
+        const normalized = identifier.trim().toLowerCase();
+        return this.userModel
+            .findOne({
+            $or: [{ email: normalized }, { username: normalized }],
+        })
+            .exec();
+    }
     findById(id) {
         return this.userModel.findById(id).exec();
+    }
+    async setPasswordResetToken(id, tokenHash, expiresAt) {
+        return this.userModel
+            .findByIdAndUpdate(id, {
+            passwordResetTokenHash: tokenHash,
+            passwordResetExpiresAt: expiresAt,
+        }, { new: true })
+            .exec();
+    }
+    findByValidPasswordResetToken(tokenHash) {
+        return this.userModel
+            .findOne({
+            passwordResetTokenHash: tokenHash,
+            passwordResetExpiresAt: { $gt: new Date() },
+        })
+            .exec();
+    }
+    async updatePasswordAndClearReset(id, passwordHash) {
+        return this.userModel
+            .findByIdAndUpdate(id, {
+            passwordHash,
+            authProvider: "password",
+            $unset: {
+                passwordResetTokenHash: "",
+                passwordResetExpiresAt: "",
+            },
+        }, { new: true })
+            .exec();
     }
     async updateProfile(id, input) {
         const user = await this.userModel.findById(id).exec();
@@ -112,16 +165,33 @@ let UsersService = class UsersService {
         }
         return user.save();
     }
+    async registerCourse(id, courseCode) {
+        const normalizedCourse = courseCode.trim().toUpperCase();
+        if (!normalizedCourse)
+            return null;
+        return this.userModel
+            .findByIdAndUpdate(id, {
+            $addToSet: {
+                registeredCourses: normalizedCourse,
+            },
+        }, { new: true })
+            .exec();
+    }
     publicUser(user) {
         return {
             id: user.id,
             fullName: user.fullName,
             email: user.email,
+            username: user.username,
             avatarUrl: user.avatarUrl,
             role: user.role,
             authProvider: user.authProvider,
+            registeredCourses: user.registeredCourses ?? [],
             createdAt: user.createdAt.toISOString(),
         };
+    }
+    normalizeUsername(username) {
+        return username?.trim().toLowerCase() || undefined;
     }
 };
 exports.UsersService = UsersService;

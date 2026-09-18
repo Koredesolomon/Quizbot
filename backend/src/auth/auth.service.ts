@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleIni
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { UserRole } from "../common/user-role.type";
@@ -49,11 +50,12 @@ export class AuthService implements OnModuleInit {
     await this.bootstrapConfiguredAdmin();
   }
 
-  async register(input: { fullName: string; email: string; password: string; role: UserRole }) {
+  async register(input: { fullName: string; email: string; username?: string; password: string; role: UserRole }) {
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.users.createOrAttachPasswordUser({
       fullName: input.fullName,
       email: input.email,
+      username: input.username,
       passwordHash,
       role: input.role,
     });
@@ -62,11 +64,11 @@ export class AuthService implements OnModuleInit {
     return this.authResponse(user);
   }
 
-  async login(input: { email: string; password: string }) {
-    const user = await this.users.findByEmail(input.email);
+  async login(input: { identifier: string; password: string }) {
+    const user = await this.users.findByEmailOrUsername(input.identifier);
 
     if (!user) {
-      throw new UnauthorizedException("Invalid email or password.");
+      throw new UnauthorizedException("Invalid email, username, or password.");
     }
 
     if (!user.passwordHash) {
@@ -74,14 +76,62 @@ export class AuthService implements OnModuleInit {
     }
 
     if (!(await bcrypt.compare(input.password, user.passwordHash))) {
-      throw new UnauthorizedException("Invalid email or password.");
+      throw new UnauthorizedException("Invalid email, username, or password.");
     }
 
     return this.authResponse(user);
   }
 
+  async requestPasswordReset(input: { email: string }) {
+    const user = await this.users.findByEmail(input.email);
+
+    if (user?.passwordHash) {
+      const token = randomBytes(32).toString("base64url");
+      const tokenHash = this.passwordResetTokenHash(token);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await this.users.setPasswordResetToken(user.id, tokenHash, expiresAt);
+      await this.sendPasswordResetEmail(user, token, expiresAt);
+    }
+
+    return {
+      message: "If an account exists for that email, a password reset link has been sent.",
+    };
+  }
+
+  async resetPassword(input: { token: string; password: string }) {
+    const tokenHash = this.passwordResetTokenHash(input.token);
+    const user = await this.users.findByValidPasswordResetToken(tokenHash);
+
+    if (!user) {
+      throw new BadRequestException("Reset link is invalid or expired.");
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    await this.users.updatePasswordAndClearReset(user.id, passwordHash);
+
+    return {
+      message: "Password updated. You can now sign in.",
+    };
+  }
+
   async updateProfile(userId: string, input: { avatarUrl?: string | null }) {
     const user = await this.users.updateProfile(userId, input);
+    if (!user) {
+      throw new NotFoundException("User account was not found.");
+    }
+
+    return {
+      user: this.users.publicUser(user),
+    };
+  }
+
+  async registerCourse(userId: string, input: { courseCode: string }) {
+    if (input.courseCode.trim().toUpperCase() !== "PHS 001") {
+      throw new BadRequestException("This course is not available for registration yet.");
+    }
+
+    const user = await this.users.registerCourse(userId, input.courseCode);
     if (!user) {
       throw new NotFoundException("User account was not found.");
     }
@@ -221,6 +271,20 @@ export class AuthService implements OnModuleInit {
     }
   }
 
+  private async sendPasswordResetEmail(user: UserDocument, token: string, expiresAt: Date) {
+    try {
+      await this.mail.sendPasswordResetEmail({
+        fullName: user.fullName,
+        email: user.email,
+        token,
+        expiresAt,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Password reset email could not be sent to ${user.email}: ${message}`);
+    }
+  }
+
   async loginGoogleAdmin(code: string) {
     return this.loginGoogle(code, "admin");
   }
@@ -327,6 +391,10 @@ export class AuthService implements OnModuleInit {
     if (!fileName || fileName.includes("/") || fileName.includes("\\")) return null;
 
     return fileName;
+  }
+
+  private passwordResetTokenHash(token: string) {
+    return createHash("sha256").update(token).digest("hex");
   }
 
   private async bootstrapConfiguredAdmin() {

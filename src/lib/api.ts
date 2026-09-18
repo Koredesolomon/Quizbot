@@ -10,9 +10,11 @@ export type AuthUser = {
   id: string;
   fullName: string;
   email: string;
+  username?: string;
   avatarUrl?: string;
   role: "admin" | "student";
   authProvider: "password" | "google";
+  registeredCourses: string[];
   createdAt: string;
 };
 
@@ -74,6 +76,36 @@ export type AdminAnalytics = {
   watchlist: ApiAttempt[];
 };
 
+export type CourseLesson = {
+  id: string;
+  title: string;
+  description?: string;
+  videoUrl?: string;
+  materialUrl?: string;
+};
+
+export type CourseQuiz = {
+  id: string;
+  title: string;
+  description?: string;
+  timeLimitMinutes: number;
+  attemptsAllowed: number;
+  passingPercent: number;
+};
+
+export type CourseContent = {
+  id: string;
+  title: string;
+  code: string;
+  subject: string;
+  description?: string;
+  status: "draft" | "published";
+  lessons: CourseLesson[];
+  quizzes: CourseQuiz[];
+  createdBy: string;
+  createdAt: string;
+};
+
 async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -109,7 +141,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T>
   return response.json() as Promise<T>;
 }
 
-export function registerAdmin(input: { fullName: string; email: string; password: string }, token: string) {
+export function registerAdmin(input: { fullName: string; email: string; username?: string; password: string }, token: string) {
   return apiRequest<AuthResponse>("/auth/register-admin", {
     method: "POST",
     token,
@@ -117,15 +149,29 @@ export function registerAdmin(input: { fullName: string; email: string; password
   });
 }
 
-export function registerStudent(input: { fullName: string; email: string; password: string }) {
+export function registerStudent(input: { fullName: string; email: string; username?: string; password: string }) {
   return apiRequest<AuthResponse>("/auth/register-student", {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
-export function login(input: { email: string; password: string }) {
+export function login(input: { identifier: string; password: string }) {
   return apiRequest<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function forgotPassword(input: { email: string }) {
+  return apiRequest<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function resetPassword(input: { token: string; password: string }) {
+  return apiRequest<{ message: string }>("/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -136,6 +182,14 @@ export function updateProfile(input: { avatarUrl?: string | null }, token: strin
     method: "PATCH",
     token,
     body: JSON.stringify(input),
+  });
+}
+
+export function registerCourse(courseCode: string, token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/courses", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ courseCode }),
   });
 }
 
@@ -159,6 +213,45 @@ export function removeProfileAvatar(token: string) {
 
 export function getQuestions() {
   return apiRequest<Question[]>("/questions");
+}
+
+export function getCourses() {
+  return apiRequest<CourseContent[]>("/content/courses");
+}
+
+export function createCourse(
+  input: { title: string; code: string; subject: string; description?: string; status?: "draft" | "published" },
+  token: string
+) {
+  return apiRequest<CourseContent>("/content/courses", {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function addLesson(
+  courseId: string,
+  input: { title: string; description?: string; videoUrl?: string; materialUrl?: string },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/lessons`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function addQuiz(
+  courseId: string,
+  input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/quizzes`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
 }
 
 export function createQuestion(question: Omit<Question, "id">, token: string) {

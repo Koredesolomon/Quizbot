@@ -358,6 +358,16 @@ function WordAnswerBox({
     updateSelection(nextValue, selectionStart + cursorOffset);
   };
 
+  const wrapInlineMath = (template: (selected: string) => string, fallback = "x") => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const { selectionStart, selectionEnd } = textarea;
+    const selected = answer.text.slice(selectionStart, selectionEnd).trim() || fallback;
+    const replacement = template(selected);
+    const nextValue = `${answer.text.slice(0, selectionStart)}${replacement}${answer.text.slice(selectionEnd)}`;
+    updateSelection(nextValue, selectionStart + replacement.length);
+  };
+
   const runNativeEdit = (command: "undo" | "redo") => {
     focusTextarea();
     document.execCommand(command);
@@ -377,12 +387,12 @@ function WordAnswerBox({
       numbered: () => insertBlock("1. "),
       quote: () => insertBlock("> "),
       link: () => wrapSelection("[", "](https://)", "link text"),
-      superscript: () => wrapSelection("^{", "}"),
-      subscript: () => wrapSelection("_{", "}"),
+      superscript: () => wrapInlineMath((selected) => `$${selected}^{2}$`),
+      subscript: () => wrapInlineMath((selected) => `$${selected}_{2}$`),
       image: () => insertText("[image: describe your diagram]"),
       undo: () => runNativeEdit("undo"),
       redo: () => runNativeEdit("redo"),
-      equation: () => insertText("$  $", 2),
+      equation: () => wrapInlineMath((selected) => `$${selected}$`, "\\text{answer}"),
     };
 
     actions[command]();
