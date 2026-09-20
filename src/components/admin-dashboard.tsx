@@ -10,6 +10,8 @@ import {
   FileQuestion,
   Gauge,
   GraduationCap,
+  Eye,
+  EyeOff,
   LayoutDashboard,
   LibraryBig,
   LineChart,
@@ -124,8 +126,10 @@ export function AdminLogin({
 }) {
   const [identifier, setIdentifier] = useState(adminEmail);
   const [accessCode, setAccessCode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState("");
+  const [busy, setBusy] = useState(false);
 
   return (
     <AuthScene>
@@ -162,6 +166,7 @@ export function AdminLogin({
               return;
             }
 
+            setBusy(true);
             try {
               const unlocked = await Promise.resolve(onUnlock(email, password));
 
@@ -179,6 +184,8 @@ export function AdminLogin({
               } else {
                 setError(loginError instanceof Error ? loginError.message : "Admin sign in failed.");
               }
+            } finally {
+              setBusy(false);
             }
           }}
         >
@@ -187,6 +194,7 @@ export function AdminLogin({
               label="Email address"
               type="email"
               value={identifier}
+              autoComplete="email"
               onChange={(value) => {
                 setIdentifier(value);
                 setError("");
@@ -195,13 +203,24 @@ export function AdminLogin({
             />
             <AuthField
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={accessCode}
+              autoComplete="current-password"
               onChange={(value) => {
                 setAccessCode(value);
                 setError("");
                 setGoogleOnlyEmail("");
               }}
+              trailing={
+                <button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="grid h-9 w-9 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}
+                </button>
+              }
             />
           </div>
 
@@ -221,7 +240,7 @@ export function AdminLogin({
             (error || authError) && <p className="mt-3 text-sm font-bold text-rose-300">{error || authError}</p>
           )}
 
-          <AuthSubmitButton>Sign in</AuthSubmitButton>
+          <AuthSubmitButton disabled={busy}>{busy ? "Please wait..." : "Sign in"}</AuthSubmitButton>
           <button
             className="mt-3 inline-flex w-full items-center justify-center text-center text-sm font-black text-sky-200 transition hover:text-white"
             type="button"
@@ -296,30 +315,39 @@ function AuthField({
   label,
   value,
   type = "text",
+  autoComplete,
   onChange,
+  trailing,
 }: {
   label: string;
   value: string;
   type?: string;
+  autoComplete?: string;
   onChange: (value: string) => void;
+  trailing?: ReactNode;
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-100">
       {label}
-      <input
-        className="h-11 rounded-lg border border-sky-200 bg-white px-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20"
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <span className="flex h-11 items-center rounded-lg border border-sky-200 bg-white px-3 text-slate-950 transition focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-500/20">
+        <input
+          autoComplete={autoComplete}
+          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {trailing}
+      </span>
     </label>
   );
 }
 
-function AuthSubmitButton({ children }: { children: ReactNode }) {
+function AuthSubmitButton({ children, disabled = false }: { children: ReactNode; disabled?: boolean }) {
   return (
     <button
-      className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-xl shadow-blue-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-500 hover:shadow-emerald-950/20"
+      className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-xl shadow-blue-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-500 hover:shadow-emerald-950/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+      disabled={disabled}
       type="submit"
     >
       {children}
