@@ -157,8 +157,8 @@ export function AdminLogin({
         >
           <div className="grid gap-4">
             <AuthField
-              label="Email or username"
-              type="text"
+              label="Email address"
+              type="email"
               value={identifier}
               onChange={(value) => {
                 setIdentifier(value);

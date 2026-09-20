@@ -162,21 +162,21 @@ export function registerAdmin(input: { fullName: string; email: string; username
   return apiRequest<AuthResponse>("/auth/register-admin", {
     method: "POST",
     token,
-    body: JSON.stringify(input),
+    body: JSON.stringify({ fullName: input.fullName, email: input.email, password: input.password }),
   });
 }
 
 export function registerStudent(input: { fullName: string; email: string; username?: string; password: string }) {
   return apiRequest<AuthResponse>("/auth/register-student", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ fullName: input.fullName, email: input.email, password: input.password }),
   });
 }
 
 export function login(input: { identifier: string; password: string }) {
   return apiRequest<AuthResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ email: input.identifier, password: input.password }),
   });
 }
 

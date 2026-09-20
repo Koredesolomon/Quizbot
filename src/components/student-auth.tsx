@@ -28,7 +28,6 @@ export function StudentAuth({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -78,13 +77,13 @@ export function StudentAuth({
               event.preventDefault();
               setError("");
 
-              if (!email.trim() || !password.trim() || (isRegister && (!firstName.trim() || !lastName.trim() || !username.trim()))) {
+              if (!email.trim() || !password.trim() || (isRegister && (!firstName.trim() || !lastName.trim()))) {
                 setError("Complete all required fields.");
                 return;
               }
 
-              if (isRegister && !/^[a-zA-Z0-9_]{3,24}$/.test(username.trim())) {
-                setError("Username must be 3-24 characters and can only contain letters, numbers, and underscores.");
+              if (!emailPattern.test(email.trim())) {
+                setError("Enter a valid email address.");
                 return;
               }
 
@@ -99,7 +98,6 @@ export function StudentAuth({
                   await onRegister({
                     fullName: `${firstName.trim()} ${lastName.trim()}`,
                     email: email.trim().toLowerCase(),
-                    username: username.trim().toLowerCase(),
                     password,
                   });
                 } else {
@@ -167,10 +165,9 @@ export function StudentAuth({
                   <StudentField label="First name" type="text" value={firstName} onChange={setFirstName} />
                   <StudentField label="Last name" type="text" value={lastName} onChange={setLastName} />
                 </div>
-                <StudentField label="Username" type="text" value={username} onChange={setUsername} />
               </>
             )}
-            <StudentField label={isRegister ? "Email address" : "Email or username"} type={isRegister ? "email" : "text"} value={email} onChange={setEmail} />
+            <StudentField label="Email address" type="email" value={email} onChange={setEmail} />
             <StudentField
               label="Password"
               type={showPassword ? "text" : "password"}
