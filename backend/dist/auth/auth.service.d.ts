@@ -55,6 +55,7 @@ export declare class AuthService implements OnModuleInit {
             createdAt: string;
         };
     }>;
+    private isConfiguredAdminEmail;
     private repairConfiguredAdminPasswordLogin;
     requestPasswordReset(input: {
         email: string;

@@ -72,9 +72,13 @@ export class AuthService implements OnModuleInit {
     }
 
     if (!user.passwordHash) {
-      const repairedAdmin = await this.repairConfiguredAdminPasswordLogin(user, input.password);
-      if (repairedAdmin) {
-        return this.authResponse(repairedAdmin);
+      if (this.isConfiguredAdminEmail(user.email)) {
+        const repairedAdmin = await this.repairConfiguredAdminPasswordLogin(user, input.password);
+        if (repairedAdmin) {
+          return this.authResponse(repairedAdmin);
+        }
+
+        throw new UnauthorizedException("Invalid email or password.");
       }
 
       throw new UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
@@ -85,6 +89,10 @@ export class AuthService implements OnModuleInit {
     }
 
     return this.authResponse(user);
+  }
+
+  private isConfiguredAdminEmail(email: string) {
+    return email.toLowerCase() === this.config.get<string>("ADMIN_EMAIL")?.trim().toLowerCase();
   }
 
   private async repairConfiguredAdminPasswordLogin(user: UserDocument, password: string) {

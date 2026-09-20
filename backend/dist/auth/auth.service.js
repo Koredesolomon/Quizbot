@@ -53,9 +53,12 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.UnauthorizedException("Invalid email, username, or password.");
         }
         if (!user.passwordHash) {
-            const repairedAdmin = await this.repairConfiguredAdminPasswordLogin(user, input.password);
-            if (repairedAdmin) {
-                return this.authResponse(repairedAdmin);
+            if (this.isConfiguredAdminEmail(user.email)) {
+                const repairedAdmin = await this.repairConfiguredAdminPasswordLogin(user, input.password);
+                if (repairedAdmin) {
+                    return this.authResponse(repairedAdmin);
+                }
+                throw new common_1.UnauthorizedException("Invalid email or password.");
             }
             throw new common_1.UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
         }
@@ -63,6 +66,9 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.UnauthorizedException("Invalid email, username, or password.");
         }
         return this.authResponse(user);
+    }
+    isConfiguredAdminEmail(email) {
+        return email.toLowerCase() === this.config.get("ADMIN_EMAIL")?.trim().toLowerCase();
     }
     async repairConfiguredAdminPasswordLogin(user, password) {
         const email = this.config.get("ADMIN_EMAIL")?.trim().toLowerCase();
