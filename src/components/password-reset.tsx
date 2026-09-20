@@ -85,7 +85,7 @@ export function PasswordReset({
             <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[var(--ink-muted)]">
               {hasToken
                 ? "Choose a fresh password for your TLCHub account."
-                : "Enter your email and we will send a secure reset link if the account exists."}
+                : "Enter your account email and we will send a secure reset link."}
             </p>
           </div>
 

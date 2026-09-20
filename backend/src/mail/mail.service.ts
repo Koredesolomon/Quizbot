@@ -35,7 +35,7 @@ export class MailService {
     const roleLabel = input.role === "admin" ? "admin workspace" : "student practice room";
 
     await transporter.sendMail({
-      from: this.mailFrom(),
+      ...this.mailSenderOptions(),
       to: input.email,
       subject: "Welcome to TLCHub",
       text: [
@@ -72,7 +72,7 @@ export class MailService {
     }).toString()}`;
 
     await transporter.sendMail({
-      from: this.mailFrom(),
+      ...this.mailSenderOptions(),
       to: input.email,
       subject: "Reset your TLCHub password",
       text: [
@@ -89,6 +89,10 @@ export class MailService {
         "The TLCHub Team",
       ].join("\n"),
       html: this.passwordResetHtml({ firstName, resetUrl, expiresAt: input.expiresAt }),
+      headers: {
+        "Auto-Submitted": "auto-generated",
+        "X-Auto-Response-Suppress": "All",
+      },
     });
   }
 
@@ -110,6 +114,7 @@ export class MailService {
         user,
         pass,
       },
+      dkim: this.dkimOptions(),
     });
 
     return this.transporter;
@@ -117,6 +122,31 @@ export class MailService {
 
   private mailFrom() {
     return this.config.get<string>("SMTP_FROM")?.trim() || "TLCHub <no-reply@mytlchub.com>";
+  }
+
+  private mailSenderOptions() {
+    const replyTo = this.config.get<string>("SMTP_REPLY_TO")?.trim();
+    const envelopeFrom = this.config.get<string>("SMTP_ENVELOPE_FROM")?.trim();
+
+    return {
+      from: this.mailFrom(),
+      ...(replyTo ? { replyTo } : {}),
+      ...(envelopeFrom ? { envelope: { from: envelopeFrom } } : {}),
+    };
+  }
+
+  private dkimOptions() {
+    const domainName = this.config.get<string>("SMTP_DKIM_DOMAIN")?.trim();
+    const keySelector = this.config.get<string>("SMTP_DKIM_SELECTOR")?.trim();
+    const privateKey = this.config.get<string>("SMTP_DKIM_PRIVATE_KEY")?.replace(/\\n/g, "\n").trim();
+
+    if (!domainName || !keySelector || !privateKey) return undefined;
+
+    return {
+      domainName,
+      keySelector,
+      privateKey,
+    };
   }
 
   private welcomeHtml({

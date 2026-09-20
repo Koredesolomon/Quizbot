@@ -72,6 +72,11 @@ export class AuthService implements OnModuleInit {
     }
 
     if (!user.passwordHash) {
+      const repairedAdmin = await this.repairConfiguredAdminPasswordLogin(user, input.password);
+      if (repairedAdmin) {
+        return this.authResponse(repairedAdmin);
+      }
+
       throw new UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
     }
 
@@ -82,20 +87,39 @@ export class AuthService implements OnModuleInit {
     return this.authResponse(user);
   }
 
+  private async repairConfiguredAdminPasswordLogin(user: UserDocument, password: string) {
+    const email = this.config.get<string>("ADMIN_EMAIL")?.trim().toLowerCase();
+    const adminPassword = this.config.get<string>("ADMIN_PASSWORD")?.trim();
+    const fullName = this.config.get<string>("ADMIN_NAME")?.trim() || user.fullName || "STEM-JUPEB Admin";
+
+    if (!email || !adminPassword || user.email.toLowerCase() !== email) {
+      return null;
+    }
+
+    if (password !== adminPassword) {
+      return null;
+    }
+
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    return this.users.upsertPasswordAdmin({ fullName, email, passwordHash });
+  }
+
   async requestPasswordReset(input: { email: string }) {
     const user = await this.users.findByEmail(input.email);
 
-    if (user?.passwordHash) {
-      const token = randomBytes(32).toString("base64url");
-      const tokenHash = this.passwordResetTokenHash(token);
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-      await this.users.setPasswordResetToken(user.id, tokenHash, expiresAt);
-      await this.sendPasswordResetEmail(user, token, expiresAt);
+    if (!user) {
+      throw new NotFoundException("Email does not exist.");
     }
 
+    const token = randomBytes(32).toString("base64url");
+    const tokenHash = this.passwordResetTokenHash(token);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await this.users.setPasswordResetToken(user.id, tokenHash, expiresAt);
+    await this.sendPasswordResetEmail(user, token, expiresAt);
+
     return {
-      message: "If an account exists for that email, a password reset link has been sent.",
+      message: "A password reset link has been sent.",
     };
   }
 

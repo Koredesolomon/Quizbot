@@ -156,9 +156,15 @@ SMTP_PORT="587"
 SMTP_USER="smtp-username"
 SMTP_PASS="smtp-password"
 SMTP_FROM="TLCHub <no-reply@mytlchub.com>"
+SMTP_REPLY_TO="support@mytlchub.com"
+SMTP_ENVELOPE_FROM="bounce@mytlchub.com"
+SMTP_DKIM_DOMAIN="mytlchub.com"
+SMTP_DKIM_SELECTOR="default"
+SMTP_DKIM_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 ```
 
 If SMTP is not configured or the mail provider is temporarily unavailable, signup still succeeds and the backend logs the
 mail delivery issue.
 
 Forgot-password emails use the same SMTP settings. Reset tokens expire after one hour and are cleared after a successful password change.
+For reliable inbox delivery, send from an address on your own domain and configure SPF, DKIM, and DMARC for that domain with your email provider.
