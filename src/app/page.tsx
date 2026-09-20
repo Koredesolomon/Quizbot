@@ -146,6 +146,10 @@ function isScreen(value: unknown): value is Screen {
   return typeof value === "string" && screens.has(value as Screen);
 }
 
+function currentBrowserPath() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 function toQuestionPayload(question: Question): Omit<Question, "id"> {
   return {
     type: question.type,
@@ -251,7 +255,7 @@ export default function Home() {
 
     const currentState = window.history.state;
     if (!isScreen(currentState?.tlcScreen)) {
-      window.history.replaceState({ ...currentState, tlcScreen: screen }, "", window.location.pathname + window.location.search);
+      window.history.replaceState({ ...currentState, tlcScreen: screen }, "", currentBrowserPath());
     }
 
     historyReadyRef.current = true;
@@ -281,7 +285,7 @@ export default function Home() {
     window.history.pushState(
       { ...(window.history.state ?? {}), tlcScreen: screen },
       "",
-      window.location.pathname + window.location.search
+      currentBrowserPath()
     );
   }, [screen]);
 
@@ -342,8 +346,7 @@ export default function Home() {
       }
 
       if (shouldOpenAdminChannel) {
-        setScreen("admin");
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        router.replace("/admin");
         return;
       }
 
@@ -358,7 +361,7 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(loadBrowserState);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let ignore = false;

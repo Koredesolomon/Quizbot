@@ -1,16 +1,21 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BarChart3,
   Bell,
   BookOpenCheck,
   ChevronDown,
   ClipboardList,
+  FileQuestion,
   Gauge,
+  GraduationCap,
   LayoutDashboard,
   LibraryBig,
+  LineChart,
   LogOut,
   Menu,
+  MonitorPlay,
   Search,
   Sparkles,
   Upload,
@@ -53,6 +58,17 @@ type AdminNotification = {
   targetId?: string;
 };
 
+export type AdminSection = "overview" | "courses" | "questions" | "reports" | "feedback";
+
+const adminSectionPaths: Record<string, string> = {
+  "admin-overview": "/admin",
+  "course-builder": "/admin/courses",
+  "question-studio": "/admin/questions",
+  "attempt-summary": "/admin/reports",
+  "performance-watchlist": "/admin/reports",
+  "feedback-review": "/admin/feedback",
+};
+
 const emptyCourseForm = {
   title: "",
   code: "",
@@ -75,6 +91,7 @@ const emptyQuizForm = {
   attemptsAllowed: 1,
   passingPercent: 50,
 };
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type AdminAccount = {
   name: string;
@@ -165,7 +182,10 @@ export function AdminLogin({
           <button
             className="mt-3 inline-flex w-full items-center justify-center text-center text-sm font-black text-sky-200 transition hover:text-white"
             type="button"
-            onClick={() => onForgotPassword(identifier.trim().toLowerCase())}
+            onClick={() => {
+              const resetEmail = identifier.trim().toLowerCase();
+              onForgotPassword(emailPattern.test(resetEmail) ? resetEmail : "");
+            }}
           >
             Forgot password?
           </button>
@@ -259,6 +279,7 @@ function AuthSubmitButton({ children }: { children: ReactNode }) {
 export function AdminDashboard({
   adminName = "Solomon Admin",
   adminRole = "Administrator",
+  section = "overview",
   courses,
   questions,
   attempts,
@@ -274,6 +295,7 @@ export function AdminDashboard({
 }: {
   adminName?: string;
   adminRole?: string;
+  section?: AdminSection;
   courses: api.CourseContent[];
   questions: Question[];
   attempts: StudentAttempt[];
@@ -299,6 +321,7 @@ export function AdminDashboard({
   onSignOut: () => void;
   onBack: () => void;
 }) {
+  const router = useRouter();
   const [form, setForm] = useState<QuestionForm>(emptyQuestion);
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
   const [lessonForm, setLessonForm] = useState(emptyLessonForm);
@@ -383,6 +406,59 @@ export function AdminDashboard({
       status: count > 0 ? "Active" : "Draft",
     };
   });
+  const lessonCount = courses.reduce((sum, course) => sum + course.lessons.length, 0);
+  const quizCount = courses.reduce((sum, course) => sum + course.quizzes.length, 0);
+  const publishedCourses = courses.filter((course) => course.status === "published").length;
+  const lmsModules = [
+    {
+      label: "Courses",
+      value: String(courses.length),
+      detail: `${publishedCourses} published`,
+      icon: BookOpenCheck,
+      tone: "blue" as const,
+      targetId: "course-builder",
+    },
+    {
+      label: "Lessons",
+      value: String(lessonCount),
+      detail: "Video and materials",
+      icon: MonitorPlay,
+      tone: "green" as const,
+      targetId: "course-builder",
+    },
+    {
+      label: "Quizzes",
+      value: String(quizCount),
+      detail: "Course assessments",
+      icon: ClipboardList,
+      tone: "purple" as const,
+      targetId: "course-builder",
+    },
+    {
+      label: "Question Bank",
+      value: String(questions.length),
+      detail: `${topicCoverage.length} topics`,
+      icon: FileQuestion,
+      tone: "orange" as const,
+      targetId: "question-studio",
+    },
+    {
+      label: "Learners",
+      value: String(totalStudents),
+      detail: `${activeAttempts.length} active attempts`,
+      icon: GraduationCap,
+      tone: "rose" as const,
+      targetId: "attempt-summary",
+    },
+    {
+      label: "Reports",
+      value: `${averageScore}%`,
+      detail: `${needsAttention.length} watchlist`,
+      icon: LineChart,
+      tone: "blue" as const,
+      targetId: "performance-watchlist",
+    },
+  ];
 
   const activeCourseId = selectedCourseId || courses[0]?.id || "";
   const activeCourse = courses.find((course) => course.id === activeCourseId) ?? courses[0];
@@ -537,6 +613,12 @@ export function AdminDashboard({
 
   const openSection = (id: string) => {
     setIsNotificationsOpen(false);
+    const path = adminSectionPaths[id];
+    if (path && typeof window !== "undefined" && window.location.pathname !== path) {
+      router.push(path);
+      return;
+    }
+
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -597,14 +679,15 @@ export function AdminDashboard({
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-4 py-5 text-sm font-bold">
-            <SidebarItem active icon={LayoutDashboard} label="Dashboard" />
-            <SidebarItem icon={BookOpenCheck} label="Course builder" onClick={() => openSection("course-builder")} />
-            <SidebarItem icon={LibraryBig} label="Question bank" onClick={() => openSection("question-studio")} />
-            <SidebarItem icon={ClipboardList} label="Attempts" onClick={() => openSection("attempt-summary")} />
-            <SidebarItem icon={Bell} label="Feedback" badge={unreadFeedback} onClick={() => openSection("feedback-review")} />
+            <SidebarItem active={section === "overview"} icon={LayoutDashboard} label="Dashboard" onClick={() => openSection("admin-overview")} />
+            <SidebarItem active={section === "courses"} icon={BookOpenCheck} label="Course builder" onClick={() => openSection("course-builder")} />
+            <SidebarItem active={section === "questions"} icon={LibraryBig} label="Question bank" onClick={() => openSection("question-studio")} />
+            <SidebarItem active={section === "reports"} icon={ClipboardList} label="Attempts" onClick={() => openSection("attempt-summary")} />
+            <SidebarItem active={section === "feedback"} icon={Bell} label="Feedback" badge={unreadFeedback} onClick={() => openSection("feedback-review")} />
             <SidebarItem
               icon={BarChart3}
               label="Watchlist"
+              active={section === "reports"}
               badge={notificationCount}
               onClick={() => openSection("performance-watchlist")}
             />
@@ -752,9 +835,9 @@ export function AdminDashboard({
           <main className="admin-main px-4 py-8 sm:px-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-black tracking-normal sm:text-3xl">Welcome back, {firstName(adminName)}.</h1>
+                <h1 className="text-2xl font-black tracking-normal sm:text-3xl">Learning Management Console</h1>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Here is what is happening with your quiz app today.
+                  Welcome back, {firstName(adminName)}. Build courses, lessons, quizzes, questions, and learner reports from one place.
                 </p>
               </div>
               <div className="relative flex flex-wrap gap-2">
@@ -777,14 +860,52 @@ export function AdminDashboard({
               </div>
             </div>
 
-            <div className="stagger-list mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {section === "overview" && (
+              <>
+            <DashboardPanel className="mt-7" title="TutorPro-Style Workspace" action="LMS modules" id="admin-overview">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                {lmsModules.map((module) => (
+                  <ModuleCard
+                    key={module.label}
+                    icon={module.icon}
+                    tone={module.tone}
+                    label={module.label}
+                    value={module.value}
+                    detail={module.detail}
+                    onClick={() => openSection(module.targetId)}
+                  />
+                ))}
+              </div>
+              <div className="mt-5 grid gap-3 lg:grid-cols-5">
+                {["Create Course", "Add Lessons", "Attach Quizzes", "Publish Questions", "Track Reports"].map(
+                  (step, index) => (
+                    <button
+                      className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-left text-sm font-black text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                      key={step}
+                      type="button"
+                      onClick={() => openSection(index < 3 ? "course-builder" : index === 3 ? "question-studio" : "performance-watchlist")}
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-xs font-black text-sky-700 shadow-sm">
+                        {index + 1}
+                      </span>
+                      {step}
+                    </button>
+                  )
+                )}
+              </div>
+            </DashboardPanel>
+
+            <div className="stagger-list mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <StatCard icon={Users} tone="purple" label="Total Students" value={String(totalStudents)} trend={`${totalStudents} recorded`} detail="" />
               <StatCard icon={UserRound} tone="green" label="Active Attempts" value={String(activeAttempts.length)} trend={`${activeAttempts.length} active`} detail="" />
               <StatCard icon={ClipboardList} tone="blue" label="Total Questions" value={String(questions.length)} trend={`${topicCoverage.length} topics`} detail="" />
               <StatCard icon={Gauge} tone="orange" label="Total Attempts" value={String(attempts.length)} trend={`${completedAttempts.length} completed`} detail="" />
               <StatCard icon={Sparkles} tone="rose" label="Average Score" value={`${averageScore}%`} trend={`${needsAttention.length} watchlist`} detail="" />
             </div>
+              </>
+            )}
 
+            {(section === "overview" || section === "reports") && (
             <div className="mt-5 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
               <DashboardPanel className="min-h-[330px]" title="Attempt Summary" action="Live" id="attempt-summary">
                 <div className="grid h-full content-center gap-4 sm:grid-cols-3">
@@ -807,7 +928,9 @@ export function AdminDashboard({
                 </div>
               </DashboardPanel>
             </div>
+            )}
 
+            {section === "courses" && (
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
               <DashboardPanel title="Course Builder" action="Courses · Lessons · Quizzes" id="course-builder">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -922,7 +1045,9 @@ export function AdminDashboard({
                 )}
               </DashboardPanel>
             </div>
+            )}
 
+            {section === "questions" && (
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
               <DashboardPanel title="Question Studio" action="LaTeX enabled" id="question-studio">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1061,8 +1186,11 @@ export function AdminDashboard({
                 </div>
               </DashboardPanel>
             </div>
+            )}
 
+            {(section === "feedback" || section === "reports") && (
             <div className="mt-5 grid gap-5 xl:grid-cols-2">
+              {section === "feedback" && (
               <DashboardPanel title={`Feedback Review (${unreadFeedback} new)`} id="feedback-review">
                 <div className="stagger-list space-y-3">
                   {feedback.map((item) => (
@@ -1090,7 +1218,9 @@ export function AdminDashboard({
                   ))}
                 </div>
               </DashboardPanel>
+              )}
 
+              {section === "reports" && (
               <DashboardPanel title="Performance Watchlist" id="performance-watchlist">
                 <div className="stagger-list space-y-3">
                   {needsAttention.length === 0 ? (
@@ -1107,7 +1237,9 @@ export function AdminDashboard({
                   )}
                 </div>
               </DashboardPanel>
+              )}
             </div>
+            )}
           </main>
         </div>
       </div>
@@ -1240,6 +1372,45 @@ function StatCard({
         {detail && <span className="text-slate-500">{detail}</span>}
       </div>
     </div>
+  );
+}
+
+function ModuleCard({
+  icon: Icon,
+  tone,
+  label,
+  value,
+  detail,
+  onClick,
+}: {
+  icon: LucideIcon;
+  tone: "purple" | "green" | "blue" | "orange" | "rose";
+  label: string;
+  value: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  const tones = {
+    purple: "bg-violet-50 text-violet-700 border-violet-100",
+    green: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    blue: "bg-sky-50 text-sky-700 border-sky-100",
+    orange: "bg-orange-50 text-orange-700 border-orange-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+
+  return (
+    <button
+      className="interactive-lift min-h-36 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:shadow-md"
+      type="button"
+      onClick={onClick}
+    >
+      <span className={`grid h-11 w-11 place-items-center rounded-lg border ${tones[tone]}`}>
+        <Icon size={21} />
+      </span>
+      <strong className="mt-4 block text-2xl font-black text-slate-950">{value}</strong>
+      <span className="mt-1 block text-sm font-black text-slate-800">{label}</span>
+      <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">{detail}</span>
+    </button>
   );
 }
 

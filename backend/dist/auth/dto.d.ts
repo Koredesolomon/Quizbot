@@ -5,7 +5,8 @@ export declare class RegisterDto {
     password: string;
 }
 export declare class LoginDto {
-    identifier: string;
+    identifier?: string;
+    email?: string;
     password: string;
 }
 export declare class ForgotPasswordDto {

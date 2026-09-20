@@ -5,6 +5,7 @@ import type * as api from "@/lib/api";
 import { BackButton, GoogleIcon, PrimaryButton } from "./ui";
 
 type Mode = "login" | "register";
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function StudentAuth({
   initialMode = "login",
@@ -190,7 +191,10 @@ export function StudentAuth({
               <button
                 className="-mt-2 justify-self-end text-sm font-black text-[var(--brand-blue)] transition hover:text-[var(--brand-green)]"
                 type="button"
-                onClick={() => onForgotPassword(email.trim().toLowerCase())}
+                onClick={() => {
+                  const resetEmail = email.trim().toLowerCase();
+                  onForgotPassword(emailPattern.test(resetEmail) ? resetEmail : "");
+                }}
               >
                 Forgot password?
               </button>

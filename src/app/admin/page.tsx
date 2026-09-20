@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { AdminPortal } from "@/components/admin-portal";
 
-export default function AdminChannel() {
-  redirect("/#admin=1");
+export default function AdminPage() {
+  return <AdminPortal section="overview" />;
 }

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
 import { BackButton, PrimaryButton } from "./ui";
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function PasswordReset({
   initialEmail = "",
   token = "",
@@ -38,6 +40,11 @@ export function PasswordReset({
 
             if (!hasToken && !email.trim()) {
               setError("Enter your account email address.");
+              return;
+            }
+
+            if (!hasToken && !emailPattern.test(email.trim())) {
+              setError("Enter a valid email address for password reset.");
               return;
             }
 

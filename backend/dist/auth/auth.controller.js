@@ -36,7 +36,11 @@ let AuthController = class AuthController {
         return this.auth.register({ ...body, role: "student" });
     }
     login(body) {
-        return this.auth.login(body);
+        const identifier = body.identifier ?? body.email;
+        if (!identifier) {
+            throw new common_1.BadRequestException("Enter your email address or username.");
+        }
+        return this.auth.login({ identifier, password: body.password });
     }
     forgotPassword(body) {
         return this.auth.requestPasswordReset(body);
@@ -99,7 +103,8 @@ let AuthController = class AuthController {
     }
     googleRedirect(frontendUrl, role, params) {
         const hash = new URLSearchParams({ authGoogle: "1", role, ...params });
-        return `${frontendUrl}/#${hash.toString()}`;
+        const path = role === "admin" ? "/admin" : "/";
+        return `${frontendUrl}${path}#${hash.toString()}`;
     }
     isGoogleRole(role) {
         return role === "admin" || role === "student";

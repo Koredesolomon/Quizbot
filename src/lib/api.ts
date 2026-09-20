@@ -132,13 +132,30 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (!response.ok) {
     const message = await response
       .json()
-      .then((body) => String(body.message ?? body.error ?? "API request failed."))
+      .then((body) => formatApiError(body))
       .catch(() => "API request failed.");
 
     throw new Error(message);
   }
 
   return response.json() as Promise<T>;
+}
+
+function formatApiError(body: unknown) {
+  if (!body || typeof body !== "object") return "API request failed.";
+
+  const payload = body as { message?: unknown; error?: unknown };
+  const message = payload.message ?? payload.error;
+
+  if (Array.isArray(message)) {
+    return message.join(". ");
+  }
+
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+
+  return "API request failed.";
 }
 
 export function registerAdmin(input: { fullName: string; email: string; username?: string; password: string }, token: string) {

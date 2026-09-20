@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
@@ -39,7 +39,13 @@ export class AuthController {
 
   @Post("login")
   login(@Body() body: LoginDto) {
-    return this.auth.login(body);
+    const identifier = body.identifier ?? body.email;
+
+    if (!identifier) {
+      throw new BadRequestException("Enter your email address or username.");
+    }
+
+    return this.auth.login({ identifier, password: body.password });
   }
 
   @Post("forgot-password")
@@ -132,7 +138,8 @@ export class AuthController {
 
   private googleRedirect(frontendUrl: string, role: UserRole, params: Record<string, string>) {
     const hash = new URLSearchParams({ authGoogle: "1", role, ...params });
-    return `${frontendUrl}/#${hash.toString()}`;
+    const path = role === "admin" ? "/admin" : "/";
+    return `${frontendUrl}${path}#${hash.toString()}`;
   }
 
   private isGoogleRole(role: string): role is UserRole {

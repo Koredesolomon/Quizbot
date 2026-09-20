@@ -513,12 +513,6 @@ function WordAnswerBox({
           )}
         </div>
       </div>
-      <div className="content-rise-delay mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-        <strong className="block text-xs font-black uppercase text-slate-600">Preview</strong>
-        <div className="mt-2 min-h-8 text-sm font-semibold leading-7 text-slate-900">
-          <MathContent>{answer.text || "Your rendered math preview will appear here."}</MathContent>
-        </div>
-      </div>
     </div>
   );
 }

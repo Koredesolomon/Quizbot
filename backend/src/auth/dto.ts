@@ -21,9 +21,14 @@ export class RegisterDto {
 }
 
 export class LoginDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  identifier: string;
+  identifier?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsString()
   @IsNotEmpty()
