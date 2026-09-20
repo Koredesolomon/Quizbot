@@ -232,18 +232,12 @@ let AuthService = AuthService_1 = class AuthService {
         }
     }
     async sendPasswordResetEmail(user, token, expiresAt) {
-        try {
-            await this.mail.sendPasswordResetEmail({
-                fullName: user.fullName,
-                email: user.email,
-                token,
-                expiresAt,
-            });
-        }
-        catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.warn(`Password reset email could not be sent to ${user.email}: ${message}`);
-        }
+        await this.mail.sendPasswordResetEmail({
+            fullName: user.fullName,
+            email: user.email,
+            token,
+            expiresAt,
+        });
     }
     async loginGoogleAdmin(code) {
         return this.loginGoogle(code, "admin");

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
@@ -60,7 +60,7 @@ export class MailService {
     const transporter = this.getTransporter();
     if (!transporter) {
       this.logger.log("Password reset email skipped because SMTP is not configured.");
-      return;
+      throw new ServiceUnavailableException("Email delivery is not configured.");
     }
 
     const appUrl = (this.config.get<string>("FRONTEND_ORIGIN") ?? "https://mytlchub.com").replace(/\/$/, "");
@@ -71,7 +71,7 @@ export class MailService {
       email: input.email,
     }).toString()}`;
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       ...this.mailSenderOptions(),
       to: input.email,
       subject: "Reset your TLCHub password",
@@ -94,6 +94,8 @@ export class MailService {
         "X-Auto-Response-Suppress": "All",
       },
     });
+
+    this.logger.log(`Password reset email queued for ${input.email}: ${info.messageId ?? "no message id"}`);
   }
 
   private getTransporter() {
