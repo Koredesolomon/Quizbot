@@ -6,6 +6,11 @@ import { BackButton, GoogleIcon, PrimaryButton } from "./ui";
 
 type Mode = "login" | "register";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const googleOnlyAuthMessage = "This email is linked to Google sign-in.";
+
+function isGoogleOnlyAuthError(error: unknown) {
+  return error instanceof Error && error.message.toLowerCase().includes("google sign-in");
+}
 
 export function StudentAuth({
   initialMode = "login",
@@ -31,6 +36,7 @@ export function StudentAuth({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
   const isRegister = mode === "register";
@@ -76,6 +82,7 @@ export function StudentAuth({
             onSubmit={async (event) => {
               event.preventDefault();
               setError("");
+              setGoogleOnlyEmail("");
 
               if (!email.trim() || !password.trim() || (isRegister && (!firstName.trim() || !lastName.trim()))) {
                 setError("Complete all required fields.");
@@ -107,7 +114,12 @@ export function StudentAuth({
                   });
                 }
               } catch (submitError) {
-                setError(submitError instanceof Error ? submitError.message : "Student authentication failed.");
+                if (!isRegister && isGoogleOnlyAuthError(submitError)) {
+                  setGoogleOnlyEmail(email.trim().toLowerCase());
+                  setError(googleOnlyAuthMessage);
+                } else {
+                  setError(submitError instanceof Error ? submitError.message : "Student authentication failed.");
+                }
               } finally {
                 setBusy(false);
               }
@@ -142,7 +154,7 @@ export function StudentAuth({
                   !isRegister ? "bg-[var(--brand-blue)] text-white shadow-sm" : "text-[var(--ink-muted)] hover:text-[var(--brand-blue)]"
                 }`}
                 type="button"
-                onClick={() => { setMode("login"); setError(""); }}
+                onClick={() => { setMode("login"); setError(""); setGoogleOnlyEmail(""); }}
               >
                 <LogIn aria-hidden="true" size={16} />
                 Login
@@ -152,7 +164,7 @@ export function StudentAuth({
                   isRegister ? "bg-[var(--brand-green)] text-white shadow-sm" : "text-[var(--ink-muted)] hover:text-[var(--brand-green)]"
                 }`}
                 type="button"
-                onClick={() => { setMode("register"); setError(""); }}
+                onClick={() => { setMode("register"); setError(""); setGoogleOnlyEmail(""); }}
               >
                 <UserPlus aria-hidden="true" size={16} />
                 Register
@@ -197,7 +209,35 @@ export function StudentAuth({
               </button>
             )}
 
-            {(error || authError) && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error || authError}</p>}
+            {googleOnlyEmail ? (
+              <div className="grid gap-3 rounded-md bg-blue-50 px-3 py-3 text-sm font-bold text-blue-800">
+                <p>{googleOnlyAuthMessage}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white px-3 text-sm font-black text-[var(--brand-blue)] shadow-sm transition hover:-translate-y-0.5"
+                    type="button"
+                    onClick={onGoogleLogin}
+                  >
+                    <GoogleIcon className="h-4 w-4 shrink-0" />
+                    Continue with Google
+                  </button>
+                  <button
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--brand-blue)] px-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5"
+                    type="button"
+                    onClick={() => {
+                      setMode("register");
+                      setPassword("");
+                      setError("");
+                      setGoogleOnlyEmail("");
+                    }}
+                  >
+                    Create password login
+                  </button>
+                </div>
+              </div>
+            ) : (
+              (error || authError) && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error || authError}</p>
+            )}
 
             <PrimaryButton className="mt-2 w-full" disabled={busy} type="submit">
               {busy ? "Please wait..." : isRegister ? "Create student account" : "Sign in"}
@@ -209,6 +249,7 @@ export function StudentAuth({
               onClick={() => {
                 setMode(isRegister ? "login" : "register");
                 setError("");
+                setGoogleOnlyEmail("");
               }}
             >
               {isRegister ? "Already have an account? " : "Need an account? "}

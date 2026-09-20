@@ -92,6 +92,11 @@ const emptyQuizForm = {
   passingPercent: 50,
 };
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const googleOnlyAuthMessage = "This email is linked to Google sign-in.";
+
+function isGoogleOnlyAuthError(error: unknown) {
+  return error instanceof Error && error.message.toLowerCase().includes("google sign-in");
+}
 
 export type AdminAccount = {
   name: string;
@@ -120,6 +125,7 @@ export function AdminLogin({
   const [identifier, setIdentifier] = useState(adminEmail);
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState("");
 
   return (
     <AuthScene>
@@ -140,8 +146,24 @@ export function AdminLogin({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            setError("");
+            setGoogleOnlyEmail("");
+
+            const email = identifier.trim().toLowerCase();
+            const password = accessCode.trim();
+
+            if (!email || !password) {
+              setError("Enter your admin email address and password.");
+              return;
+            }
+
+            if (!emailPattern.test(email)) {
+              setError("Enter a valid admin email address.");
+              return;
+            }
+
             try {
-              const unlocked = await Promise.resolve(onUnlock(identifier.trim().toLowerCase(), accessCode.trim()));
+              const unlocked = await Promise.resolve(onUnlock(email, password));
 
               if (!unlocked) {
                 setError("Incorrect admin email or password.");
@@ -151,7 +173,12 @@ export function AdminLogin({
               setAccessCode("");
               setError("");
             } catch (loginError) {
-              setError(loginError instanceof Error ? loginError.message : "Admin sign in failed.");
+              if (isGoogleOnlyAuthError(loginError)) {
+                setGoogleOnlyEmail(identifier.trim().toLowerCase());
+                setError(googleOnlyAuthMessage);
+              } else {
+                setError(loginError instanceof Error ? loginError.message : "Admin sign in failed.");
+              }
             }
           }}
         >
@@ -163,6 +190,7 @@ export function AdminLogin({
               onChange={(value) => {
                 setIdentifier(value);
                 setError("");
+                setGoogleOnlyEmail("");
               }}
             />
             <AuthField
@@ -172,11 +200,26 @@ export function AdminLogin({
               onChange={(value) => {
                 setAccessCode(value);
                 setError("");
+                setGoogleOnlyEmail("");
               }}
             />
           </div>
 
-          {(error || authError) && <p className="mt-3 text-sm font-bold text-rose-300">{error || authError}</p>}
+          {googleOnlyEmail ? (
+            <div className="mt-3 grid gap-3 rounded-md border border-sky-300/30 bg-sky-300/10 p-3 text-sm font-bold text-sky-100">
+              <p>{googleOnlyAuthMessage}</p>
+              <button
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white px-3 text-sm font-black text-slate-950 transition hover:bg-sky-50"
+                type="button"
+                onClick={onGoogleLogin}
+              >
+                <GoogleIcon className="h-4 w-4 shrink-0" />
+                Continue with Google
+              </button>
+            </div>
+          ) : (
+            (error || authError) && <p className="mt-3 text-sm font-bold text-rose-300">{error || authError}</p>
+          )}
 
           <AuthSubmitButton>Sign in</AuthSubmitButton>
           <button
@@ -184,7 +227,15 @@ export function AdminLogin({
             type="button"
             onClick={() => {
               const resetEmail = identifier.trim().toLowerCase();
-              onForgotPassword(emailPattern.test(resetEmail) ? resetEmail : "");
+              setGoogleOnlyEmail("");
+
+              if (!emailPattern.test(resetEmail)) {
+                setError("Enter your admin email address before resetting your password.");
+                return;
+              }
+
+              setError("");
+              onForgotPassword(resetEmail);
             }}
           >
             Forgot password?
