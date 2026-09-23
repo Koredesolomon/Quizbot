@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AdminDashboard,
   AdminLogin,
   type AdminAccount,
-  type AdminSection,
 } from "@/components/admin-dashboard";
+import { AdminDashboard, type AdminSection } from "@/components/admin-dashboard-shell";
 import { PasswordReset } from "@/components/password-reset";
 import { questions as starterQuestions } from "@/data/platform";
 import * as api from "@/lib/api";
@@ -51,6 +50,7 @@ function toQuestionPayload(question: Question): Omit<Question, "id"> {
     subject: question.subject,
     topic: question.topic,
     prompt: question.prompt,
+    imageUrl: question.imageUrl,
     options: question.options,
     answer: question.answer,
     explanation: question.explanation,
@@ -93,7 +93,6 @@ function toStudentFeedback(feedback: api.ApiFeedback): StudentFeedback {
 export function AdminPortal({ section }: { section: AdminSection }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>(starterQuestions);
-  const [courses, setCourses] = useState<api.CourseContent[]>([]);
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
   const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
@@ -142,11 +141,10 @@ export function AdminPortal({ section }: { section: AdminSection }) {
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([api.getQuestions(), api.getCourses()])
-      .then(([backendQuestions, backendCourses]) => {
+    api.getQuestions()
+      .then((backendQuestions) => {
         if (ignore) return;
         if (backendQuestions.length > 0) setQuestions(backendQuestions);
-        setCourses(backendCourses);
       })
       .catch(() => undefined);
 
@@ -239,22 +237,9 @@ export function AdminPortal({ section }: { section: AdminSection }) {
       adminName={adminAccount.name}
       adminRole={adminAccount.role}
       section={section}
-      courses={courses}
       questions={questions}
       attempts={attempts}
       feedback={feedback}
-      onCreateCourse={async (input) => {
-        await api.createCourse(input, adminAccount.accessToken ?? "");
-        setCourses(await api.getCourses());
-      }}
-      onAddLesson={async (courseId, input) => {
-        await api.addLesson(courseId, input, adminAccount.accessToken ?? "");
-        setCourses(await api.getCourses());
-      }}
-      onAddQuiz={async (courseId, input) => {
-        await api.addQuiz(courseId, input, adminAccount.accessToken ?? "");
-        setCourses(await api.getCourses());
-      }}
       onAddQuestion={async (question) => {
         await api.createQuestion(toQuestionPayload(question), adminAccount.accessToken ?? "");
         setQuestions(await api.getQuestions());

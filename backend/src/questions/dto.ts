@@ -18,6 +18,10 @@ export class CreateQuestionDto {
   prompt: string;
 
   @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   options?: string[];

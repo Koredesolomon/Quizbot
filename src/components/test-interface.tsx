@@ -169,6 +169,12 @@ export function TestInterface({
                 <h2 className="mt-2 text-xl font-black leading-7 text-slate-950">
                   <MathContent>{question.prompt}</MathContent>
                 </h2>
+                {question.imageUrl && (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="max-h-80 w-full rounded-md object-contain" src={question.imageUrl} alt="Question diagram" />
+                  </div>
+                )}
               </div>
               <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-black text-sky-700">
                 {question.marks} marks

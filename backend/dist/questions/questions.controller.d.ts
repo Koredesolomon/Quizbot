@@ -10,6 +10,7 @@ export declare class QuestionsController {
         subject: string;
         topic: string;
         prompt: string;
+        imageUrl: string | undefined;
         options: string[] | undefined;
         answer: string;
         explanation: string;
@@ -28,6 +29,7 @@ export declare class QuestionsController {
         subject: string;
         topic: string;
         prompt: string;
+        imageUrl: string | undefined;
         options: string[] | undefined;
         answer: string;
         explanation: string;
@@ -46,6 +48,7 @@ export declare class QuestionsController {
         subject: string;
         topic: string;
         prompt: string;
+        imageUrl: string | undefined;
         options: string[] | undefined;
         answer: string;
         explanation: string;

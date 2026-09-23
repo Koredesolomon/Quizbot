@@ -3,6 +3,7 @@ export declare class CreateQuestionDto {
     subject?: string;
     topic: string;
     prompt: string;
+    imageUrl?: string;
     options?: string[];
     answer: string;
     explanation: string;

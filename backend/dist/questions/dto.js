@@ -17,6 +17,7 @@ class CreateQuestionDto {
     subject;
     topic;
     prompt;
+    imageUrl;
     options;
     answer;
     explanation;
@@ -47,6 +48,11 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateQuestionDto.prototype, "prompt", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateQuestionDto.prototype, "imageUrl", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

@@ -19,6 +19,9 @@ export class Question {
   @Prop({ required: true, trim: true })
   prompt: string;
 
+  @Prop()
+  imageUrl?: string;
+
   @Prop({ type: [String], default: undefined })
   options?: string[];
 

@@ -54,6 +54,7 @@ export class QuestionsService {
       subject: question.subject ?? "Physics",
       topic: question.topic,
       prompt: question.prompt,
+      imageUrl: question.imageUrl,
       options: question.options,
       answer: question.answer,
       explanation: question.explanation,

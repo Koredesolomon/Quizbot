@@ -1644,6 +1644,7 @@ function normalizeQuestion(question: Partial<Question>, index: number): Question
     subject: question.subject || "Physics",
     topic: question.topic || "General",
     prompt: question.prompt,
+    imageUrl: question.imageUrl,
     options: type === "objective" ? options : undefined,
     answer: question.answer,
     explanation: question.explanation,
