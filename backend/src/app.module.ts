@@ -1,0 +1,27 @@
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { MongooseModule } from "@nestjs/mongoose";
+import { AdminModule } from "./admin/admin.module";
+import { AttemptsModule } from "./attempts/attempts.module";
+import { AuthModule } from "./auth/auth.module";
+import { ContentModule } from "./content/content.module";
+import { FeedbackModule } from "./feedback/feedback.module";
+import { HealthController } from "./health.controller";
+import { QuestionsModule } from "./questions/questions.module";
+import { UsersModule } from "./users/users.module";
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRoot(process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/quiz-bot"),
+    UsersModule,
+    AuthModule,
+    ContentModule,
+    QuestionsModule,
+    AttemptsModule,
+    FeedbackModule,
+    AdminModule,
+  ],
+  controllers: [HealthController],
+})
+export class AppModule {}

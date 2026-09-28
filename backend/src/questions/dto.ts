@@ -1,0 +1,86 @@
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
+
+export class CreateQuestionDto {
+  @IsIn(["objective", "theory"])
+  type: "objective" | "theory";
+
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  courseId?: string;
+
+  @IsOptional()
+  @IsString()
+  moduleId?: string;
+
+  @IsOptional()
+  @IsString()
+  subtopicId?: string;
+
+  @IsOptional()
+  @IsString()
+  quizId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  topic: string;
+
+  @IsString()
+  @IsNotEmpty()
+  prompt: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
+
+  @IsString()
+  @IsNotEmpty()
+  answer: string;
+
+  @IsString()
+  @IsNotEmpty()
+  explanation: string;
+
+  @IsInt()
+  @Min(1)
+  marks: number;
+
+  @IsOptional()
+  @IsIn(["easy", "medium", "hard"])
+  difficulty?: "easy" | "medium" | "hard";
+
+  @IsOptional()
+  @IsString()
+  learningObjective?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  rubricPoints?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  commonMistakes?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keywords?: string[];
+}
+
+export class ImportQuestionsDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuestionDto)
+  questions: CreateQuestionDto[];
+}

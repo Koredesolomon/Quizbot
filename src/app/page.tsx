@@ -1,0 +1,1066 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AdminDashboard, AdminLogin, type AdminAccount } from "@/components/admin-dashboard";
+import { TlchubAiAssistant } from "@/components/ai-assistant";
+import { Footer } from "@/components/footer";
+import { Header } from "@/components/header";
+import { Landing } from "@/components/landing";
+import {
+  Courses,
+  HowItWorks,
+  Overview,
+  QuizPickerModal,
+  Topics,
+} from "@/components/selection-screens";
+import { ComingSoon, Details, Marking, Results } from "@/components/results-screens";
+import { PasswordReset } from "@/components/password-reset";
+import { StudentAuth } from "@/components/student-auth";
+import { StudentDashboard } from "@/components/student-dashboard";
+import { TestInterface } from "@/components/test-interface";
+import * as api from "@/lib/api";
+import { getTopicBreakdown, markResponses } from "@/lib/marker";
+import type { MarkedQuestion, Question, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
+
+const studentName = "Practice Student";
+const adminStorageKey = "stem-jupeb-admin-account";
+const studentStorageKey = "stem-jupeb-student-session";
+const themeStorageKey = "stem-jupeb-theme";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const screens = new Set<Screen>([
+  "landing",
+  "howItWorks",
+  "courses",
+  "topics",
+  "overview",
+  "test",
+  "marking",
+  "results",
+  "details",
+  "student",
+  "studentRegister",
+  "studentDashboard",
+  "passwordReset",
+  "admin",
+  "comingSoon",
+]);
+
+type GoogleCallback =
+  | { role: "admin"; account: AdminAccount; error?: never }
+  | { role: "student"; session: api.AuthResponse; error?: never }
+  | { role: "admin" | "student"; error: string }
+  | null;
+
+type PasswordResetCallback = { token: string; email: string } | null;
+
+function getPasswordResetCallback(): PasswordResetCallback {
+  if (typeof window === "undefined" || !window.location.hash.includes("resetPassword=1")) return null;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const token = params.get("token") ?? "";
+  if (!token) return null;
+
+  return {
+    token,
+    email: params.get("email") ?? "",
+  };
+}
+
+function getGoogleCallback(): GoogleCallback {
+  if (typeof window === "undefined" || !window.location.hash.includes("authGoogle=1")) return null;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const role = params.get("role") === "admin" ? "admin" : "student";
+  const error = params.get("error");
+  if (error) return { role, error };
+
+  const accessToken = params.get("accessToken") ?? "";
+  const email = params.get("email") ?? "";
+  const fullName = params.get("name") ?? (role === "admin" ? "Google Admin" : "Google Student");
+
+  if (role === "admin") {
+    return {
+      role,
+      account: {
+        name: fullName,
+        email,
+        role: "Academic Admin",
+        accessCode: "",
+        accessToken,
+        authProvider: "google",
+      },
+    };
+  }
+
+  return {
+    role,
+    session: {
+      accessToken,
+      user: {
+        id: params.get("id") ?? "",
+        fullName,
+          email,
+          username: params.get("username") || undefined,
+          avatarUrl: params.get("avatarUrl") || undefined,
+          role: params.get("userRole") === "admin" ? "admin" : "student",
+          authProvider: "google",
+          registeredCourses: params.get("registeredCourses")?.split(",").filter(Boolean) ?? [],
+          createdAt: params.get("createdAt") ?? new Date().toISOString(),
+        },
+    },
+  };
+}
+
+function getGoogleAdminCallback(): GoogleCallback {
+  if (typeof window === "undefined" || !window.location.hash.includes("adminGoogle=1")) return null;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const error = params.get("error");
+  if (error) return { role: "admin", error };
+
+  return {
+    role: "admin",
+    account: {
+      name: params.get("name") ?? "Google Admin",
+      email: params.get("email") ?? "",
+      role: "Academic Admin",
+      accessCode: "",
+      accessToken: params.get("accessToken") ?? undefined,
+      authProvider: "google",
+    },
+  };
+}
+
+function isAdminChannelHash() {
+  if (typeof window === "undefined") return false;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  return params.get("admin") === "1";
+}
+
+function isScreen(value: unknown): value is Screen {
+  return typeof value === "string" && screens.has(value as Screen);
+}
+
+function currentBrowserPath() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function toQuestionPayload(question: Question): Omit<Question, "id"> {
+  return {
+    type: question.type,
+    subject: question.subject,
+    topic: question.topic,
+    prompt: question.prompt,
+    imageUrl: question.imageUrl,
+    courseId: question.courseId,
+    moduleId: question.moduleId,
+    subtopicId: question.subtopicId,
+    quizId: question.quizId,
+    options: question.options,
+    answer: question.answer,
+    explanation: question.explanation,
+    marks: question.marks,
+    difficulty: question.difficulty,
+    learningObjective: question.learningObjective,
+    rubricPoints: question.rubricPoints,
+    commonMistakes: question.commonMistakes,
+    keywords: question.keywords,
+  };
+}
+
+function mapBackendMarkedAnswers(
+  response: api.SubmitAttemptResponse,
+  submittedAnswers: Record<string, string>,
+  questions: Question[]
+): MarkedQuestion[] {
+  const answersByQuestion = new Map(response.answers.map((answer) => [answer.questionId, answer]));
+
+  return questions.map((question) => {
+    const backendAnswer = answersByQuestion.get(question.id);
+
+    return {
+      ...question,
+      userAnswer: backendAnswer?.answer ?? submittedAnswers[question.id] ?? "",
+      awarded: backendAnswer?.awarded ?? 0,
+      correct: backendAnswer?.correct ?? false,
+      aiFeedback: backendAnswer?.aiFeedback ?? "No response was submitted for this question.",
+    };
+  });
+}
+
+function toStudentAttempt(attempt: api.ApiAttempt, questionCount: number, answered: number, student: string): StudentAttempt {
+  return {
+    id: attempt.id,
+    student,
+    status: attempt.status,
+    startedAt: attempt.startedAt,
+    submittedAt: attempt.submittedAt,
+    answered,
+    questionCount,
+    score: attempt.score,
+    totalMarks: attempt.totalMarks,
+    percent: attempt.percent,
+    aiSummary: attempt.aiSummary,
+  };
+}
+
+function toAdminAttempt(attempt: api.ApiAttempt, questionCount: number): StudentAttempt {
+  return {
+    ...toStudentAttempt(attempt, questionCount, attempt.status === "completed" ? questionCount : 0, "Student"),
+    student: attempt.studentName ?? `Student ${attempt.studentId.slice(-4)}`,
+  };
+}
+
+function toStudentFeedback(feedback: api.ApiFeedback): StudentFeedback {
+  return {
+    id: feedback.id,
+    student: feedback.studentName ?? `Student ${feedback.studentId.slice(-4)}`,
+    rating: feedback.rating,
+    message: feedback.message,
+    submittedAt: feedback.createdAt,
+    status: feedback.status,
+  };
+}
+
+export default function Home() {
+  const router = useRouter();
+  const [screen, setScreen] = useState<Screen>("landing");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [courses, setCourses] = useState<api.CourseContent[]>([]);
+  const [backendQuestionsLoaded, setBackendQuestionsLoaded] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [marked, setMarked] = useState<MarkedQuestion[]>([]);
+  const [aiSummary, setAiSummary] = useState("");
+  const [selectedDetail, setSelectedDetail] = useState(0);
+  const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
+  const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
+  const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [themeLoaded, setThemeLoaded] = useState(false);
+  const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
+  const [adminAuthError, setAdminAuthError] = useState("");
+  const [studentSession, setStudentSession] = useState<api.AuthResponse | null>(null);
+  const [studentAuthError, setStudentAuthError] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [passwordResetToken, setPasswordResetToken] = useState("");
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
+  const [comingSoonBackScreen, setComingSoonBackScreen] = useState<Screen>("courses");
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedModuleId, setSelectedModuleId] = useState("");
+  const [selectedSubtopicId, setSelectedSubtopicId] = useState("");
+  const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [quizPickerOpen, setQuizPickerOpen] = useState(false);
+  const historyReadyRef = useRef(false);
+  const restoringHistoryRef = useRef(false);
+  const activeStudentName = studentSession?.user.fullName ?? studentName;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const currentState = window.history.state;
+    if (!isScreen(currentState?.tlcScreen)) {
+      window.history.replaceState({ ...currentState, tlcScreen: screen }, "", currentBrowserPath());
+    }
+
+    historyReadyRef.current = true;
+
+    const handlePopState = (event: PopStateEvent) => {
+      const nextScreen = event.state?.tlcScreen;
+      if (!isScreen(nextScreen)) return;
+
+      restoringHistoryRef.current = true;
+      setScreen(nextScreen);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [screen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !historyReadyRef.current) return;
+
+    if (restoringHistoryRef.current) {
+      restoringHistoryRef.current = false;
+      return;
+    }
+
+    if (window.history.state?.tlcScreen === screen) return;
+
+    window.history.pushState(
+      { ...(window.history.state ?? {}), tlcScreen: screen },
+      "",
+      currentBrowserPath()
+    );
+  }, [screen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const loadBrowserState = window.setTimeout(() => {
+      const savedTheme = window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+      setTheme(savedTheme);
+      setThemeLoaded(true);
+      const resetCallback = getPasswordResetCallback();
+      if (resetCallback) {
+        setPasswordResetToken(resetCallback.token);
+        setPasswordResetEmail(resetCallback.email);
+        setScreen("passwordReset");
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+
+      const shouldOpenAdminChannel = isAdminChannelHash();
+
+      const googleCallback = getGoogleCallback() ?? getGoogleAdminCallback();
+      if (googleCallback?.error) {
+        if (googleCallback.role === "admin") {
+          setAdminAuthError(googleCallback.error);
+          setScreen("admin");
+        } else {
+          setStudentAuthError(googleCallback.error);
+          setScreen("student");
+        }
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+
+      if (googleCallback && "account" in googleCallback) {
+        setAdminAccount(googleCallback.account);
+        setAdminUnlocked(true);
+        setScreen("admin");
+        window.localStorage.setItem(adminStorageKey, JSON.stringify(googleCallback.account));
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+
+      if (googleCallback && "session" in googleCallback) {
+        setStudentSession(googleCallback.session);
+        setScreen("studentDashboard");
+        window.localStorage.setItem(studentStorageKey, JSON.stringify(googleCallback.session));
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+
+      const savedAdmin = window.localStorage.getItem(adminStorageKey);
+      if (savedAdmin) {
+        try {
+          setAdminAccount(JSON.parse(savedAdmin) as AdminAccount);
+        } catch {
+          window.localStorage.removeItem(adminStorageKey);
+        }
+      }
+
+      if (shouldOpenAdminChannel) {
+        router.replace("/admin");
+        return;
+      }
+
+      const savedStudent = window.localStorage.getItem(studentStorageKey);
+      if (!savedStudent) return;
+
+      try {
+        setStudentSession(JSON.parse(savedStudent) as api.AuthResponse);
+      } catch {
+        window.localStorage.removeItem(studentStorageKey);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(loadBrowserState);
+  }, [router]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    Promise.all([api.getQuestions(), api.getCourses()])
+      .then(([backendQuestions, backendCourses]) => {
+        if (!ignore) {
+          setQuestions(backendQuestions);
+          setBackendQuestionsLoaded(true);
+          setCourses(backendCourses);
+        }
+      })
+      .catch(() => {
+        // Leave content empty when the backend is unavailable so demo questions do not leak into real tests.
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !themeLoaded) return;
+
+    window.localStorage.setItem(themeStorageKey, theme);
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    document.documentElement.classList.toggle("theme-light", theme === "light");
+  }, [theme, themeLoaded]);
+
+  useEffect(() => {
+    if (!adminUnlocked || !adminAccount?.accessToken) return;
+
+    let ignore = false;
+
+    Promise.all([api.getAdminAttempts(adminAccount.accessToken), api.getAdminFeedback(adminAccount.accessToken)])
+      .then(([backendAttempts, backendFeedback]) => {
+        if (ignore) return;
+
+        setAttempts(backendAttempts.map((attempt) => toAdminAttempt(attempt, questions.length)));
+        setFeedback(backendFeedback.map(toStudentFeedback));
+      })
+      .catch(() => {
+        // Leave the local dashboard data in place when the API is not available.
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [adminAccount?.accessToken, adminUnlocked, questions.length]);
+
+  useEffect(() => {
+    if (!studentSession?.accessToken) return;
+
+    let ignore = false;
+
+    api
+      .getMyAttempts(studentSession.accessToken)
+      .then((backendAttempts) => {
+        if (ignore) return;
+
+        setAttempts(backendAttempts.map((attempt) => toStudentAttempt(attempt, questions.length, 0, activeStudentName)));
+      })
+      .catch(() => {
+        // Keep local attempts available when the API is not reachable.
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeStudentName, questions.length, studentSession?.accessToken]);
+
+  const registeredCourseCodes = studentSession?.user.registeredCourses ?? [];
+  const selectedCourse =
+    (courses ?? []).find((course) => course.id === selectedCourseId) ??
+    (courses ?? []).find((course) => registeredCourseCodes.includes(course.code)) ??
+    courses[0];
+  const selectedModule = (selectedCourse?.modules ?? []).find((module) => module.id === selectedModuleId) ?? selectedCourse?.modules?.[0];
+  const selectedSubtopic = (selectedModule?.topics ?? []).find((topic) => topic.id === selectedSubtopicId);
+  const selectedQuiz = (selectedSubtopic?.quizzes ?? []).find((quiz) => quiz.id === selectedQuizId);
+  const selectedCourseSubject = selectedCourse?.subject;
+  const selectedSubtopicTitle = selectedSubtopic?.title;
+  const activeQuestions = useMemo(
+    () => {
+      if (selectedQuizId) {
+        const quizQuestions = questions.filter((question) => question.quizId === selectedQuizId);
+        if (quizQuestions.length) return quizQuestions;
+      }
+
+      if (selectedSubtopicId) {
+        const subtopicQuestions = questions.filter((question) => question.subtopicId === selectedSubtopicId);
+        if (subtopicQuestions.length) return subtopicQuestions;
+      }
+
+      if (selectedSubtopicTitle) {
+        const titleQuestions = questions.filter((question) => question.topic === selectedSubtopicTitle);
+        if (titleQuestions.length) return titleQuestions;
+      }
+
+      if (selectedQuizId && selectedCourseSubject) {
+        const unassignedCourseQuestions = questions.filter(
+          (question) =>
+            !question.quizId &&
+            !question.subtopicId &&
+            !question.moduleId &&
+            !question.courseId &&
+            (question.subject ?? "").toLowerCase() === selectedCourseSubject.toLowerCase()
+        );
+        if (unassignedCourseQuestions.length) return unassignedCourseQuestions;
+      }
+
+      return selectedSubtopicTitle ? [] : questions;
+    },
+    [questions, selectedCourseSubject, selectedQuizId, selectedSubtopicId, selectedSubtopicTitle]
+  );
+  const answeredCount = Object.values(answers).filter(Boolean).length;
+  const totalMarks = useMemo(() => activeQuestions.reduce((sum, question) => sum + question.marks, 0), [activeQuestions]);
+  const score = marked.reduce((sum, question) => sum + question.awarded, 0);
+  const percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
+  const topicBreakdown = useMemo(() => getTopicBreakdown(marked), [marked]);
+
+  const saveStudentSession = (nextSession: api.AuthResponse) => {
+    setStudentSession(nextSession);
+    window.localStorage.setItem(studentStorageKey, JSON.stringify(nextSession));
+    return nextSession;
+  };
+
+  const loginStudent = async (input: { identifier: string; password: string }) => {
+    const nextSession = await api.login(input);
+    if (nextSession.user.role !== "student") {
+      throw new Error("Use a student account to take tests.");
+    }
+
+    saveStudentSession(nextSession);
+    setScreen("studentDashboard");
+    return nextSession;
+  };
+
+  const registerStudent = async (input: { fullName: string; email: string; username?: string; password: string }) => {
+    const nextSession = await api.registerStudent(input);
+    if (nextSession.user.role !== "student") {
+      throw new Error("Use a student account to take tests.");
+    }
+
+    saveStudentSession(nextSession);
+    setScreen("studentDashboard");
+    return nextSession;
+  };
+
+  const startMarking = () => {
+    setScreen("marking");
+    window.setTimeout(() => {
+      void (async () => {
+        const answered = Object.values(answers).filter(Boolean).length;
+        let markedResponses = markResponses(answers, activeQuestions);
+        let completedAttempt: StudentAttempt | null = null;
+
+        if (backendQuestionsLoaded && currentAttemptId && studentSession?.accessToken) {
+          try {
+            const submittedAttempt = await api.submitAttempt(currentAttemptId, answers, studentSession.accessToken);
+            markedResponses = mapBackendMarkedAnswers(submittedAttempt, answers, activeQuestions);
+            completedAttempt = toStudentAttempt(submittedAttempt.attempt, activeQuestions.length, answered, activeStudentName);
+            setAiSummary(submittedAttempt.attempt.aiSummary ?? "");
+          } catch {
+            completedAttempt = null;
+          }
+        }
+
+        const finalScore = markedResponses.reduce((sum, question) => sum + question.awarded, 0);
+        const finalPercent = totalMarks ? Math.round((finalScore / totalMarks) * 100) : 0;
+
+        setMarked(markedResponses);
+        setAttempts((current) =>
+          current.map((attempt) =>
+            attempt.id === currentAttemptId
+              ? completedAttempt ?? {
+                  ...attempt,
+                  status: "completed",
+                  submittedAt: new Date().toISOString(),
+                  answered,
+                  score: finalScore,
+                  totalMarks,
+                  percent: finalPercent,
+                }
+              : attempt
+          )
+        );
+        setSelectedDetail(0);
+        setScreen("results");
+      })();
+    }, 1100);
+  };
+
+  const startTest = async () => {
+    if (!studentSession?.accessToken) {
+      setScreen("student");
+      return;
+    }
+
+    let nextAttempt: StudentAttempt = {
+      id: `attempt-${Date.now()}`,
+      student: activeStudentName,
+      status: "active",
+      startedAt: new Date().toISOString(),
+      answered: 0,
+      questionCount: activeQuestions.length,
+      totalMarks,
+    };
+
+    if (backendQuestionsLoaded) {
+      try {
+        const backendAttempt = await api.startAttempt(studentSession.accessToken);
+        nextAttempt = toStudentAttempt(backendAttempt, activeQuestions.length, 0, activeStudentName);
+      } catch {
+        setBackendQuestionsLoaded(false);
+      }
+    }
+
+    setCurrentAttemptId(nextAttempt.id);
+    setAnswers({});
+    setMarked([]);
+    setAiSummary("");
+    setSelectedDetail(0);
+    setAttempts((current) => [nextAttempt, ...current]);
+    setCurrentQuestion(0);
+    setScreen("test");
+  };
+
+  const resetTest = () => {
+    setAnswers({});
+    setMarked([]);
+    setAiSummary("");
+    setCurrentQuestion(0);
+    setSelectedDetail(0);
+    setCurrentAttemptId(null);
+    setScreen("overview");
+  };
+
+  const updateAnswer = (id: string, value: string) => {
+    setAnswers((current) => {
+      const next = { ...current, [id]: value };
+      const nextAnsweredCount = Object.values(next).filter(Boolean).length;
+
+      setAttempts((currentAttempts) =>
+        currentAttempts.map((attempt) =>
+          attempt.id === currentAttemptId ? { ...attempt, answered: nextAnsweredCount } : attempt
+        )
+      );
+
+      return next;
+    });
+  };
+
+  const addQuestion = async (question: Question) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving questions.");
+    }
+
+    await api.createQuestion(toQuestionPayload(question), adminAccount.accessToken);
+    setQuestions(await api.getQuestions());
+    setBackendQuestionsLoaded(true);
+  };
+
+  const importQuestions = async (incomingQuestions: Question[]) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before importing questions.");
+    }
+
+    await api.importQuestions(
+      incomingQuestions.map((question) => toQuestionPayload(question)),
+      adminAccount.accessToken
+    );
+    setQuestions(await api.getQuestions());
+    setBackendQuestionsLoaded(true);
+    setAnswers({});
+    setMarked([]);
+    setCurrentQuestion(0);
+  };
+
+  const createCourse = async (input: {
+    title: string;
+    code: string;
+    subject: string;
+    description?: string;
+    status?: "draft" | "published";
+  }) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving courses.");
+    }
+
+    await api.createCourse(input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
+  const addModule = async (
+    courseId: string,
+    input: { title: string; description?: string }
+  ) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving modules.");
+    }
+
+    await api.addModule(courseId, input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
+  const addTopic = async (courseId: string, moduleId: string, input: { title: string; description?: string }) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving topics.");
+    }
+
+    await api.addTopic(courseId, moduleId, input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+  };
+
+  const addQuiz = async (
+    courseId: string,
+    moduleId: string,
+    topicId: string,
+    input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
+  ) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving quizzes.");
+    }
+
+    const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, input, adminAccount.accessToken);
+    setCourses(await api.getCourses());
+    return updatedCourse;
+  };
+
+  const submitFeedback = (message: string, rating: number) => {
+    if (studentSession?.accessToken) {
+      void api.submitFeedback({ message, rating }, studentSession.accessToken).catch(() => undefined);
+    }
+
+    setFeedback((current) => [
+      {
+        id: `feedback-${Date.now()}`,
+        student: activeStudentName,
+        rating,
+        message,
+        submittedAt: new Date().toISOString(),
+        status: "new",
+      },
+      ...current,
+    ]);
+  };
+
+  const saveUpdatedStudent = (user: api.AuthUser) => {
+    if (!studentSession) return;
+
+    saveStudentSession({
+      ...studentSession,
+      user,
+    });
+  };
+
+  const uploadStudentAvatar = async (file: File) => {
+    if (!studentSession?.accessToken) {
+      throw new Error("Sign in before updating your profile image.");
+    }
+
+    const response = await api.uploadProfileAvatar(file, studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+  };
+
+  const removeStudentAvatar = async () => {
+    if (!studentSession?.accessToken) {
+      throw new Error("Sign in before updating your profile image.");
+    }
+
+    const response = await api.removeProfileAvatar(studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+  };
+
+  const registerStudentCourse = async (courseCode: string) => {
+    if (!studentSession?.accessToken) {
+      setScreen("student");
+      return;
+    }
+
+    const response = await api.registerCourse(courseCode, studentSession.accessToken);
+    saveUpdatedStudent(response.user);
+  };
+
+  const openCourse = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setSelectedModuleId("");
+    setSelectedSubtopicId("");
+    setSelectedQuizId("");
+    setQuizPickerOpen(false);
+    setScreen("topics");
+  };
+
+  const registerAndOpenCourse = async (course: api.CourseContent) => {
+    if (!studentSession?.accessToken) {
+      setScreen("student");
+      return;
+    }
+
+    await registerStudentCourse(course.code);
+    openCourse(course.id);
+  };
+
+  const openSubtopicQuizzes = (module: api.CourseModule, subtopic: api.CourseTopic) => {
+    setSelectedModuleId(module.id);
+    setSelectedSubtopicId(subtopic.id);
+    setSelectedQuizId("");
+    setQuizPickerOpen(true);
+  };
+
+  const selectQuiz = (quiz: api.CourseQuiz) => {
+    setSelectedQuizId(quiz.id);
+  };
+
+  const startSelectedQuiz = () => {
+    if (!selectedQuiz || !selectedSubtopic) return;
+    setQuizPickerOpen(false);
+    void startTest();
+  };
+
+  const continueWithGoogle = async (role: "admin" | "student") => {
+    if (role === "admin") {
+      setAdminAuthError("");
+    } else {
+      setStudentAuthError("");
+    }
+
+    const googleUrl = `${apiBaseUrl}/auth/google/${role}`;
+
+    router.push(googleUrl);
+  };
+
+  const showComingSoon = (backScreen: Screen) => {
+    setComingSoonBackScreen(backScreen);
+    setScreen("comingSoon");
+  };
+
+  const signOutStudent = () => {
+    setStudentSession(null);
+    setScreen("landing");
+    window.localStorage.removeItem(studentStorageKey);
+  };
+
+  const clearAdminSession = () => {
+    setAdminAccount(null);
+    setAdminUnlocked(false);
+    setAdminAuthError("");
+    window.localStorage.removeItem(adminStorageKey);
+  };
+
+  const openPasswordReset = (email = "") => {
+    setPasswordResetToken("");
+    setPasswordResetEmail(email);
+    setScreen("passwordReset");
+  };
+
+  const isDark = theme === "dark";
+
+  return (
+    <main
+      className={`min-h-screen transition-colors duration-200 ${
+        isDark ? "theme-dark bg-slate-950 text-slate-100" : "theme-light bg-slate-50 text-slate-950"
+      }`}
+    >
+      {screen !== "admin" && (
+        <Header
+          theme={theme}
+          studentName={studentSession?.user.fullName}
+          studentAvatarUrl={studentSession?.user.avatarUrl}
+          onNavigate={setScreen}
+          onStudentSignOut={signOutStudent}
+          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+        />
+      )}
+
+      {screen === "landing" && (
+        <Landing
+          onStart={() => setScreen("courses")}
+          onBrowseSubjects={() => setScreen("courses")}
+        />
+      )}
+
+      {screen === "howItWorks" && <HowItWorks onStart={() => setScreen("courses")} onBack={() => setScreen("landing")} />}
+
+      {screen === "courses" && (
+        <Courses
+          courses={courses}
+          registeredCourses={studentSession?.user.registeredCourses ?? []}
+          onSelectCourse={openCourse}
+          onRegisterCourse={registerAndOpenCourse}
+          onComingSoon={() => showComingSoon("courses")}
+          onBack={() => setScreen("landing")}
+        />
+      )}
+      {screen === "topics" && (
+        <Topics
+          course={selectedCourse}
+          openModuleId={selectedModuleId}
+          onOpenModule={setSelectedModuleId}
+          onSelectSubtopic={openSubtopicQuizzes}
+          onBack={() => setScreen("courses")}
+        />
+      )}
+      {screen === "overview" && (
+        <Overview
+          questions={activeQuestions}
+          totalMarks={totalMarks}
+          title={selectedQuiz?.title ?? selectedSubtopic?.title ?? "Quiz overview"}
+          subtitle={selectedSubtopic ? `${selectedCourse?.title ?? "Course"} · ${selectedModule?.title ?? "Topic"} · ${selectedSubtopic.title}` : "Review the selected quiz before starting."}
+          onStart={startTest}
+          onBack={() => setScreen("topics")}
+        />
+      )}
+      {screen === "studentDashboard" && studentSession?.user && (
+        <StudentDashboard
+          student={studentSession.user}
+          courses={courses}
+          attempts={attempts}
+          questionCount={questions.length}
+          totalMarks={totalMarks}
+          onStartPractice={() => {
+            const firstRegisteredCourse = (courses ?? []).find((course) => (studentSession.user.registeredCourses ?? []).includes(course.code));
+            if (firstRegisteredCourse) {
+              openCourse(firstRegisteredCourse.id);
+            } else {
+              setScreen("courses");
+            }
+          }}
+          onBrowseSubjects={() => setScreen("courses")}
+          onViewOverview={() => {
+            const firstRegisteredCourse = (courses ?? []).find((course) => (studentSession.user.registeredCourses ?? []).includes(course.code));
+            if (firstRegisteredCourse) {
+              openCourse(firstRegisteredCourse.id);
+            } else {
+              setScreen("courses");
+            }
+          }}
+          onResumeTest={currentAttemptId ? () => setScreen("test") : undefined}
+          onRemoveProfileAvatar={removeStudentAvatar}
+          onUploadProfileAvatar={uploadStudentAvatar}
+        />
+      )}
+      {(screen === "student" || screen === "studentRegister") && (
+        <StudentAuth
+          key={screen}
+          authError={studentAuthError}
+          initialMode={screen === "studentRegister" ? "register" : "login"}
+          onLogin={loginStudent}
+          onRegister={registerStudent}
+          onGoogleLogin={() => void continueWithGoogle("student")}
+          onForgotPassword={openPasswordReset}
+          onBack={() => setScreen(studentSession ? "studentDashboard" : "landing")}
+        />
+      )}
+      {screen === "passwordReset" && (
+        <PasswordReset
+          initialEmail={passwordResetEmail}
+          token={passwordResetToken}
+          onRequestReset={api.forgotPassword}
+          onResetPassword={api.resetPassword}
+          onBack={() => {
+            setPasswordResetToken("");
+            setPasswordResetEmail("");
+            setScreen("landing");
+          }}
+        />
+      )}
+      {screen === "test" && (
+        <TestInterface
+          questions={activeQuestions}
+          answers={answers}
+          currentQuestion={currentQuestion}
+          onAnswer={updateAnswer}
+          onCurrentQuestion={setCurrentQuestion}
+          onBack={() => setScreen("overview")}
+          onSubmit={startMarking}
+        />
+      )}
+      {screen === "marking" && <Marking />}
+      {screen === "results" && (
+        <Results
+          marked={marked}
+          percent={percent}
+	          score={score}
+	          answeredCount={answeredCount}
+	          questions={activeQuestions}
+	          totalMarks={totalMarks}
+          aiSummary={aiSummary}
+          onFeedback={submitFeedback}
+          onBack={() => setScreen("overview")}
+          onDetails={() => setScreen("details")}
+          onRetry={resetTest}
+        />
+      )}
+	      {screen === "details" && (
+        <Details
+          marked={marked}
+          selectedDetail={selectedDetail}
+          topicBreakdown={topicBreakdown}
+          onSelectDetail={setSelectedDetail}
+          onBack={() => setScreen("results")}
+        />
+	      )}
+	      {quizPickerOpen && (
+	        <QuizPickerModal
+	          subtopic={selectedSubtopic}
+	          selectedQuizId={selectedQuizId}
+	          onSelectQuiz={selectQuiz}
+	          onStart={startSelectedQuiz}
+	          onClose={() => setQuizPickerOpen(false)}
+	        />
+	      )}
+	      {screen === "admin" && (
+        adminAccount && adminUnlocked && adminAccount.accessToken ? (
+          <AdminDashboard
+            adminName={adminAccount.name}
+            adminRole={adminAccount.role}
+            courses={courses}
+            questions={questions}
+            attempts={attempts}
+            feedback={feedback}
+            onCreateCourse={createCourse}
+            onAddModule={addModule}
+            onAddTopic={addTopic}
+            onAddQuiz={addQuiz}
+            onAddQuestion={addQuestion}
+            onImportQuestions={importQuestions}
+            onReviewFeedback={(id) => {
+              if (adminAccount.accessToken) {
+                void api.markFeedbackReviewed(id, adminAccount.accessToken).catch(() => undefined);
+              }
+
+              setFeedback((current) =>
+                current.map((item) => (item.id === id ? { ...item, status: "reviewed" } : item))
+              );
+            }}
+            onSignOut={clearAdminSession}
+            onBack={() => setScreen("landing")}
+          />
+        ) : (
+          <AdminLogin
+            adminEmail={adminAccount?.email ?? ""}
+            authError={adminAuthError}
+            onUnlock={(identifier, accessCode) => {
+              setAdminAuthError("");
+
+              return api.login({ identifier, password: accessCode }).then((response) => {
+                if (response.user.role !== "admin") return false;
+
+                const nextAccount: AdminAccount = {
+                  accessCode: "",
+                  role: "Academic Admin",
+                  ...adminAccount,
+                  name: response.user.fullName,
+                  email: response.user.email,
+                  accessToken: response.accessToken,
+                  authProvider: response.user.authProvider,
+                };
+
+                setAdminAccount(nextAccount);
+                setAdminUnlocked(true);
+                window.localStorage.setItem(adminStorageKey, JSON.stringify(nextAccount));
+                return true;
+              });
+            }}
+            onGoogleLogin={() => void continueWithGoogle("admin")}
+            onForgotPassword={openPasswordReset}
+            onBack={() => {
+              clearAdminSession();
+              setScreen("landing");
+            }}
+          />
+        )
+      )}
+      {screen === "comingSoon" && (
+        <ComingSoon onBack={() => setScreen(comingSoonBackScreen)} />
+      )}
+      {screen !== "admin" && <Footer theme={theme} />}
+      <TlchubAiAssistant
+        screen={screen}
+        questions={questions}
+        answers={answers}
+        marked={marked}
+        attempts={attempts}
+        feedback={feedback}
+        currentQuestion={currentQuestion}
+        studentName={studentSession?.user.fullName}
+        adminName={adminAccount?.name}
+        isAdmin={screen === "admin" && adminUnlocked}
+        isStudentSignedIn={Boolean(studentSession)}
+        aiSummary={aiSummary}
+      />
+    </main>
+  );
+}

@@ -1,0 +1,351 @@
+import type { Question } from "@/types/platform";
+
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+type ApiOptions = RequestInit & {
+  token?: string;
+};
+
+export type AuthUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  username?: string;
+  avatarUrl?: string;
+  role: "admin" | "student";
+  authProvider: "password" | "google";
+  registeredCourses: string[];
+  createdAt: string;
+};
+
+export type AuthResponse = {
+  accessToken: string;
+  user: AuthUser;
+};
+
+export type ApiAttempt = {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  status: "active" | "completed";
+  startedAt: string;
+  submittedAt?: string;
+  score: number;
+  totalMarks: number;
+  percent: number;
+  aiSummary?: string;
+  createdAt: string;
+};
+
+export type ApiMarkedAnswer = {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  answer: string;
+  awarded: number;
+  correct: boolean;
+  aiFeedback: string;
+  createdAt: string;
+};
+
+export type SubmitAttemptResponse = {
+  attempt: ApiAttempt;
+  answers: ApiMarkedAnswer[];
+};
+
+export type ApiFeedback = {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  rating: number;
+  message: string;
+  status: "new" | "reviewed";
+  createdAt: string;
+};
+
+export type AdminAnalytics = {
+  questions: number;
+  totalMarks: number;
+  attempts: number;
+  activeStudents: number;
+  completedAttempts: number;
+  averageScore: number;
+  unreadFeedback: number;
+  watchlist: ApiAttempt[];
+};
+
+export type CourseQuiz = {
+  id: string;
+  title: string;
+  description?: string;
+  timeLimitMinutes: number;
+  attemptsAllowed: number;
+  passingPercent: number;
+};
+
+export type CourseTopic = {
+  id: string;
+  title: string;
+  description?: string;
+  quizzes: CourseQuiz[];
+};
+
+export type CourseModule = {
+  id: string;
+  title: string;
+  description?: string;
+  topics: CourseTopic[];
+};
+
+export type CourseContent = {
+  id: string;
+  title: string;
+  code: string;
+  subject: string;
+  description?: string;
+  status: "draft" | "published";
+  modules: CourseModule[];
+  createdBy: string;
+  createdAt: string;
+};
+
+async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  if (!headers.has("Content-Type") && options.body && !isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (options.token) {
+    headers.set("Authorization", `Bearer ${options.token}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new Error(`Cannot reach the backend at ${apiBaseUrl}. Start it with npm run dev:all or npm run backend:dev.`);
+  }
+
+  if (!response.ok) {
+    const message = await response
+      .json()
+      .then((body) => formatApiError(body))
+      .catch(() => "API request failed.");
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function formatApiError(body: unknown) {
+  if (!body || typeof body !== "object") return "API request failed.";
+
+  const payload = body as { message?: unknown; error?: unknown };
+  const message = payload.message ?? payload.error;
+
+  if (Array.isArray(message)) {
+    return message.join(". ");
+  }
+
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+
+  return "API request failed.";
+}
+
+export function registerAdmin(input: { fullName: string; email: string; username?: string; password: string }, token: string) {
+  return apiRequest<AuthResponse>("/auth/register-admin", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ fullName: input.fullName, email: input.email, password: input.password }),
+  });
+}
+
+export function registerStudent(input: { fullName: string; email: string; username?: string; password: string }) {
+  return apiRequest<AuthResponse>("/auth/register-student", {
+    method: "POST",
+    body: JSON.stringify({ fullName: input.fullName, email: input.email, password: input.password }),
+  });
+}
+
+export function login(input: { identifier: string; password: string }) {
+  return apiRequest<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: input.identifier, password: input.password }),
+  });
+}
+
+export function forgotPassword(input: { email: string }) {
+  return apiRequest<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function resetPassword(input: { token: string; password: string }) {
+  return apiRequest<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateProfile(input: { avatarUrl?: string | null }, token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile", {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function registerCourse(courseCode: string, token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/courses", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ courseCode }),
+  });
+}
+
+export function uploadProfileAvatar(file: File, token: string) {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile/avatar", {
+    method: "POST",
+    token,
+    body: formData,
+  });
+}
+
+export function removeProfileAvatar(token: string) {
+  return apiRequest<{ user: AuthUser }>("/auth/me/profile/avatar", {
+    method: "DELETE",
+    token,
+  });
+}
+
+export function getQuestions() {
+  return apiRequest<Question[]>("/questions");
+}
+
+export function getCourses() {
+  return apiRequest<CourseContent[]>("/content/courses");
+}
+
+export function createCourse(
+  input: { title: string; code: string; subject: string; description?: string; status?: "draft" | "published" },
+  token: string
+) {
+  return apiRequest<CourseContent>("/content/courses", {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function addModule(
+  courseId: string,
+  input: { title: string; description?: string },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function addTopic(courseId: string, moduleId: string, input: { title: string; description?: string }, token: string) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function addQuiz(
+  courseId: string,
+  moduleId: string,
+  topicId: string,
+  input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics/${topicId}/quizzes`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function createQuestion(question: Omit<Question, "id">, token: string) {
+  return apiRequest<Question>("/questions", {
+    method: "POST",
+    token,
+    body: JSON.stringify(question),
+  });
+}
+
+export function importQuestions(questions: Omit<Question, "id">[], token: string) {
+  return apiRequest<Question[]>("/questions/import", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ questions }),
+  });
+}
+
+export function startAttempt(token: string) {
+  return apiRequest<ApiAttempt>("/attempts/start", {
+    method: "POST",
+    token,
+  });
+}
+
+export function submitAttempt(attemptId: string, answers: Record<string, string>, token: string) {
+  return apiRequest<SubmitAttemptResponse>(`/attempts/${attemptId}/submit`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({
+      answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
+    }),
+  });
+}
+
+export function getMyAttempts(token: string) {
+  return apiRequest<ApiAttempt[]>("/attempts/me", { token });
+}
+
+export function submitFeedback(input: { message: string; rating: number }, token: string) {
+  return apiRequest<ApiFeedback>("/feedback", {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function getAdminAnalytics(token: string) {
+  return apiRequest<AdminAnalytics>("/admin/analytics", { token });
+}
+
+export function getAdminAttempts(token: string) {
+  return apiRequest<ApiAttempt[]>("/admin/attempts", { token });
+}
+
+export function getAdminFeedback(token: string) {
+  return apiRequest<ApiFeedback[]>("/admin/feedback", { token });
+}
+
+export function markFeedbackReviewed(id: string, token: string) {
+  return apiRequest<ApiFeedback>(`/admin/feedback/${id}/reviewed`, {
+    method: "PATCH",
+    token,
+  });
+}
