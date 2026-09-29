@@ -134,23 +134,28 @@ export function Courses({
           );
         }) : (
           <button
-            className="interactive-lift grid min-h-48 w-full overflow-hidden rounded-2xl border border-dashed border-[var(--line)] bg-white text-left shadow-[0_18px_45px_rgba(8,43,99,0.08)] transition hover:border-[var(--brand-blue)] sm:grid-cols-[minmax(190px,0.82fr)_minmax(0,1.5fr)]"
+            className="interactive-lift group grid min-h-48 w-full overflow-hidden rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] text-left shadow-[0_18px_45px_rgba(8,43,99,0.08)] transition hover:border-[var(--brand-blue)] sm:grid-cols-[minmax(190px,0.82fr)_minmax(0,1.5fr)]"
             type="button"
             onClick={onComingSoon}
           >
-            <span className="flex min-h-44 flex-col justify-between bg-slate-200 p-7 text-slate-600">
-              <span className="block text-[10px] font-black uppercase tracking-[0.3em]">Course 0</span>
-              <strong className="block text-2xl font-semibold leading-tight tracking-normal">No courses yet</strong>
-              <span className="text-sm font-semibold">Check again soon</span>
+            <span className="flex min-h-44 flex-col justify-between bg-[var(--brand-blue-deep)] p-7 text-white">
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/50">Course library</span>
+                <strong className="mt-5 block text-2xl font-semibold leading-tight tracking-normal text-white">Courses are on the way</strong>
+              </span>
+              <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-white/65 transition group-hover:text-white">
+                Check back soon <Sparkles aria-hidden="true" size={18} />
+              </span>
             </span>
             <span className="flex flex-col justify-between gap-6 p-7 sm:flex-row sm:items-center">
               <span className="min-w-0">
-                <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--ink-muted)]">Empty library</span>
-                <strong className="mt-4 block text-3xl font-semibold leading-tight tracking-normal text-[var(--brand-blue-deep)]">Ask an admin to publish a course.</strong>
-                <span className="mt-5 block text-sm font-semibold text-[var(--ink-muted)]">Courses will appear here when they are available.</span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--brand-green)]">Coming soon</span>
+                <strong className="mt-4 block text-3xl font-semibold leading-tight tracking-normal text-[var(--ink)]">New courses are being prepared.</strong>
+                <span className="mt-5 block text-sm font-semibold leading-6 text-[var(--ink-muted)]">Once a course is available, it will appear here for registration.</span>
               </span>
-              <span className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-slate-200 px-8 text-base font-semibold text-slate-600">
-                Empty
+              <span className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--brand-mint)] px-7 text-base font-semibold text-[var(--brand-green)]">
+                <CheckCircle2 aria-hidden="true" size={18} />
+                Ready soon
               </span>
             </span>
           </button>
