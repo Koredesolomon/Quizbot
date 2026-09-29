@@ -250,7 +250,15 @@ export function getCourses() {
 }
 
 export function getAdminCourses(token: string) {
-  return apiRequest<CourseContent[]>("/content/admin/courses", { token });
+  return apiRequest<CourseContent[]>("/content/admin/courses", { token }).catch((error) => {
+    const message = error instanceof Error ? error.message : "";
+
+    if (/cannot\s+get\s+\/content\/admin\/courses/i.test(message)) {
+      return apiRequest<CourseContent[]>("/content/courses", { token });
+    }
+
+    throw error;
+  });
 }
 
 export function createCourse(
