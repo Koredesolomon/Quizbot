@@ -403,12 +403,17 @@ export default function Home() {
 
     let ignore = false;
 
-    Promise.all([api.getAdminAttempts(adminAccount.accessToken), api.getAdminFeedback(adminAccount.accessToken)])
-      .then(([backendAttempts, backendFeedback]) => {
+    Promise.all([
+      api.getAdminAttempts(adminAccount.accessToken),
+      api.getAdminFeedback(adminAccount.accessToken),
+      api.getAdminCourses(adminAccount.accessToken),
+    ])
+      .then(([backendAttempts, backendFeedback, backendCourses]) => {
         if (ignore) return;
 
         setAttempts(backendAttempts.map((attempt) => toAdminAttempt(attempt, questions.length)));
         setFeedback(backendFeedback.map(toStudentFeedback));
+        setCourses(backendCourses);
       })
       .catch(() => {
         // Leave the local dashboard data in place when the API is not available.
@@ -446,7 +451,9 @@ export default function Home() {
     (courses ?? []).find((course) => registeredCourseCodes.includes(course.code)) ??
     courses[0];
   const selectedModule = (selectedCourse?.modules ?? []).find((module) => module.id === selectedModuleId) ?? selectedCourse?.modules?.[0];
-  const selectedSubtopic = (selectedModule?.topics ?? []).find((topic) => topic.id === selectedSubtopicId);
+  const selectedSubtopic = (selectedModule?.topics ?? [])
+    .flatMap((topic) => topic.subtopics)
+    .find((subtopic) => subtopic.id === selectedSubtopicId);
   const selectedQuiz = (selectedSubtopic?.quizzes ?? []).find((quiz) => quiz.id === selectedQuizId);
   const selectedCourseSubject = selectedCourse?.subject;
   const selectedSubtopicTitle = selectedSubtopic?.title;
@@ -659,7 +666,29 @@ export default function Home() {
     }
 
     await api.createCourse(input, adminAccount.accessToken);
-    setCourses(await api.getCourses());
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
+  };
+
+  const updateCourse = async (
+    courseId: string,
+    input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
+  ) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before editing courses.");
+    }
+
+    const updatedCourse = await api.updateCourse(courseId, input, adminAccount.accessToken);
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
+    return updatedCourse;
+  };
+
+  const deleteCourse = async (courseId: string) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before deleting courses.");
+    }
+
+    await api.deleteCourse(courseId, adminAccount.accessToken);
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
   };
 
   const addModule = async (
@@ -671,7 +700,7 @@ export default function Home() {
     }
 
     await api.addModule(courseId, input, adminAccount.accessToken);
-    setCourses(await api.getCourses());
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
   };
 
   const addTopic = async (courseId: string, moduleId: string, input: { title: string; description?: string }) => {
@@ -680,21 +709,31 @@ export default function Home() {
     }
 
     await api.addTopic(courseId, moduleId, input, adminAccount.accessToken);
-    setCourses(await api.getCourses());
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
+  };
+
+  const addSubtopic = async (courseId: string, moduleId: string, topicId: string, input: { title: string; description?: string }) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before saving subtopics.");
+    }
+
+    await api.addSubtopic(courseId, moduleId, topicId, input, adminAccount.accessToken);
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
   };
 
   const addQuiz = async (
     courseId: string,
     moduleId: string,
     topicId: string,
+    subtopicId: string,
     input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
   ) => {
     if (!adminAccount?.accessToken) {
       throw new Error("Sign in with a backend admin account before saving quizzes.");
     }
 
-    const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, input, adminAccount.accessToken);
-    setCourses(await api.getCourses());
+    const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, subtopicId, input, adminAccount.accessToken);
+    setCourses(await api.getAdminCourses(adminAccount.accessToken));
     return updatedCourse;
   };
 
@@ -772,7 +811,7 @@ export default function Home() {
     openCourse(course.id);
   };
 
-  const openSubtopicQuizzes = (module: api.CourseModule, subtopic: api.CourseTopic) => {
+  const openSubtopicQuizzes = (module: api.CourseModule, subtopic: api.CourseSubtopic) => {
     setSelectedModuleId(module.id);
     setSelectedSubtopicId(subtopic.id);
     setSelectedQuizId("");
@@ -991,8 +1030,11 @@ export default function Home() {
             attempts={attempts}
             feedback={feedback}
             onCreateCourse={createCourse}
+            onUpdateCourse={updateCourse}
+            onDeleteCourse={deleteCourse}
             onAddModule={addModule}
             onAddTopic={addTopic}
+            onAddSubtopic={addSubtopic}
             onAddQuiz={addQuiz}
             onAddQuestion={addQuestion}
             onImportQuestions={importQuestions}

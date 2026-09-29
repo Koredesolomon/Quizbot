@@ -85,11 +85,19 @@ export type CourseQuiz = {
   passingPercent: number;
 };
 
-export type CourseTopic = {
+export type CourseSubtopic = {
   id: string;
   title: string;
   description?: string;
   quizzes: CourseQuiz[];
+};
+
+export type CourseTopic = {
+  id: string;
+  title: string;
+  description?: string;
+  subtopics: CourseSubtopic[];
+  quizzes?: CourseQuiz[];
 };
 
 export type CourseModule = {
@@ -241,6 +249,10 @@ export function getCourses() {
   return apiRequest<CourseContent[]>("/content/courses");
 }
 
+export function getAdminCourses(token: string) {
+  return apiRequest<CourseContent[]>("/content/admin/courses", { token });
+}
+
 export function createCourse(
   input: { title: string; code: string; subject: string; description?: string; status?: "draft" | "published" },
   token: string
@@ -249,6 +261,25 @@ export function createCourse(
     method: "POST",
     token,
     body: JSON.stringify(input),
+  });
+}
+
+export function updateCourse(
+  courseId: string,
+  input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteCourse(courseId: string, token: string) {
+  return apiRequest<{ id: string; message: string }>(`/content/courses/${courseId}`, {
+    method: "DELETE",
+    token,
   });
 }
 
@@ -272,14 +303,29 @@ export function addTopic(courseId: string, moduleId: string, input: { title: str
   });
 }
 
+export function addSubtopic(
+  courseId: string,
+  moduleId: string,
+  topicId: string,
+  input: { title: string; description?: string },
+  token: string
+) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics/${topicId}/subtopics`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
 export function addQuiz(
   courseId: string,
   moduleId: string,
   topicId: string,
+  subtopicId: string,
   input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number },
   token: string
 ) {
-  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics/${topicId}/quizzes`, {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics/${topicId}/subtopics/${subtopicId}/quizzes`, {
     method: "POST",
     token,
     body: JSON.stringify(input),

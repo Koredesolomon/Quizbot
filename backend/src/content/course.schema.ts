@@ -24,7 +24,7 @@ export class CourseQuiz {
 }
 
 @Schema({ _id: true, timestamps: true })
-export class CourseTopic {
+export class CourseSubtopic {
   _id: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
@@ -35,6 +35,23 @@ export class CourseTopic {
 
   @Prop({ type: [CourseQuiz], default: [] })
   quizzes: CourseQuiz[];
+}
+
+@Schema({ _id: true, timestamps: true })
+export class CourseTopic {
+  _id: Types.ObjectId;
+
+  @Prop({ required: true, trim: true })
+  title: string;
+
+  @Prop({ trim: true })
+  description?: string;
+
+  @Prop({ type: [CourseSubtopic], default: [] })
+  subtopics: CourseSubtopic[];
+
+  @Prop({ type: [CourseQuiz], default: undefined })
+  quizzes?: CourseQuiz[];
 }
 
 @Schema({ _id: true, timestamps: true })

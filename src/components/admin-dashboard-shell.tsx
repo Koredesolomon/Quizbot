@@ -26,6 +26,7 @@ import {
   MoreVertical,
   MoreHorizontal,
   NotebookText,
+  Pencil,
   Plus,
   Puzzle,
   Search,
@@ -46,7 +47,7 @@ import { MathContent } from "./math-content";
 import { PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 
 export type AdminSection = "overview" | "courses" | "questions" | "reports" | "feedback" | "settings";
-export type CourseBuilderStep = "overview" | "courses" | "modules" | "topics" | "quizzes";
+export type CourseBuilderStep = "overview" | "courses" | "modules" | "topics" | "subtopics" | "quizzes";
 
 const sectionPaths: Record<AdminSection, string> = {
   overview: "/admin",
@@ -58,10 +59,11 @@ const sectionPaths: Record<AdminSection, string> = {
 };
 
 const courseStepPaths: Record<CourseBuilderStep, string> = {
-  overview: "/admin/courses",
-  courses: "/admin/courses/create",
+  overview: "/admin/courses/create",
+  courses: "/admin/courses",
   modules: "/admin/courses/modules",
   topics: "/admin/courses/topics",
+  subtopics: "/admin/courses/subtopics",
   quizzes: "/admin/courses/quizzes",
 };
 
@@ -69,7 +71,7 @@ const courseBuilderStorageKey = "tlchub-admin-course-builder-selection";
 
 function savedCourseBuilderSelection() {
   if (typeof window === "undefined") {
-    return { courseId: "", moduleId: "", topicId: "" };
+    return { courseId: "", moduleId: "", topicId: "", subtopicId: "" };
   }
 
   try {
@@ -77,16 +79,18 @@ function savedCourseBuilderSelection() {
       courseId?: string;
       moduleId?: string;
       topicId?: string;
+      subtopicId?: string;
     };
 
     return {
       courseId: savedSelection.courseId ?? "",
       moduleId: savedSelection.moduleId ?? "",
       topicId: savedSelection.topicId ?? "",
+      subtopicId: savedSelection.subtopicId ?? "",
     };
   } catch {
     window.localStorage.removeItem(courseBuilderStorageKey);
-    return { courseId: "", moduleId: "", topicId: "" };
+    return { courseId: "", moduleId: "", topicId: "", subtopicId: "" };
   }
 }
 
@@ -121,6 +125,11 @@ const emptyModuleForm = {
 };
 
 const emptyTopicForm = {
+  title: "",
+  description: "",
+};
+
+const emptySubtopicForm = {
   title: "",
   description: "",
 };
@@ -172,8 +181,11 @@ export function AdminDashboard({
   attempts,
   feedback,
   onCreateCourse,
+  onUpdateCourse,
+  onDeleteCourse,
   onAddModule,
   onAddTopic,
+  onAddSubtopic,
   onAddQuiz,
   onAddQuestion,
   onImportQuestions,
@@ -196,12 +208,19 @@ export function AdminDashboard({
     description?: string;
     status?: "draft" | "published";
   }) => api.CourseContent | void | Promise<api.CourseContent | void>;
+  onUpdateCourse: (
+    courseId: string,
+    input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
+  ) => api.CourseContent | void | Promise<api.CourseContent | void>;
+  onDeleteCourse: (courseId: string) => void | Promise<void>;
   onAddModule: (courseId: string, input: { title: string; description?: string }) => void | Promise<void>;
   onAddTopic: (courseId: string, moduleId: string, input: { title: string; description?: string }) => void | Promise<void>;
+  onAddSubtopic: (courseId: string, moduleId: string, topicId: string, input: { title: string; description?: string }) => void | Promise<void>;
   onAddQuiz: (
     courseId: string,
     moduleId: string,
     topicId: string,
+    subtopicId: string,
     input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onAddQuestion: (question: Question) => void | Promise<void>;
@@ -215,10 +234,12 @@ export function AdminDashboard({
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
   const [moduleForm, setModuleForm] = useState(emptyModuleForm);
   const [topicForm, setTopicForm] = useState(emptyTopicForm);
+  const [subtopicForm, setSubtopicForm] = useState(emptySubtopicForm);
   const [quizForm, setQuizForm] = useState(emptyQuizForm);
   const [selectedCourseId, setSelectedCourseId] = useState(initialCourseSelection.courseId);
   const [selectedModuleId, setSelectedModuleId] = useState(initialCourseSelection.moduleId);
   const [selectedTopicId, setSelectedTopicId] = useState(initialCourseSelection.topicId);
+  const [selectedSubtopicId, setSelectedSubtopicId] = useState(initialCourseSelection.subtopicId);
   const [questionForm, setQuestionForm] = useState<QuestionForm>(emptyQuestion);
   const [questionBankView, setQuestionBankView] = useState<QuestionBankView>("exams");
   const [selectedExamId, setSelectedExamId] = useState(examOptions[0].id);
@@ -241,6 +262,8 @@ export function AdminDashboard({
   const activeModule = (activeCourse?.modules ?? []).find((module) => module.id === activeModuleId) ?? activeCourse?.modules?.[0];
   const activeTopicId = selectedTopicId || activeModule?.topics?.[0]?.id || "";
   const activeTopic = (activeModule?.topics ?? []).find((topic) => topic.id === activeTopicId) ?? activeModule?.topics?.[0];
+  const activeSubtopicId = selectedSubtopicId || activeTopic?.subtopics?.[0]?.id || "";
+  const activeSubtopic = (activeTopic?.subtopics ?? []).find((subtopic) => subtopic.id === activeSubtopicId) ?? activeTopic?.subtopics?.[0];
 
   const topicRows = useMemo(() => {
     const groups = new Map<string, { count: number; subject: string; difficulty: NonNullable<Question["difficulty"]> }>();
@@ -284,9 +307,10 @@ export function AdminDashboard({
         courseId: selectedCourseId,
         moduleId: selectedModuleId,
         topicId: selectedTopicId,
+        subtopicId: selectedSubtopicId,
       })
     );
-  }, [selectedCourseId, selectedModuleId, selectedTopicId]);
+  }, [selectedCourseId, selectedModuleId, selectedSubtopicId, selectedTopicId]);
 
   const chooseExam = (examId: string) => {
     setSelectedExamId(examId);
@@ -364,8 +388,8 @@ export function AdminDashboard({
   const createQuizFromUpload = async (file: File | null) => {
     if (!file) return false;
 
-    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeCourse || !activeTopic) {
-      setMessage("Create or select a topic before creating a quiz.");
+    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse || !activeSubtopic) {
+      setMessage("Create or select a subtopic before creating a quiz.");
       return false;
     }
 
@@ -385,8 +409,8 @@ export function AdminDashboard({
         return false;
       }
 
-      const existingQuizIds = new Set((activeTopic?.quizzes ?? []).map((quiz) => quiz.id));
-      const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, {
+      const existingQuizIds = new Set((activeSubtopic?.quizzes ?? []).map((quiz) => quiz.id));
+      const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
         title: quizForm.title.trim(),
         description: quizForm.description.trim() || undefined,
         timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
@@ -396,16 +420,17 @@ export function AdminDashboard({
       const updatedTopic = (updatedCourse?.modules ?? [])
         .find((module) => module.id === activeModuleId)
         ?.topics?.find((topic) => topic.id === activeTopicId);
+      const updatedSubtopic = updatedTopic?.subtopics?.find((subtopic) => subtopic.id === activeSubtopicId);
       const createdQuiz =
-        (updatedTopic?.quizzes ?? []).find((quiz) => !existingQuizIds.has(quiz.id)) ??
-        updatedTopic?.quizzes?.at(-1);
+        (updatedSubtopic?.quizzes ?? []).find((quiz) => !existingQuizIds.has(quiz.id)) ??
+        updatedSubtopic?.quizzes?.at(-1);
 
       await onImportQuestions(
         cleanQuestions.map((question) => ({
           ...question,
           courseId: activeCourseId,
           moduleId: activeModuleId,
-          subtopicId: activeTopicId,
+          subtopicId: activeSubtopicId,
           quizId: createdQuiz?.id,
         }))
       );
@@ -436,24 +461,141 @@ export function AdminDashboard({
         setSelectedCourseId(createdCourse.id);
         setSelectedModuleId("");
         setSelectedTopicId("");
+        setSelectedSubtopicId("");
       }
       setCourseForm(emptyCourseForm);
-      setMessage("Course saved. Add your first topic.");
+      setMessage("Course saved. Add your first module.");
       openCourseStep("courses");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Course could not be saved.");
     }
   };
 
+  const updateCourse = async (input: { title: string; code: string; subject: string; description?: string; status?: "draft" | "published" }) => {
+    if (!activeCourseId) {
+      setMessage("Select a course before editing.");
+      return false;
+    }
+
+    if (!input.title.trim() || !input.code.trim() || !input.subject.trim()) {
+      setMessage("Complete the course title, code, and subject.");
+      return false;
+    }
+
+    try {
+      await onUpdateCourse(activeCourseId, {
+        title: input.title.trim(),
+        code: input.code.trim(),
+        subject: input.subject.trim(),
+        description: input.description?.trim() || undefined,
+        status: input.status,
+      });
+      setMessage("Course updated.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Course could not be updated.");
+      return false;
+    }
+  };
+
+  const deleteCourse = async () => {
+    if (!activeCourseId) {
+      setMessage("Select a course before deleting.");
+      return false;
+    }
+
+    try {
+      await onDeleteCourse(activeCourseId);
+      setSelectedCourseId("");
+      setSelectedModuleId("");
+      setSelectedTopicId("");
+      setSelectedSubtopicId("");
+      setMessage("Course deleted.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Course could not be deleted.");
+      return false;
+    }
+  };
+
+  const deleteCourseById = async (courseId: string) => {
+    const course = courses.find((item) => item.id === courseId);
+
+    if (typeof window !== "undefined" && !window.confirm(`Delete ${course?.title ?? "this course"}? This cannot be undone.`)) {
+      return false;
+    }
+
+    try {
+      await onDeleteCourse(courseId);
+      if (courseId === activeCourseId) {
+        setSelectedCourseId("");
+        setSelectedModuleId("");
+        setSelectedTopicId("");
+        setSelectedSubtopicId("");
+      }
+      setMessage("Course deleted.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Course could not be deleted.");
+      return false;
+    }
+  };
+
+  const publishCourse = async () => {
+    if (!activeCourseId || !activeCourse) {
+      setMessage("Select a course before publishing.");
+      return false;
+    }
+
+    try {
+      await onUpdateCourse(activeCourseId, {
+        title: activeCourse.title,
+        code: activeCourse.code,
+        subject: activeCourse.subject,
+        description: activeCourse.description,
+        status: "published",
+      });
+      setMessage("Course published online.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Course could not be published.");
+      return false;
+    }
+  };
+
+  const publishCourseById = async (courseId: string) => {
+    const course = courses.find((item) => item.id === courseId);
+
+    if (!course) {
+      setMessage("Select a course before publishing.");
+      return false;
+    }
+
+    try {
+      await onUpdateCourse(courseId, {
+        title: course.title,
+        code: course.code,
+        subject: course.subject,
+        description: course.description,
+        status: "published",
+      });
+      setMessage("Course published online.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Course could not be published.");
+      return false;
+    }
+  };
+
   const addModule = async () => {
     if (!activeCourseId) {
       setMessage("Create or select a course before adding modules.");
-      return;
+      return false;
     }
 
     if (!moduleForm.title.trim()) {
       setMessage("Enter a module title.");
-      return;
+      return false;
     }
 
     try {
@@ -464,8 +606,10 @@ export function AdminDashboard({
       setModuleForm(emptyModuleForm);
       setMessage("Module added.");
       openCourseStep("topics");
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Module could not be saved.");
+      return false;
     }
   };
 
@@ -486,11 +630,37 @@ export function AdminDashboard({
         description: topicForm.description.trim() || undefined,
       });
       setTopicForm(emptyTopicForm);
-      setMessage("Subtopic added.");
-      openCourseStep("topics");
+      setMessage("Topic added.");
+      openCourseStep("subtopics");
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Topic could not be saved.");
+      return false;
+    }
+  };
+
+  const addSubtopic = async () => {
+    if (!activeCourseId || !activeModuleId || !activeTopicId) {
+      setMessage("Create or select a topic before adding subtopics.");
+      return false;
+    }
+
+    if (!subtopicForm.title.trim()) {
+      setMessage("Enter a subtopic title.");
+      return false;
+    }
+
+    try {
+      await onAddSubtopic(activeCourseId, activeModuleId, activeTopicId, {
+        title: subtopicForm.title.trim(),
+        description: subtopicForm.description.trim() || undefined,
+      });
+      setSubtopicForm(emptySubtopicForm);
+      setMessage("Subtopic added.");
+      openCourseStep("subtopics");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Subtopic could not be saved.");
       return false;
     }
   };
@@ -649,30 +819,43 @@ export function AdminDashboard({
                 courseForm={courseForm}
                 moduleForm={moduleForm}
                 topicForm={topicForm}
+                subtopicForm={subtopicForm}
                 quizForm={quizForm}
-                activeCourseId={activeCourseId}
                 activeCourse={activeCourse}
                 activeModuleId={activeModuleId}
-                activeModule={activeModule}
                 activeTopicId={activeTopicId}
                 activeTopic={activeTopic}
+                activeSubtopicId={activeSubtopicId}
                 onCourseFormChange={setCourseForm}
                 onModuleFormChange={setModuleForm}
                 onTopicFormChange={setTopicForm}
+                onSubtopicFormChange={setSubtopicForm}
                 onQuizFormChange={setQuizForm}
                 onSelectCourse={(courseId) => {
                   setSelectedCourseId(courseId);
                   setSelectedModuleId("");
                   setSelectedTopicId("");
+                  setSelectedSubtopicId("");
                 }}
                 onSelectModule={(moduleId) => {
                   setSelectedModuleId(moduleId);
                   setSelectedTopicId("");
+                  setSelectedSubtopicId("");
                 }}
-                onSelectTopic={setSelectedTopicId}
+                onSelectTopic={(topicId) => {
+                  setSelectedTopicId(topicId);
+                  setSelectedSubtopicId("");
+                }}
+                onSelectSubtopic={setSelectedSubtopicId}
                 onCreateCourse={createCourse}
+                onUpdateCourse={updateCourse}
+                onDeleteCourse={deleteCourse}
+                onPublishCourse={publishCourse}
+                onDeleteCourseById={deleteCourseById}
+                onPublishCourseById={publishCourseById}
                 onAddModule={addModule}
                 onAddTopic={addTopic}
+                onAddSubtopic={addSubtopic}
                 onCreateQuizFromUpload={createQuizFromUpload}
                 onOpenStep={openCourseStep}
               />
@@ -893,29 +1076,258 @@ function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }
   );
 }
 
+function CourseEditModal({
+  form,
+  onChange,
+  onCancel,
+  onDelete,
+  onSave,
+}: {
+  form: typeof emptyCourseForm;
+  onChange: (form: typeof emptyCourseForm) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#071a38]/45 px-4 py-6">
+      <section className="w-full max-w-3xl rounded-xl border border-[#d5e2f0] bg-white p-6 text-[#10243f] shadow-[0_24px_90px_rgba(8,43,99,0.22)]">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <span>
+            <span className="text-xs font-black uppercase tracking-wide text-[#06479b]">Course</span>
+            <h3 className="mt-1 text-2xl font-black">Edit course</h3>
+          </span>
+          <button className="min-h-10 px-2 text-sm font-black text-[#596273]" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Course title" value={form.title} onChange={(title) => onChange({ ...form, title })} />
+          <Field label="Course code" value={form.code} onChange={(code) => onChange({ ...form, code })} />
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            Subject
+            <select
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+              value={form.subject}
+              onChange={(event) => onChange({ ...form, subject: event.target.value })}
+            >
+              {subjectCatalog.map((subject) => (
+                <option key={subject.id} value={subject.id}>{subject.title}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            Status
+            <select
+              className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+              value={form.status}
+              onChange={(event) => onChange({ ...form, status: event.target.value as typeof form.status })}
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+            </select>
+          </label>
+          <div className="sm:col-span-2">
+            <TextArea label="Course description" value={form.description} onChange={(description) => onChange({ ...form, description })} />
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <button
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-rose-200 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-50"
+            type="button"
+            onClick={onDelete}
+          >
+            <Trash2 size={16} /> Delete Course
+          </button>
+          <div className="flex items-center gap-3">
+            <button className="min-h-11 rounded-md px-4 text-sm font-black text-[#596273]" type="button" onClick={onCancel}>
+              Cancel
+            </button>
+            <PrimaryButton className="min-h-11 gap-2 px-5" type="button" onClick={onSave}>
+              <Pencil size={16} /> Save Course
+            </PrimaryButton>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type CourseStatusView = "builder" | "published" | "draft";
+
+function courseOutlineCounts(course: api.CourseContent) {
+  const modules = course.modules ?? [];
+  const topics = modules.reduce((sum, module) => sum + (module.topics ?? []).length, 0);
+  const subtopics = modules.reduce(
+    (sum, module) => sum + (module.topics ?? []).reduce((topicSum, topic) => topicSum + (topic.subtopics ?? []).length, 0),
+    0
+  );
+  const quizzes = modules.reduce(
+    (sum, module) =>
+      sum +
+      (module.topics ?? []).reduce(
+        (topicSum, topic) =>
+          topicSum + (topic.subtopics ?? []).reduce((subtopicSum, subtopic) => subtopicSum + (subtopic.quizzes ?? []).length, 0),
+        0
+      ),
+    0
+  );
+
+  return { modules: modules.length, topics, subtopics, quizzes };
+}
+
+function CourseStateBadge({ status }: { status: api.CourseContent["status"] }) {
+  const isPublished = status === "published";
+
+  return (
+    <span
+      className={`inline-flex min-h-9 items-center rounded-md px-4 text-xs font-black uppercase tracking-wide ${
+        isPublished ? "bg-emerald-50 text-emerald-700" : "bg-[#edf1f6] text-[#596273]"
+      }`}
+    >
+      {isPublished ? "Published" : "Draft"}
+    </span>
+  );
+}
+
+function CourseStatusTab({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`min-h-11 rounded-md px-4 text-sm font-black transition ${
+        active ? "bg-[#0d3472] text-white shadow-[0_10px_22px_rgba(13,52,114,0.18)]" : "bg-white text-[#596273] hover:bg-[#edf5ff] hover:text-[#06479b]"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CourseStatusPanel({
+  title,
+  courses,
+  emptyText,
+  onOpenCourse,
+  onPublishCourse,
+  onDeleteCourse,
+}: {
+  title: string;
+  courses: api.CourseContent[];
+  emptyText: string;
+  onOpenCourse: (courseId: string) => void;
+  onPublishCourse: (courseId: string) => void;
+  onDeleteCourse: (courseId: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 p-4">
+      <div>
+        <span className="text-xs font-black uppercase tracking-wide text-[#06479b]">Course states</span>
+        <h2 className="mt-1 text-2xl font-semibold tracking-normal text-[#10243f]">{title}</h2>
+      </div>
+
+      {courses.length ? (
+        <div className="grid gap-3">
+          {courses.map((course) => {
+            const counts = courseOutlineCounts(course);
+
+            return (
+              <article className="rounded-lg border border-[#d5e2f0] bg-white p-5" key={course.id}>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <span className="text-xs font-black uppercase tracking-wide text-[#5e7086]">{course.code}</span>
+                    <h3 className="mt-1 truncate text-xl font-semibold tracking-normal text-[#10243f]">{course.title}</h3>
+                    <p className="mt-2 text-sm font-bold text-[#5e7086]">{course.subject}</p>
+                  </div>
+                  <CourseStateBadge status={course.status} />
+                </div>
+
+                <div className="mt-5 grid gap-2 text-sm font-black text-[#596273] sm:grid-cols-4">
+                  <span className="rounded-md bg-[#f8fbff] px-3 py-2">{counts.modules} modules</span>
+                  <span className="rounded-md bg-[#f8fbff] px-3 py-2">{counts.topics} topics</span>
+                  <span className="rounded-md bg-[#f8fbff] px-3 py-2">{counts.subtopics} subtopics</span>
+                  <span className="rounded-md bg-[#f8fbff] px-3 py-2">{counts.quizzes} quizzes</span>
+                </div>
+
+                <div className="mt-5 flex flex-wrap justify-end gap-3">
+                  {course.status !== "published" && (
+                    <button
+                      className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                      type="button"
+                      onClick={() => onPublishCourse(course.id)}
+                    >
+                      <UploadCloud size={16} />
+                      Publish Course
+                    </button>
+                  )}
+                  <button
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-rose-200 bg-white px-5 text-sm font-black text-rose-700 transition hover:bg-rose-50"
+                    type="button"
+                    onClick={() => onDeleteCourse(course.id)}
+                  >
+                    <Trash2 size={16} />
+                    Delete Course
+                  </button>
+                  <button
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#e9edff] px-5 text-sm font-black text-[#3867ee] transition hover:bg-[#dfe5ff]"
+                    type="button"
+                    onClick={() => onOpenCourse(course.id)}
+                  >
+                    Open in Builder <ArrowRight size={16} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-[#d5e2f0] bg-white p-8 text-center text-sm font-bold text-[#5e7086]">{emptyText}</p>
+      )}
+    </div>
+  );
+}
+
 function CourseBuilder({
   courses,
   step,
   courseForm,
   moduleForm,
   topicForm,
+  subtopicForm,
   quizForm,
-  activeCourseId,
   activeCourse,
   activeModuleId,
-  activeModule,
   activeTopicId,
   activeTopic,
+  activeSubtopicId,
   onCourseFormChange,
   onModuleFormChange,
   onTopicFormChange,
+  onSubtopicFormChange,
   onQuizFormChange,
   onSelectCourse,
   onSelectModule,
   onSelectTopic,
+  onSelectSubtopic,
   onCreateCourse,
+  onUpdateCourse,
+  onDeleteCourse,
+  onPublishCourse,
+  onDeleteCourseById,
+  onPublishCourseById,
   onAddModule,
   onAddTopic,
+  onAddSubtopic,
   onCreateQuizFromUpload,
   onOpenStep,
 }: {
@@ -924,43 +1336,83 @@ function CourseBuilder({
   courseForm: typeof emptyCourseForm;
   moduleForm: typeof emptyModuleForm;
   topicForm: typeof emptyTopicForm;
+  subtopicForm: typeof emptySubtopicForm;
   quizForm: typeof emptyQuizForm;
-  activeCourseId: string;
   activeCourse?: api.CourseContent;
   activeModuleId: string;
-  activeModule?: api.CourseModule;
   activeTopicId: string;
   activeTopic?: api.CourseTopic;
+  activeSubtopicId: string;
   onCourseFormChange: (form: typeof emptyCourseForm) => void;
   onModuleFormChange: (form: typeof emptyModuleForm) => void;
   onTopicFormChange: (form: typeof emptyTopicForm) => void;
+  onSubtopicFormChange: (form: typeof emptySubtopicForm) => void;
   onQuizFormChange: (form: typeof emptyQuizForm) => void;
   onSelectCourse: (courseId: string) => void;
   onSelectModule: (moduleId: string) => void;
   onSelectTopic: (topicId: string) => void;
+  onSelectSubtopic: (subtopicId: string) => void;
   onCreateCourse: () => void;
-  onAddModule: () => void;
+  onUpdateCourse: (input: { title: string; code: string; subject: string; description?: string; status?: "draft" | "published" }) => boolean | Promise<boolean>;
+  onDeleteCourse: () => boolean | Promise<boolean>;
+  onPublishCourse: () => boolean | Promise<boolean>;
+  onDeleteCourseById: (courseId: string) => boolean | Promise<boolean>;
+  onPublishCourseById: (courseId: string) => boolean | Promise<boolean>;
+  onAddModule: () => boolean | Promise<boolean>;
   onAddTopic: () => boolean | Promise<boolean>;
+  onAddSubtopic: () => boolean | Promise<boolean>;
   onCreateQuizFromUpload: (file: File | null) => boolean | Promise<boolean>;
   onOpenStep: (step: CourseBuilderStep) => void;
 }) {
   const quizUploadRef = useRef<HTMLInputElement>(null);
+  const [courseView, setCourseView] = useState<CourseStatusView>("builder");
+  const [courseEditorOpen, setCourseEditorOpen] = useState(false);
+  const [courseEditForm, setCourseEditForm] = useState(emptyCourseForm);
+  const [moduleModalOpen, setModuleModalOpen] = useState(false);
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
   const [subtopicModalOpen, setSubtopicModalOpen] = useState(false);
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   const modules = activeCourse?.modules ?? [];
-  const isAddingTopic = step === "modules" && !modules.length;
-  const openSubtopicModal = (moduleId?: string) => {
+  const publishedCourses = courses.filter((course) => course.status === "published");
+  const draftCourses = courses.filter((course) => course.status !== "published");
+  const statusCourses = courseView === "published" ? publishedCourses : draftCourses;
+  const isAddingModule = step === "modules" && !modules.length;
+  const openCourseFromStatus = (courseId: string) => {
+    onSelectCourse(courseId);
+    setCourseView("builder");
+    onOpenStep("courses");
+  };
+  const openModuleModal = () => {
+    setModuleModalOpen(true);
+    onOpenStep("modules");
+  };
+  const saveModule = async () => {
+    const saved = await Promise.resolve(onAddModule());
+    if (saved) setModuleModalOpen(false);
+  };
+  const openTopicModal = (moduleId?: string) => {
     if (moduleId) onSelectModule(moduleId);
-    setSubtopicModalOpen(true);
+    setTopicModalOpen(true);
     onOpenStep("topics");
   };
-  const saveSubtopic = async () => {
+  const saveTopic = async () => {
     const saved = await Promise.resolve(onAddTopic());
-    if (saved) setSubtopicModalOpen(false);
+    if (saved) setTopicModalOpen(false);
   };
-  const openQuizModal = (moduleId?: string, topicId?: string) => {
+  const openSubtopicModal = (moduleId?: string, topicId?: string) => {
     if (moduleId) onSelectModule(moduleId);
     if (topicId) onSelectTopic(topicId);
+    setSubtopicModalOpen(true);
+    onOpenStep("subtopics");
+  };
+  const saveSubtopic = async () => {
+    const saved = await Promise.resolve(onAddSubtopic());
+    if (saved) setSubtopicModalOpen(false);
+  };
+  const openQuizModal = (moduleId?: string, topicId?: string, subtopicId?: string) => {
+    if (moduleId) onSelectModule(moduleId);
+    if (topicId) onSelectTopic(topicId);
+    if (subtopicId) onSelectSubtopic(subtopicId);
     setQuizModalOpen(true);
     onOpenStep("quizzes");
   };
@@ -972,90 +1424,197 @@ function CourseBuilder({
     const uploaded = await Promise.resolve(onCreateQuizFromUpload(file));
     if (uploaded) setQuizModalOpen(false);
   };
+  const openCourseEditor = () => {
+    if (!activeCourse) return;
+
+    setCourseEditForm({
+      title: activeCourse.title,
+      code: activeCourse.code,
+      subject: activeCourse.subject,
+      description: activeCourse.description ?? "",
+      status: activeCourse.status,
+    });
+    setCourseEditorOpen(true);
+  };
+  const saveCourseEdit = async () => {
+    const saved = await Promise.resolve(onUpdateCourse(courseEditForm));
+    if (saved) setCourseEditorOpen(false);
+  };
+  const deleteActiveCourse = async () => {
+    if (typeof window !== "undefined" && !window.confirm(`Delete ${activeCourse?.title ?? "this course"}? This cannot be undone.`)) {
+      return;
+    }
+
+    const deleted = await Promise.resolve(onDeleteCourse());
+    if (deleted) setCourseEditorOpen(false);
+  };
+  const publishActiveCourse = () => {
+    void onPublishCourse();
+  };
 
   return (
     <section className="min-h-[calc(100vh-150px)] overflow-hidden rounded-lg border border-[#d5e2f0] bg-[#fbfcff]">
-      {step === "overview" || !activeCourse ? (
-        <CourseNameStart
-          value={courseForm.title}
-          onChange={(title) => onCourseFormChange({ ...courseForm, title })}
-          onConfirm={onCreateCourse}
-        />
-      ) : !modules.length && !isAddingTopic ? (
-        <CourseEmptyState onAddTopic={() => onOpenStep("modules")} />
-      ) : isAddingTopic ? (
-        <TopicEditorShell
-          title={moduleForm.title}
-          summary={moduleForm.description}
-          onTitleChange={(title) => onModuleFormChange({ ...moduleForm, title })}
-          onSummaryChange={(description) => onModuleFormChange({ ...moduleForm, description })}
-          onCancel={() => {
-            onModuleFormChange(emptyModuleForm);
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d5e2f0] bg-[#f8fbff] p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <CourseStatusTab active={courseView === "builder"} onClick={() => setCourseView("builder")}>
+            Builder
+          </CourseStatusTab>
+          <CourseStatusTab active={courseView === "published"} onClick={() => setCourseView("published")}>
+            Published ({publishedCourses.length})
+          </CourseStatusTab>
+          <CourseStatusTab active={courseView === "draft"} onClick={() => setCourseView("draft")}>
+            Draft ({draftCourses.length})
+          </CourseStatusTab>
+        </div>
+        <button
+          className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#0d3472] px-5 text-sm font-black text-white shadow-[0_10px_22px_rgba(13,52,114,0.18)] transition hover:bg-[#06479b]"
+          type="button"
+          onClick={() => {
+            setCourseView("builder");
             onOpenStep("overview");
           }}
-          onConfirm={onAddModule}
-        />
-      ) : (
-        <div className="grid gap-4 p-4">
-          <CourseStructure
-            modules={modules}
-            activeModuleId={activeModule?.id}
-            activeTopicId={activeTopic?.id}
-            onSelectModule={onSelectModule}
-            onSelectTopic={onSelectTopic}
-            onAddSubtopic={openSubtopicModal}
-            onAddQuiz={openQuizModal}
+        >
+          <Plus size={17} />
+          Create Course
+        </button>
+      </div>
+
+      {courseView === "builder" ? (
+        step === "overview" || !activeCourse ? (
+          <CourseNameStart
+            value={courseForm.title}
+            onChange={(title) => onCourseFormChange({ ...courseForm, title })}
+            onConfirm={onCreateCourse}
           />
-          <div className={`grid gap-3 rounded-lg border border-[#d5e2f0] bg-white p-4 ${step === "topics" ? "" : "lg:grid-cols-[1fr_300px]"}`}>
-            <div className="flex flex-wrap items-center gap-3">
-              <ShellActionButton label="Topic" onClick={() => onOpenStep("modules")} />
-              <ShellActionButton label="Subtopic" onClick={() => openSubtopicModal(activeModuleId || modules[0]?.id)} />
-              <ShellActionButton label="Quiz" onClick={() => openQuizModal(activeModuleId || modules[0]?.id, activeTopicId || modules[0]?.topics[0]?.id)} />
-            </div>
-            {step !== "topics" && (
-              <OutlineComposer
-                mode={step}
-                courses={courses}
-                activeCourseId={activeCourseId}
-                activeCourse={activeCourse}
-                activeModuleId={activeModuleId}
-                activeModule={activeModule}
-                activeTopicId={activeTopicId}
-                moduleForm={moduleForm}
-                topicForm={topicForm}
-                quizForm={quizForm}
-                onSelectCourse={onSelectCourse}
-                onSelectModule={onSelectModule}
-                onSelectTopic={onSelectTopic}
-                onModuleFormChange={onModuleFormChange}
-                onTopicFormChange={onTopicFormChange}
-                onQuizFormChange={onQuizFormChange}
-                onAddModule={onAddModule}
-                onAddTopic={onAddTopic}
-                onUploadQuiz={() => quizUploadRef.current?.click()}
-              />
-            )}
-          </div>
-          <input
-            ref={quizUploadRef}
-            className="sr-only"
-            type="file"
-            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            onChange={(event) => {
-              onCreateQuizFromUpload(event.target.files?.[0] ?? null);
-              event.currentTarget.value = "";
+        ) : !modules.length && !isAddingModule ? (
+          <CourseEmptyState onAddTopic={() => onOpenStep("modules")} />
+        ) : isAddingModule ? (
+          <TopicEditorShell
+            title={moduleForm.title}
+            summary={moduleForm.description}
+            onTitleChange={(title) => onModuleFormChange({ ...moduleForm, title })}
+            onSummaryChange={(description) => onModuleFormChange({ ...moduleForm, description })}
+            onCancel={() => {
+              onModuleFormChange(emptyModuleForm);
+              onOpenStep("overview");
             }}
+            onConfirm={onAddModule}
           />
-        </div>
+        ) : (
+          <div className="grid gap-4 p-4">
+            <CourseStructure
+              modules={modules}
+              courseStatus={activeCourse?.status}
+              activeModuleId={activeModuleId}
+              activeTopicId={activeTopic?.id}
+              activeSubtopicId={activeSubtopicId}
+              onSelectModule={onSelectModule}
+              onSelectTopic={onSelectTopic}
+              onSelectSubtopic={onSelectSubtopic}
+              onAddTopic={openTopicModal}
+              onAddSubtopic={openSubtopicModal}
+              onAddQuiz={openQuizModal}
+              onPublishCourse={publishActiveCourse}
+              onDeleteCourse={deleteActiveCourse}
+            />
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#d5e2f0] bg-white p-4">
+              <ShellActionButton label="Module" onClick={openModuleModal} />
+              <ShellActionButton label="Topic" onClick={() => openTopicModal(activeModuleId || modules[0]?.id)} />
+              <ShellActionButton label="Subtopic" onClick={() => openSubtopicModal(activeModuleId || modules[0]?.id, activeTopicId || modules[0]?.topics[0]?.id)} />
+              <ShellActionButton
+                label="Quiz"
+                onClick={() =>
+                  openQuizModal(
+                    activeModuleId || modules[0]?.id,
+                    activeTopicId || modules[0]?.topics[0]?.id,
+                    activeSubtopicId || modules[0]?.topics[0]?.subtopics[0]?.id
+                  )
+                }
+              />
+              <button
+                className="inline-flex min-h-12 items-center gap-3 rounded-md border border-[#c4cad4] bg-white px-5 text-sm font-black text-[#596273] transition hover:border-[#8dbcf5] hover:bg-[#f8fbff] hover:text-[#06479b]"
+                type="button"
+                onClick={openCourseEditor}
+              >
+                <Pencil className="text-[#aab2bf]" size={18} />
+                Edit Course
+              </button>
+            </div>
+            <input
+              ref={quizUploadRef}
+              className="sr-only"
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(event) => {
+                onCreateQuizFromUpload(event.target.files?.[0] ?? null);
+                event.currentTarget.value = "";
+              }}
+            />
+          </div>
+        )
+      ) : (
+        <CourseStatusPanel
+          title={courseView === "published" ? "Published courses" : "Draft courses"}
+          courses={statusCourses}
+          emptyText={courseView === "published" ? "No published courses yet." : "No draft courses yet."}
+          onOpenCourse={openCourseFromStatus}
+          onPublishCourse={(courseId) => {
+            void onPublishCourseById(courseId);
+          }}
+          onDeleteCourse={(courseId) => {
+            void onDeleteCourseById(courseId);
+          }}
+        />
       )}
-      {subtopicModalOpen && (
+      {courseEditorOpen && (
+        <CourseEditModal
+          form={courseEditForm}
+          onChange={setCourseEditForm}
+          onCancel={() => setCourseEditorOpen(false)}
+          onDelete={deleteActiveCourse}
+          onSave={saveCourseEdit}
+        />
+      )}
+      {moduleModalOpen && (
+        <SubtopicModal
+          title={moduleForm.title}
+          notes={moduleForm.description}
+          titlePlaceholder="Add a module title"
+          notesPlaceholder="Add module summary"
+          onTitleChange={(title) => onModuleFormChange({ ...moduleForm, title })}
+          onNotesChange={(description) => onModuleFormChange({ ...moduleForm, description })}
+          onCancel={() => {
+            onModuleFormChange(emptyModuleForm);
+            setModuleModalOpen(false);
+          }}
+          onConfirm={saveModule}
+        />
+      )}
+      {topicModalOpen && (
         <SubtopicModal
           title={topicForm.title}
           notes={topicForm.description}
+          titlePlaceholder="Add a topic title"
+          notesPlaceholder="Add topic notes"
           onTitleChange={(title) => onTopicFormChange({ ...topicForm, title })}
           onNotesChange={(description) => onTopicFormChange({ ...topicForm, description })}
           onCancel={() => {
             onTopicFormChange(emptyTopicForm);
+            setTopicModalOpen(false);
+          }}
+          onConfirm={saveTopic}
+        />
+      )}
+      {subtopicModalOpen && (
+        <SubtopicModal
+          title={subtopicForm.title}
+          notes={subtopicForm.description}
+          titlePlaceholder="Add a subtopic title"
+          notesPlaceholder="Add subtopic notes"
+          onTitleChange={(title) => onSubtopicFormChange({ ...subtopicForm, title })}
+          onNotesChange={(description) => onSubtopicFormChange({ ...subtopicForm, description })}
+          onCancel={() => {
+            onSubtopicFormChange(emptySubtopicForm);
             setSubtopicModalOpen(false);
           }}
           onConfirm={saveSubtopic}
@@ -1088,7 +1647,7 @@ function CourseNameStart({
         <span className="text-sm font-black uppercase tracking-wide text-[#3867ee]">Course setup</span>
         <h2 className="mt-3 text-3xl font-semibold tracking-normal text-[#252831]">Name your course</h2>
         <p className="mt-3 text-base font-semibold leading-7 text-[#7a8193]">
-          Start with the course name. Topics, subtopics, and quizzes come next.
+          Start with the course name. Modules, topics, subtopics, and quizzes come next.
         </p>
         <label className="mt-8 block">
           <span className="mb-3 block text-sm font-black text-[#596273]">Course name</span>
@@ -1118,7 +1677,7 @@ function CourseEmptyState({ onAddTopic }: { onAddTopic: () => void }) {
     <div className="relative flex min-h-[calc(100vh-152px)] flex-col items-center justify-center px-4 py-12 text-center">
       <CourseBuilderIllustration />
       <h2 className="mt-10 text-3xl font-semibold tracking-normal text-[#252831]">Start building your course!</h2>
-      <p className="mt-6 text-xl font-semibold text-[#7a8193]">Add Topics, Subtopics, and Quizzes to get started.</p>
+      <p className="mt-6 text-xl font-semibold text-[#7a8193]">Add Modules, Topics, Subtopics, and Quizzes to get started.</p>
       <button
         className="mt-12 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#e9edff] px-10 text-lg font-semibold text-[#3867ee] transition hover:bg-[#dfe5ff]"
         type="button"
@@ -1127,7 +1686,7 @@ function CourseEmptyState({ onAddTopic }: { onAddTopic: () => void }) {
         <span className="grid h-5 w-5 place-items-center rounded-sm bg-[#4772f2] text-white">
           <Plus size={17} strokeWidth={3} />
         </span>
-        Add Topic
+        Add Module
       </button>
 
       <div className="absolute bottom-8 right-8 flex items-center gap-6">
@@ -1210,13 +1769,13 @@ function TopicEditorShell({
         <div className="grid gap-12">
           <input
             className="min-h-20 rounded-lg border-0 bg-white px-8 text-2xl font-semibold text-[#404756] outline-none placeholder:text-[#737b8d]"
-            placeholder="Add a title"
+            placeholder="Add a module title"
             value={title}
             onChange={(event) => onTitleChange(event.target.value)}
           />
           <textarea
             className="min-h-72 resize-y rounded-lg border-0 bg-white px-8 py-8 text-2xl font-semibold leading-9 text-[#404756] outline-none placeholder:text-[#737b8d]"
-            placeholder="Add a summary"
+            placeholder="Add a module summary"
             value={summary}
             onChange={(event) => onSummaryChange(event.target.value)}
           />
@@ -1227,12 +1786,12 @@ function TopicEditorShell({
         </div>
       </div>
       <div className="flex items-center gap-6 border-t border-[#d9dde5] px-8 py-8">
+        <ShellActionButton label="Topic" onClick={() => undefined} />
         <ShellActionButton label="Subtopic" onClick={() => undefined} />
-        <ShellActionButton label="Quiz" onClick={() => undefined} />
         <button
           className="ml-auto grid h-16 w-16 place-items-center rounded-full bg-white text-[#9aa3b2]"
           type="button"
-          aria-label="Topic options"
+          aria-label="Module options"
         >
           <MoreVertical size={30} />
         </button>
@@ -1244,6 +1803,8 @@ function TopicEditorShell({
 function SubtopicModal({
   title,
   notes,
+  titlePlaceholder = "Add a subtopic title",
+  notesPlaceholder = "Add subtopic notes",
   onTitleChange,
   onNotesChange,
   onCancel,
@@ -1251,6 +1812,8 @@ function SubtopicModal({
 }: {
   title: string;
   notes: string;
+  titlePlaceholder?: string;
+  notesPlaceholder?: string;
   onTitleChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onCancel: () => void;
@@ -1264,14 +1827,14 @@ function SubtopicModal({
           <div className="grid gap-5">
             <input
               className="min-h-16 rounded-lg border-0 bg-white px-5 text-xl font-semibold text-[#404756] outline-none placeholder:text-[#737b8d]"
-              placeholder="Add a subtopic title"
+              placeholder={titlePlaceholder}
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               autoFocus
             />
             <textarea
               className="min-h-48 resize-y rounded-lg border-0 bg-white px-5 py-5 text-lg font-semibold leading-8 text-[#404756] outline-none placeholder:text-[#737b8d]"
-              placeholder="Add subtopic notes"
+              placeholder={notesPlaceholder}
               value={notes}
               onChange={(event) => onNotesChange(event.target.value)}
             />
@@ -1343,146 +1906,37 @@ function QuizUploadModal({
   );
 }
 
-function OutlineComposer({
-  mode,
-  courses,
-  activeCourseId,
-  activeCourse,
-  activeModuleId,
-  activeModule,
-  activeTopicId,
-  moduleForm,
-  topicForm,
-  quizForm,
-  onSelectCourse,
-  onSelectModule,
-  onSelectTopic,
-  onModuleFormChange,
-  onTopicFormChange,
-  onQuizFormChange,
-  onAddModule,
-  onAddTopic,
-  onUploadQuiz,
-}: {
-  mode: CourseBuilderStep;
-  courses: api.CourseContent[];
-  activeCourseId: string;
-  activeCourse?: api.CourseContent;
-  activeModuleId: string;
-  activeModule?: api.CourseModule;
-  activeTopicId: string;
-  moduleForm: typeof emptyModuleForm;
-  topicForm: typeof emptyTopicForm;
-  quizForm: typeof emptyQuizForm;
-  onSelectCourse: (courseId: string) => void;
-  onSelectModule: (moduleId: string) => void;
-  onSelectTopic: (topicId: string) => void;
-  onModuleFormChange: (form: typeof emptyModuleForm) => void;
-  onTopicFormChange: (form: typeof emptyTopicForm) => void;
-  onQuizFormChange: (form: typeof emptyQuizForm) => void;
-  onAddModule: () => void;
-  onAddTopic: () => boolean | Promise<boolean>;
-  onUploadQuiz: () => void;
-}) {
-  return (
-    <aside className="rounded-lg border border-[#d5e2f0] bg-[#f8fbff] p-4">
-      <div className="mb-4">
-        <span className="text-[10px] font-black uppercase tracking-wide text-[#06479b]">Builder</span>
-        <h3 className="mt-1 text-base font-black text-[#10243f]">
-          {mode === "quizzes" ? "Attach a quiz" : mode === "topics" ? "Add a subtopic" : "Add a topic"}
-        </h3>
-      </div>
-
-      <div className="grid gap-3">
-        <Select label="Course" value={activeCourseId} onChange={onSelectCourse}>
-          {courses.length ? (
-            courses.map((course) => (
-              <option key={course.id} value={course.id}>{course.code} - {course.title}</option>
-            ))
-          ) : (
-            <option value="">Create a course first</option>
-          )}
-        </Select>
-
-        {(mode === "topics" || mode === "quizzes") && (
-          <Select label="Topic" value={activeModuleId} onChange={onSelectModule}>
-            {activeCourse?.modules.length ? (
-              activeCourse.modules.map((module, index) => (
-                <option key={module.id} value={module.id}>Topic {index + 1} - {module.title}</option>
-              ))
-            ) : (
-              <option value="">Add a topic first</option>
-            )}
-          </Select>
-        )}
-
-        {mode === "modules" || mode === "overview" || mode === "courses" ? (
-          <>
-            <Field label="Topic Title" value={moduleForm.title} onChange={(value) => onModuleFormChange({ ...moduleForm, title: value })} />
-            <TextArea label="Topic Summary" value={moduleForm.description} onChange={(value) => onModuleFormChange({ ...moduleForm, description: value })} />
-            <SecondaryButton className="h-10 min-h-10 w-full gap-2" type="button" onClick={onAddModule}>
-              <Plus size={15} /> Add Topic
-            </SecondaryButton>
-          </>
-        ) : null}
-
-        {mode === "topics" && (
-          <>
-            <Field label="Subtopic Title" value={topicForm.title} onChange={(value) => onTopicFormChange({ ...topicForm, title: value })} />
-            <TextArea label="Subtopic Notes" value={topicForm.description} onChange={(value) => onTopicFormChange({ ...topicForm, description: value })} />
-            <SecondaryButton className="h-10 min-h-10 w-full gap-2" type="button" onClick={onAddTopic}>
-              <Plus size={15} /> Add Subtopic
-            </SecondaryButton>
-          </>
-        )}
-
-        {mode === "quizzes" && (
-          <>
-            <Select label="Subtopic" value={activeTopicId} onChange={onSelectTopic}>
-              {activeModule?.topics.length ? (
-                activeModule.topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>{topic.title}</option>
-                ))
-              ) : (
-                <option value="">Add a subtopic first</option>
-              )}
-            </Select>
-            <Field label="Quiz Title" value={quizForm.title} onChange={(value) => onQuizFormChange({ ...quizForm, title: value })} />
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="Minutes" type="number" value={String(quizForm.timeLimitMinutes)} onChange={(value) => onQuizFormChange({ ...quizForm, timeLimitMinutes: Number(value) })} />
-              <Field label="Attempts" type="number" value={String(quizForm.attemptsAllowed)} onChange={(value) => onQuizFormChange({ ...quizForm, attemptsAllowed: Number(value) })} />
-              <Field label="Pass %" type="number" value={String(quizForm.passingPercent)} onChange={(value) => onQuizFormChange({ ...quizForm, passingPercent: Number(value) })} />
-            </div>
-            <TextArea label="Quiz Description" value={quizForm.description} onChange={(value) => onQuizFormChange({ ...quizForm, description: value })} />
-            <PrimaryButton className="h-10 min-h-10 w-full gap-2" type="button" onClick={onUploadQuiz}>
-              <Upload size={15} /> Create Quiz From Excel
-            </PrimaryButton>
-          </>
-        )}
-      </div>
-    </aside>
-  );
-}
-
 function CourseStructure({
   modules,
+  courseStatus,
   activeModuleId,
   activeTopicId,
+  activeSubtopicId,
   onSelectModule,
   onSelectTopic,
+  onSelectSubtopic,
+  onAddTopic,
   onAddSubtopic,
   onAddQuiz,
+  onPublishCourse,
+  onDeleteCourse,
 }: {
   modules: api.CourseModule[];
+  courseStatus?: api.CourseContent["status"];
   activeModuleId?: string;
   activeTopicId?: string;
+  activeSubtopicId?: string;
   onSelectModule: (moduleId: string) => void;
   onSelectTopic: (topicId: string) => void;
-  onAddSubtopic: (moduleId: string) => void;
-  onAddQuiz: (moduleId: string, topicId?: string) => void;
+  onSelectSubtopic: (subtopicId: string) => void;
+  onAddTopic: (moduleId: string) => void;
+  onAddSubtopic: (moduleId: string, topicId?: string) => void;
+  onAddQuiz: (moduleId: string, topicId?: string, subtopicId?: string) => void;
+  onPublishCourse: () => void;
+  onDeleteCourse: () => void;
 }) {
   if (!modules.length) {
-    return <p className="rounded-lg border border-dashed border-[#d5e2f0] bg-white p-6 text-center text-sm font-bold text-[#5e7086]">No topics yet. Add Topic 1 to start the subtopic outline.</p>;
+    return <p className="rounded-lg border border-dashed border-[#d5e2f0] bg-white p-6 text-center text-sm font-bold text-[#5e7086]">No modules yet. Add Module 1 to start the course outline.</p>;
   }
 
   return (
@@ -1502,80 +1956,143 @@ function CourseStructure({
             <GripVertical className="mt-1 text-[#9aa3b2]" size={24} />
             <span className="min-w-0">
               <strong className="block text-xl font-black leading-7 text-[#404756]">
-                {module.title || `Topic ${moduleIndex + 1}`}
+                {module.title || `Module ${moduleIndex + 1}`}
               </strong>
               <span className="mt-5 block text-base font-semibold leading-8 text-[#737b8d]">
-                {module.description || "Add a short topic overview so admins can see what this module covers."}
+                {module.description || "Add a short module overview so admins can see what this part covers."}
               </span>
             </span>
           </button>
 
           <div className="border-t border-[#d9dde5] px-6 py-5">
             <div className="grid gap-5">
-            {module.topics.length ? module.topics.map((topic, topicIndex) => (
-              <button
-                className={`flex min-h-12 items-start gap-5 rounded-md px-3 py-2 text-left transition ${
-                  activeTopicId === topic.id ? "bg-[#edf5ff] text-[#06479b]" : "text-[#3f4654] hover:bg-[#f8fbff]"
-                }`}
-                key={topic.id}
-                type="button"
-                onClick={() => {
-                  onSelectModule(module.id);
-                  onSelectTopic(topic.id);
-                }}
-              >
-                <NotebookText className="mt-0.5 shrink-0 text-[#8d95a5]" size={23} />
-                <span className="min-w-0">
-                  <strong className="block text-lg font-black leading-7">
-                    {topic.title} - {moduleIndex + 1}.{topicIndex + 1}
-                  </strong>
-                  {topic.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{topic.description}</span>}
-                </span>
-              </button>
-            )) : <p className="rounded-md bg-[#f8fbff] p-3 text-xs font-semibold text-[#5e7086]">No subtopics yet.</p>}
+              {module.topics.length ? module.topics.map((topic, topicIndex) => (
+                <div className="rounded-md border border-[#e1e7ef] bg-[#f8fbff] p-3" key={topic.id}>
+                  <button
+                    className={`flex min-h-12 w-full items-start gap-5 rounded-md px-3 py-2 text-left transition ${
+                      activeTopicId === topic.id ? "bg-[#edf5ff] text-[#06479b]" : "text-[#3f4654] hover:bg-white"
+                    }`}
+                    type="button"
+                    onClick={() => {
+                      onSelectModule(module.id);
+                      onSelectTopic(topic.id);
+                    }}
+                  >
+                    <NotebookText className="mt-0.5 shrink-0 text-[#8d95a5]" size={23} />
+                    <span className="min-w-0">
+                      <strong className="block text-lg font-black leading-7">
+                        Topic {moduleIndex + 1}.{topicIndex + 1} - {topic.title}
+                      </strong>
+                      {topic.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{topic.description}</span>}
+                    </span>
+                  </button>
 
-            {module.topics.flatMap((topic) => topic.quizzes.map((quiz) => ({ quiz, topic }))).map(({ quiz, topic }) => (
-              <button
-                className="flex min-h-12 items-start gap-5 rounded-md px-3 py-2 text-left text-[#3f4654] transition hover:bg-[#f8fbff]"
-                key={quiz.id}
-                type="button"
-	                onClick={() => {
-	                  onSelectModule(module.id);
-	                  onSelectTopic(topic.id);
-	                  onAddQuiz(module.id, topic.id);
-	                }}
-              >
-                <Puzzle className="mt-0.5 shrink-0 text-[#f5a400]" size={23} />
-                <span className="min-w-0">
-                  <strong className="block text-lg font-black leading-7">
-                    {quiz.title} ({quiz.timeLimitMinutes} min)
-                  </strong>
-                  {quiz.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{quiz.description}</span>}
-                </span>
-              </button>
-            ))}
+                  <div className="mt-3 grid gap-3 pl-4 sm:pl-10">
+                    {topic.subtopics.length ? topic.subtopics.map((subtopic, subtopicIndex) => (
+                      <div className="rounded-md border border-[#e8edf5] bg-white p-3" key={subtopic.id}>
+                        <button
+                          className={`flex min-h-10 w-full items-start gap-4 rounded-md px-2 py-2 text-left transition ${
+                            activeSubtopicId === subtopic.id ? "bg-[#edf5ff] text-[#06479b]" : "text-[#3f4654] hover:bg-[#f8fbff]"
+                          }`}
+                          type="button"
+                          onClick={() => {
+                            onSelectModule(module.id);
+                            onSelectTopic(topic.id);
+                            onSelectSubtopic(subtopic.id);
+                          }}
+                        >
+                          <NotebookText className="mt-0.5 shrink-0 text-[#8d95a5]" size={19} />
+                          <span className="min-w-0">
+                            <strong className="block text-base font-black leading-6">
+                              Subtopic {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1} - {subtopic.title}
+                            </strong>
+                            {subtopic.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{subtopic.description}</span>}
+                          </span>
+                        </button>
+
+                        <div className="mt-2 grid gap-2 pl-4 sm:pl-8">
+                          {subtopic.quizzes.length ? subtopic.quizzes.map((quiz) => (
+                            <button
+                              className="flex min-h-10 items-start gap-4 rounded-md px-2 py-2 text-left text-[#3f4654] transition hover:bg-[#f8fbff]"
+                              key={quiz.id}
+                              type="button"
+                              onClick={() => {
+                                onSelectModule(module.id);
+                                onSelectTopic(topic.id);
+                                onSelectSubtopic(subtopic.id);
+                                onAddQuiz(module.id, topic.id, subtopic.id);
+                              }}
+                            >
+                              <Puzzle className="mt-0.5 shrink-0 text-[#f5a400]" size={19} />
+                              <span className="min-w-0">
+                                <strong className="block text-sm font-black leading-6">
+                                  {quiz.title} ({quiz.timeLimitMinutes} min)
+                                </strong>
+                                {quiz.description && <span className="mt-1 block text-xs font-semibold leading-5 text-[#737b8d]">{quiz.description}</span>}
+                              </span>
+                            </button>
+                          )) : <p className="rounded-md bg-[#f8fbff] p-3 text-xs font-semibold text-[#5e7086]">No quizzes yet.</p>}
+                        </div>
+                      </div>
+                    )) : <p className="rounded-md bg-white p-3 text-xs font-semibold text-[#5e7086]">No subtopics yet.</p>}
+                  </div>
+                </div>
+              )) : <p className="rounded-md bg-[#f8fbff] p-3 text-xs font-semibold text-[#5e7086]">No topics yet.</p>}
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <ShellActionButton
+                label="Topic"
+                onClick={() => {
+                  onSelectModule(module.id);
+                  onAddTopic(module.id);
+                }}
+              />
+              <ShellActionButton
                 label="Subtopic"
                 onClick={() => {
                   onSelectModule(module.id);
-                  onAddSubtopic(module.id);
+                  if (module.topics[0]) {
+                    onSelectTopic(module.topics[0].id);
+                    onAddSubtopic(module.id, module.topics[0].id);
+                  } else {
+                    onAddSubtopic(module.id);
+                  }
                 }}
               />
               <ShellActionButton
                 label="Quiz"
-	                onClick={() => {
-	                  onSelectModule(module.id);
-	                  if (module.topics[0]) {
-	                    onSelectTopic(module.topics[0].id);
-	                    onAddQuiz(module.id, module.topics[0].id);
-	                  } else {
-	                    onAddQuiz(module.id);
-	                  }
-	                }}
+                onClick={() => {
+                  const firstTopic = module.topics[0];
+                  const firstSubtopic = firstTopic?.subtopics[0];
+                  onSelectModule(module.id);
+                  if (firstTopic) onSelectTopic(firstTopic.id);
+                  if (firstSubtopic) onSelectSubtopic(firstSubtopic.id);
+                  onAddQuiz(module.id, firstTopic?.id, firstSubtopic?.id);
+                }}
               />
+              {courseStatus === "published" ? (
+                <span className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-50 px-5 text-sm font-black text-emerald-700">
+                  Published
+                </span>
+              ) : (
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                  type="button"
+                  onClick={onPublishCourse}
+                >
+                  <UploadCloud size={18} />
+                  Publish Course
+                </button>
+              )}
+              <button
+                className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-rose-200 bg-white px-5 text-sm font-black text-rose-700 transition hover:bg-rose-50"
+                type="button"
+                onClick={onDeleteCourse}
+              >
+                <Trash2 size={18} />
+                Delete Course
+              </button>
               <button
                 className="ml-auto grid h-10 w-10 place-items-center rounded-md text-[#8d95a5] transition hover:bg-[#f8fbff] hover:text-[#404756]"
                 type="button"

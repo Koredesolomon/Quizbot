@@ -65,7 +65,12 @@ export function StudentDashboard({
   const primaryCourse = registeredCourseItems[0];
   const hasRegisteredCourse = registeredCourseItems.length > 0;
   const moduleCount = primaryCourse?.modules.length ?? 0;
-  const subtopicCount = primaryCourse?.modules.reduce((sum, module) => sum + module.topics.length, 0) ?? 0;
+  const topicCount = primaryCourse?.modules.reduce((sum, module) => sum + module.topics.length, 0) ?? 0;
+  const subtopicCount =
+    primaryCourse?.modules.reduce(
+      (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + topic.subtopics.length, 0),
+      0
+    ) ?? 0;
   const [avatarError, setAvatarError] = useState("");
   const [avatarStatus, setAvatarStatus] = useState("");
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
@@ -207,7 +212,7 @@ export function StudentDashboard({
               </div>
               <div className="mt-8 flex items-center justify-between"><div><h2 className="text-xl font-black text-[var(--ink)]">My course</h2><p className="mt-1 text-sm font-semibold text-[var(--ink-muted)]">{primaryCourse ? `${primaryCourse.subject} · ${primaryCourse.code}` : "No course registered yet"}</p></div><button className="text-xs font-black text-[var(--brand-blue)]" type="button" onClick={onBrowseSubjects}>View courses <ChevronRight className="inline" size={14} /></button></div>
               {primaryCourse ? (
-                <button className="mt-4 w-full rounded-xl border-2 border-[var(--brand-blue)] bg-[var(--surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg" type="button" onClick={onViewOverview}><div className="flex items-start justify-between gap-4"><span className="grid h-12 w-12 place-items-center rounded-lg bg-[var(--brand-ice)] text-[var(--brand-blue)]"><BookOpen size={22} /></span><span className="rounded-full bg-[var(--brand-mint)] px-3 py-1 text-[10px] font-black uppercase text-[var(--brand-green)]">Active</span></div><strong className="mt-5 block text-lg font-black text-[var(--ink)]">{primaryCourse.title}</strong><span className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">{primaryCourse.code} · {moduleCount} module{moduleCount === 1 ? "" : "s"} · {subtopicCount} subtopic{subtopicCount === 1 ? "" : "s"}</span><div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--brand-ice)]"><div className="h-full rounded-full bg-[var(--brand-green)]" style={{ width: `${completion}%` }} /></div><div className="mt-2 flex justify-between text-xs font-bold text-[var(--ink-muted)]"><span>{completion}% progress</span><span>{totalMarks} marks available</span></div></button>
+                <button className="mt-4 w-full rounded-xl border-2 border-[var(--brand-blue)] bg-[var(--surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg" type="button" onClick={onViewOverview}><div className="flex items-start justify-between gap-4"><span className="grid h-12 w-12 place-items-center rounded-lg bg-[var(--brand-ice)] text-[var(--brand-blue)]"><BookOpen size={22} /></span><span className="rounded-full bg-[var(--brand-mint)] px-3 py-1 text-[10px] font-black uppercase text-[var(--brand-green)]">Active</span></div><strong className="mt-5 block text-lg font-black text-[var(--ink)]">{primaryCourse.title}</strong><span className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">{primaryCourse.code} · {moduleCount} module{moduleCount === 1 ? "" : "s"} · {topicCount} topic{topicCount === 1 ? "" : "s"} · {subtopicCount} subtopic{subtopicCount === 1 ? "" : "s"}</span><div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--brand-ice)]"><div className="h-full rounded-full bg-[var(--brand-green)]" style={{ width: `${completion}%` }} /></div><div className="mt-2 flex justify-between text-xs font-bold text-[var(--ink-muted)]"><span>{completion}% progress</span><span>{totalMarks} marks available</span></div></button>
               ) : (
                 <div className="mt-4 rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-5 text-center">
                   <BookOpen className="mx-auto text-[var(--brand-blue)]" size={30} />

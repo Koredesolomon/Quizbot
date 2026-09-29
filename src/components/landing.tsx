@@ -62,7 +62,7 @@ function HeroVisual() {
     <div className="flow-visual relative min-h-[500px] overflow-hidden" aria-label="The student journey from login to dashboard">
       <div className="absolute inset-5 rounded-[2rem] border border-[var(--line)] bg-[var(--surface-muted)] sm:inset-8" />
       <div className="absolute bottom-4 right-2 h-48 w-48 rounded-full bg-[var(--accent-blue-soft)] blur-3xl" />
-      <div className="flow-board relative mx-2 mt-8 rounded-[1.25rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_30px_60px_rgba(2,34,77,0.18)] sm:mx-10 sm:mt-12 sm:p-7">
+      <div className="flow-board relative mx-2 mt-8 rounded-[1.25rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_14px_34px_rgba(2,34,77,0.08)] sm:mx-10 sm:mt-12 sm:p-7">
         <div className="flex items-end justify-between border-b border-[var(--line)] pb-5">
           <div>
             <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-[var(--brand-green)]">Your learning loop</span>
@@ -110,8 +110,8 @@ function FlowStep({
   return (
     <div className="flow-step relative z-10" role="listitem">
       <div className={`flow-icon flow-icon-${tone}`}>{icon}</div>
-      <span className="mt-3 block text-[10px] font-black tracking-[0.12em] text-[var(--ink-muted)]">{number}</span>
-      <strong className="mt-1 block text-sm font-black text-[var(--ink)]">{label}</strong>
+      <span className="block text-[10px] font-black tracking-[0.12em] text-[var(--ink-muted)]">{number}</span>
+      <strong className="block text-sm font-black text-[var(--ink)]">{label}</strong>
       <small className="mt-1 block text-[10px] font-semibold leading-4 text-[var(--ink-muted)]">{detail}</small>
     </div>
   );

@@ -22,6 +22,31 @@ export class CreateCourseDto {
   status?: "draft" | "published";
 }
 
+export class UpdateCourseDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsIn(["draft", "published"])
+  status?: "draft" | "published";
+}
+
 export class CreateModuleDto {
   @IsString()
   @IsNotEmpty()
@@ -33,6 +58,16 @@ export class CreateModuleDto {
 }
 
 export class CreateTopicDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+export class CreateSubtopicDto {
   @IsString()
   @IsNotEmpty()
   title: string;

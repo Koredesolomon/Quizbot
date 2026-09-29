@@ -88,14 +88,16 @@ export function Panel({
   title,
   subtitle,
   children,
+  bare = false,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
+  bare?: boolean;
 }) {
   return (
     <section className="surface-enter grid min-h-[calc(100vh-4.25rem)] w-full items-center px-4 py-10 sm:px-10">
-      <div className="mx-auto w-full max-w-3xl rounded-lg border border-slate-200 bg-white/95 p-4 shadow-xl shadow-slate-200/70 transition-shadow duration-200 hover:shadow-2xl hover:shadow-slate-200/80 sm:p-8">
+      <div className={bare ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-3xl rounded-lg border border-slate-200 bg-white/95 p-4 shadow-xl shadow-slate-200/70 transition-shadow duration-200 hover:shadow-2xl hover:shadow-slate-200/80 sm:p-8"}>
         <div className="mb-7 text-center">
           <h2 className="text-2xl font-black text-slate-950">{title}</h2>
           <p className="mt-2 text-sm font-medium text-slate-500">{subtitle}</p>

@@ -90,6 +90,11 @@ const emptyTopicForm = {
   description: "",
 };
 
+const emptySubtopicForm = {
+  title: "",
+  description: "",
+};
+
 const emptyQuizForm = {
   title: "",
   description: "",
@@ -97,6 +102,139 @@ const emptyQuizForm = {
   attemptsAllowed: 1,
   passingPercent: 50,
 };
+
+type CourseStatusView = "builder" | "published" | "draft";
+
+function courseOutlineStats(course: api.CourseContent) {
+  const modules = course.modules ?? [];
+  const topics = modules.reduce((sum, module) => sum + (module.topics ?? []).length, 0);
+  const subtopics = modules.reduce(
+    (sum, module) => sum + (module.topics ?? []).reduce((topicSum, topic) => topicSum + (topic.subtopics ?? []).length, 0),
+    0
+  );
+  const quizzes = modules.reduce(
+    (sum, module) =>
+      sum +
+      (module.topics ?? []).reduce(
+        (topicSum, topic) =>
+          topicSum + (topic.subtopics ?? []).reduce((subtopicSum, subtopic) => subtopicSum + (subtopic.quizzes ?? []).length, 0),
+        0
+      ),
+    0
+  );
+
+  return { modules: modules.length, topics, subtopics, quizzes };
+}
+
+function AdminCourseStatusBadge({ status }: { status: api.CourseContent["status"] }) {
+  const isPublished = status === "published";
+
+  return (
+    <span
+      className={`inline-flex min-h-8 items-center rounded-md px-3 text-[10px] font-black uppercase tracking-wide ${
+        isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+      }`}
+    >
+      {isPublished ? "Published" : "Draft"}
+    </span>
+  );
+}
+
+function AdminCourseStatusTab({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`min-h-10 rounded-md px-4 text-sm font-black transition ${
+        active ? "bg-[var(--brand-blue)] text-white shadow-sm" : "bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-800"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AdminCourseStatusList({
+  title,
+  courses,
+  emptyText,
+  onOpenCourse,
+  onPublishCourse,
+  onDeleteCourse,
+}: {
+  title: string;
+  courses: api.CourseContent[];
+  emptyText: string;
+  onOpenCourse: (courseId: string) => void;
+  onPublishCourse: (courseId: string) => void;
+  onDeleteCourse: (courseId: string) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      <h3 className="text-lg font-black text-slate-950">{title}</h3>
+      {courses.length ? (
+        courses.map((course) => {
+          const stats = courseOutlineStats(course);
+
+          return (
+            <article className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={course.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <small className="block text-[10px] font-black uppercase tracking-wide text-sky-700">{course.code}</small>
+                  <strong className="mt-1 block truncate text-base font-black text-slate-950">{course.title}</strong>
+                  <span className="mt-1 block text-sm font-semibold text-slate-600">{course.subject}</span>
+                </span>
+                <AdminCourseStatusBadge status={course.status} />
+              </div>
+              <div className="mt-4 grid gap-2 text-xs font-black text-slate-600 sm:grid-cols-4">
+                <span className="rounded-md bg-white px-3 py-2">{stats.modules} modules</span>
+                <span className="rounded-md bg-white px-3 py-2">{stats.topics} topics</span>
+                <span className="rounded-md bg-white px-3 py-2">{stats.subtopics} subtopics</span>
+                <span className="rounded-md bg-white px-3 py-2">{stats.quizzes} quizzes</span>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {course.status !== "published" && (
+                  <button
+                    className="inline-flex min-h-10 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                    type="button"
+                    onClick={() => onPublishCourse(course.id)}
+                  >
+                    Publish Course
+                  </button>
+                )}
+                <button
+                  className="inline-flex min-h-10 items-center rounded-md border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-50"
+                  type="button"
+                  onClick={() => onDeleteCourse(course.id)}
+                >
+                  Delete Course
+                </button>
+                <button
+                  className="inline-flex min-h-10 items-center rounded-md bg-sky-50 px-4 text-sm font-black text-sky-800 transition hover:bg-sky-100"
+                  type="button"
+                  onClick={() => onOpenCourse(course.id)}
+                >
+                  Open in Builder
+                </button>
+              </div>
+            </article>
+          );
+        })
+      ) : (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-bold text-slate-500">{emptyText}</p>
+      )}
+    </div>
+  );
+}
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const googleOnlyAuthMessage = "This email is linked to Google sign-in.";
 
@@ -368,8 +506,11 @@ export function AdminDashboard({
   attempts,
   feedback,
   onCreateCourse,
+  onUpdateCourse,
+  onDeleteCourse,
   onAddModule,
   onAddTopic,
+  onAddSubtopic,
   onAddQuiz,
   onAddQuestion,
   onImportQuestions,
@@ -391,6 +532,11 @@ export function AdminDashboard({
     description?: string;
     status?: "draft" | "published";
   }) => void | Promise<void>;
+  onUpdateCourse: (
+    courseId: string,
+    input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
+  ) => api.CourseContent | void | Promise<api.CourseContent | void>;
+  onDeleteCourse: (courseId: string) => void | Promise<void>;
   onAddModule: (
     courseId: string,
     input: { title: string; description?: string }
@@ -400,10 +546,17 @@ export function AdminDashboard({
     moduleId: string,
     input: { title: string; description?: string }
   ) => void | Promise<void>;
+  onAddSubtopic: (
+    courseId: string,
+    moduleId: string,
+    topicId: string,
+    input: { title: string; description?: string }
+  ) => void | Promise<void>;
   onAddQuiz: (
     courseId: string,
     moduleId: string,
     topicId: string,
+    subtopicId: string,
     input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onAddQuestion: (question: Question) => void | Promise<void>;
@@ -415,12 +568,16 @@ export function AdminDashboard({
   const router = useRouter();
   const [form, setForm] = useState<QuestionForm>(emptyQuestion);
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
+  const [editingCourseId, setEditingCourseId] = useState("");
   const [moduleForm, setModuleForm] = useState(emptyModuleForm);
   const [topicForm, setTopicForm] = useState(emptyTopicForm);
+  const [subtopicForm, setSubtopicForm] = useState(emptySubtopicForm);
   const [quizForm, setQuizForm] = useState(emptyQuizForm);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [selectedSubtopicId, setSelectedSubtopicId] = useState("");
+  const [courseStatusView, setCourseStatusView] = useState<CourseStatusView>("builder");
   const [contentMessage, setContentMessage] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -509,12 +666,21 @@ export function AdminDashboard({
     (sum, course) =>
       sum +
       course.modules.reduce(
-        (moduleSum, module) => moduleSum + module.topics.reduce((topicSum, topic) => topicSum + topic.quizzes.length, 0),
+        (moduleSum, module) =>
+          moduleSum +
+          module.topics.reduce(
+            (topicSum, topic) =>
+              topicSum + topic.subtopics.reduce((subtopicSum, subtopic) => subtopicSum + subtopic.quizzes.length, 0),
+            0
+          ),
         0
       ),
     0
   );
-  const publishedCourses = courses.filter((course) => course.status === "published").length;
+  const publishedCourseList = courses.filter((course) => course.status === "published");
+  const draftCourseList = courses.filter((course) => course.status !== "published");
+  const publishedCourses = publishedCourseList.length;
+  const statusCourses = courseStatusView === "published" ? publishedCourseList : draftCourseList;
   const lmsModules = [
     {
       label: "Courses",
@@ -571,6 +737,16 @@ export function AdminDashboard({
   const activeModuleId = selectedModuleId || activeCourse?.modules?.[0]?.id || "";
   const activeModule = (activeCourse?.modules ?? []).find((module) => module.id === activeModuleId) ?? activeCourse?.modules?.[0];
   const activeTopicId = selectedTopicId || activeModule?.topics?.[0]?.id || "";
+  const activeTopic = (activeModule?.topics ?? []).find((topic) => topic.id === activeTopicId) ?? activeModule?.topics?.[0];
+  const activeSubtopicId = selectedSubtopicId || activeTopic?.subtopics?.[0]?.id || "";
+
+  const openCourseFromStatus = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setSelectedModuleId("");
+    setSelectedTopicId("");
+    setSelectedSubtopicId("");
+    setCourseStatusView("builder");
+  };
 
   const createCourse = async () => {
     if (!courseForm.title.trim() || !courseForm.code.trim() || !courseForm.subject.trim()) {
@@ -579,17 +755,136 @@ export function AdminDashboard({
     }
 
     try {
-      await onCreateCourse({
+      const payload = {
         title: courseForm.title.trim(),
         code: courseForm.code.trim(),
         subject: courseForm.subject.trim(),
         description: courseForm.description.trim() || undefined,
         status: courseForm.status,
-      });
+      };
+
+      if (editingCourseId) {
+        await onUpdateCourse(editingCourseId, payload);
+        setEditingCourseId("");
+        setContentMessage("Course updated.");
+      } else {
+        await onCreateCourse(payload);
+        setContentMessage("Course saved.");
+      }
+
       setCourseForm(emptyCourseForm);
-      setContentMessage("Course saved.");
     } catch (error) {
-      setContentMessage(error instanceof Error ? error.message : "Course could not be saved.");
+      setContentMessage(error instanceof Error ? error.message : editingCourseId ? "Course could not be updated." : "Course could not be saved.");
+    }
+  };
+
+  const startEditingCourse = () => {
+    if (!activeCourse) {
+      setContentMessage("Select a course before editing.");
+      return;
+    }
+
+    setEditingCourseId(activeCourse.id);
+    setCourseForm({
+      title: activeCourse.title,
+      code: activeCourse.code,
+      subject: activeCourse.subject,
+      description: activeCourse.description ?? "",
+      status: activeCourse.status,
+    });
+    setContentMessage("Editing selected course.");
+  };
+
+  const deleteCourse = async () => {
+    if (!activeCourseId) {
+      setContentMessage("Select a course before deleting.");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm(`Delete ${activeCourse?.title ?? "this course"}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await onDeleteCourse(activeCourseId);
+      setSelectedCourseId("");
+      setSelectedModuleId("");
+      setSelectedTopicId("");
+      setSelectedSubtopicId("");
+      if (editingCourseId === activeCourseId) {
+        setEditingCourseId("");
+        setCourseForm(emptyCourseForm);
+      }
+      setContentMessage("Course deleted.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Course could not be deleted.");
+    }
+  };
+
+  const deleteCourseById = async (courseId: string) => {
+    const course = courses.find((item) => item.id === courseId);
+
+    if (typeof window !== "undefined" && !window.confirm(`Delete ${course?.title ?? "this course"}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await onDeleteCourse(courseId);
+      if (courseId === activeCourseId) {
+        setSelectedCourseId("");
+        setSelectedModuleId("");
+        setSelectedTopicId("");
+        setSelectedSubtopicId("");
+      }
+      if (editingCourseId === courseId) {
+        setEditingCourseId("");
+        setCourseForm(emptyCourseForm);
+      }
+      setContentMessage("Course deleted.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Course could not be deleted.");
+    }
+  };
+
+  const publishCourse = async () => {
+    if (!activeCourseId || !activeCourse) {
+      setContentMessage("Select a course before publishing.");
+      return;
+    }
+
+    try {
+      await onUpdateCourse(activeCourseId, {
+        title: activeCourse.title,
+        code: activeCourse.code,
+        subject: activeCourse.subject,
+        description: activeCourse.description,
+        status: "published",
+      });
+      setContentMessage("Course published online.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Course could not be published.");
+    }
+  };
+
+  const publishCourseById = async (courseId: string) => {
+    const course = courses.find((item) => item.id === courseId);
+
+    if (!course) {
+      setContentMessage("Select a course before publishing.");
+      return;
+    }
+
+    try {
+      await onUpdateCourse(courseId, {
+        title: course.title,
+        code: course.code,
+        subject: course.subject,
+        description: course.description,
+        status: "published",
+      });
+      setContentMessage("Course published online.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Course could not be published.");
     }
   };
 
@@ -640,8 +935,8 @@ export function AdminDashboard({
   };
 
   const addQuiz = async () => {
-    if (!activeCourseId || !activeModuleId || !activeTopicId) {
-      setContentMessage("Create or select a topic before adding quizzes.");
+    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId) {
+      setContentMessage("Create or select a subtopic before adding quizzes.");
       return;
     }
 
@@ -651,7 +946,7 @@ export function AdminDashboard({
     }
 
     try {
-      await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, {
+      await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
         title: quizForm.title.trim(),
         description: quizForm.description.trim() || undefined,
         timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
@@ -662,6 +957,29 @@ export function AdminDashboard({
       setContentMessage("Quiz added.");
     } catch (error) {
       setContentMessage(error instanceof Error ? error.message : "Quiz could not be saved.");
+    }
+  };
+
+  const addSubtopic = async () => {
+    if (!activeCourseId || !activeModuleId || !activeTopicId) {
+      setContentMessage("Create or select a topic before adding subtopics.");
+      return;
+    }
+
+    if (!subtopicForm.title.trim()) {
+      setContentMessage("Enter a subtopic title.");
+      return;
+    }
+
+    try {
+      await onAddSubtopic(activeCourseId, activeModuleId, activeTopicId, {
+        title: subtopicForm.title.trim(),
+        description: subtopicForm.description.trim() || undefined,
+      });
+      setSubtopicForm(emptySubtopicForm);
+      setContentMessage("Subtopic added.");
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "Subtopic could not be saved.");
     }
   };
 
@@ -1058,149 +1376,242 @@ export function AdminDashboard({
             {section === "courses" && (
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
               <DashboardPanel title="Course Builder" action="Courses · Modules · Topics · Quizzes" id="course-builder">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Course title" value={courseForm.title} onChange={(value) => setCourseForm({ ...courseForm, title: value })} />
-                  <Field label="Course code" value={courseForm.code} onChange={(value) => setCourseForm({ ...courseForm, code: value })} />
-                  <label className="grid gap-1 text-sm font-bold text-slate-700">
-                    Subject
-                    <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
-                      value={courseForm.subject}
-                      onChange={(event) => setCourseForm({ ...courseForm, subject: event.target.value })}
-                    >
-                      {subjectOptions.map((subject) => (
-                        <option key={subject} value={subject}>{subject}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-bold text-slate-700">
-                    Status
-                    <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
-                      value={courseForm.status}
-                      onChange={(event) => setCourseForm({ ...courseForm, status: event.target.value as typeof courseForm.status })}
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="published">Published</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
-                    Course description
-                    <textarea
-                      className="min-h-20 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                      value={courseForm.description}
-                      onChange={(event) => setCourseForm({ ...courseForm, description: event.target.value })}
-                    />
-                  </label>
+                <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <AdminCourseStatusTab active={courseStatusView === "builder"} onClick={() => setCourseStatusView("builder")}>
+                    Builder
+                  </AdminCourseStatusTab>
+                  <AdminCourseStatusTab active={courseStatusView === "published"} onClick={() => setCourseStatusView("published")}>
+                    Published ({publishedCourseList.length})
+                  </AdminCourseStatusTab>
+                  <AdminCourseStatusTab active={courseStatusView === "draft"} onClick={() => setCourseStatusView("draft")}>
+                    Draft ({draftCourseList.length})
+                  </AdminCourseStatusTab>
                 </div>
-                <PrimaryButton className="mt-4" type="button" onClick={createCourse}>
-                  Save Course
-                </PrimaryButton>
 
-                <div className="mt-6 border-t border-slate-200 pt-5">
-                  <label className="grid gap-1 text-sm font-bold text-slate-700">
-                    Active course
-                    <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
-                      value={activeCourseId}
-                      onChange={(event) => {
-                        setSelectedCourseId(event.target.value);
-                        setSelectedModuleId("");
-                        setSelectedTopicId("");
-                      }}
-                    >
-                      {courses.length ? (
-                        courses.map((course) => (
-                          <option key={course.id} value={course.id}>{course.code} · {course.title}</option>
-                        ))
-                      ) : (
-                        <option value="">Create a course first</option>
+                {courseStatusView === "builder" ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Course title" value={courseForm.title} onChange={(value) => setCourseForm({ ...courseForm, title: value })} />
+                      <Field label="Course code" value={courseForm.code} onChange={(value) => setCourseForm({ ...courseForm, code: value })} />
+                      <label className="grid gap-1 text-sm font-bold text-slate-700">
+                        Subject
+                        <select
+                          className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                          value={courseForm.subject}
+                          onChange={(event) => setCourseForm({ ...courseForm, subject: event.target.value })}
+                        >
+                          {subjectOptions.map((subject) => (
+                            <option key={subject} value={subject}>{subject}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid gap-1 text-sm font-bold text-slate-700">
+                        Status
+                        <select
+                          className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                          value={courseForm.status}
+                          onChange={(event) => setCourseForm({ ...courseForm, status: event.target.value as typeof courseForm.status })}
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="published">Published</option>
+                        </select>
+                      </label>
+                      <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                        Course description
+                        <textarea
+                          className="min-h-20 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                          value={courseForm.description}
+                          onChange={(event) => setCourseForm({ ...courseForm, description: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <PrimaryButton type="button" onClick={createCourse}>
+                        {editingCourseId ? "Update Course" : "Save Course"}
+                      </PrimaryButton>
+                      {editingCourseId && (
+                        <SecondaryButton
+                          type="button"
+                          onClick={() => {
+                            setEditingCourseId("");
+                            setCourseForm(emptyCourseForm);
+                          }}
+                        >
+                          Cancel Edit
+                        </SecondaryButton>
                       )}
-                    </select>
-                  </label>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <Field label="Module title" value={moduleForm.title} onChange={(value) => setModuleForm({ ...moduleForm, title: value })} />
-                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
-                      Module description
-                      <textarea
-                        className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                        value={moduleForm.description}
-                        onChange={(event) => setModuleForm({ ...moduleForm, description: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <SecondaryButton className="mt-4" type="button" onClick={addModule}>
-                    Add Module
-                  </SecondaryButton>
+                      <SecondaryButton type="button" onClick={startEditingCourse}>
+                        Edit Course
+                      </SecondaryButton>
+                      {activeCourse?.status === "published" ? (
+                        <span className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-50 px-5 py-3 font-black text-emerald-700">
+                          Published
+                        </span>
+                      ) : (
+                        <button className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-5 py-3 font-black text-emerald-700 transition hover:bg-emerald-100" type="button" onClick={publishCourse}>
+                          Publish Course
+                        </button>
+                      )}
+                      <button className="inline-flex min-h-11 items-center justify-center rounded-md border border-rose-200 px-5 py-3 font-black text-rose-700 transition hover:bg-rose-50" type="button" onClick={deleteCourse}>
+                        Delete Course
+                      </button>
+                    </div>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-sm font-bold text-slate-700">
-                      Active module
-                      <select
-                        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
-                        value={activeModuleId}
-                        onChange={(event) => {
-                          setSelectedModuleId(event.target.value);
-                          setSelectedTopicId("");
-                        }}
-                      >
-                        {activeCourse?.modules.length ? (
-                          activeCourse.modules.map((module) => (
-                            <option key={module.id} value={module.id}>{module.title}</option>
-                          ))
-                        ) : (
-                          <option value="">Add a module first</option>
-                        )}
-                      </select>
-                    </label>
-                    <Field label="Topic title" value={topicForm.title} onChange={(value) => setTopicForm({ ...topicForm, title: value })} />
-                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
-                      Topic description
-                      <textarea
-                        className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                        value={topicForm.description}
-                        onChange={(event) => setTopicForm({ ...topicForm, description: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <SecondaryButton className="mt-4" type="button" onClick={addTopic}>
-                    Add Topic
-                  </SecondaryButton>
+                    <div className="mt-6 border-t border-slate-200 pt-5">
+                      <label className="grid gap-1 text-sm font-bold text-slate-700">
+                        Active course
+                        <select
+                          className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                          value={activeCourseId}
+                          onChange={(event) => {
+                            setSelectedCourseId(event.target.value);
+                            setSelectedModuleId("");
+                            setSelectedTopicId("");
+                            setSelectedSubtopicId("");
+                          }}
+                        >
+                          {courses.length ? (
+                            courses.map((course) => (
+                              <option key={course.id} value={course.id}>{course.code} · {course.title}</option>
+                            ))
+                          ) : (
+                            <option value="">Create a course first</option>
+                          )}
+                        </select>
+                      </label>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <Field label="Module title" value={moduleForm.title} onChange={(value) => setModuleForm({ ...moduleForm, title: value })} />
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                          Module description
+                          <textarea
+                            className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                            value={moduleForm.description}
+                            onChange={(event) => setModuleForm({ ...moduleForm, description: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <SecondaryButton className="mt-4" type="button" onClick={addModule}>
+                        Add Module
+                      </SecondaryButton>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-3">
-                      Active topic
-                      <select
-                        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
-                        value={activeTopicId}
-                        onChange={(event) => setSelectedTopicId(event.target.value)}
-                      >
-                        {activeModule?.topics.length ? (
-                          activeModule.topics.map((topic) => (
-                            <option key={topic.id} value={topic.id}>{topic.title}</option>
-                          ))
-                        ) : (
-                          <option value="">Add a topic first</option>
-                        )}
-                      </select>
-                    </label>
-                    <Field label="Quiz title" value={quizForm.title} onChange={(value) => setQuizForm({ ...quizForm, title: value })} />
-                    <Field label="Time limit" type="number" value={String(quizForm.timeLimitMinutes)} onChange={(value) => setQuizForm({ ...quizForm, timeLimitMinutes: Number(value) })} />
-                    <Field label="Attempts" type="number" value={String(quizForm.attemptsAllowed)} onChange={(value) => setQuizForm({ ...quizForm, attemptsAllowed: Number(value) })} />
-                    <Field label="Passing %" type="number" value={String(quizForm.passingPercent)} onChange={(value) => setQuizForm({ ...quizForm, passingPercent: Number(value) })} />
-                    <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
-                      Quiz description
-                      <textarea
-                        className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                        value={quizForm.description}
-                        onChange={(event) => setQuizForm({ ...quizForm, description: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <SecondaryButton className="mt-4" type="button" onClick={addQuiz}>
-                    Add Quiz
-                  </SecondaryButton>
-                </div>
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-sm font-bold text-slate-700">
+                          Active module
+                          <select
+                            className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                            value={activeModuleId}
+                            onChange={(event) => {
+                              setSelectedModuleId(event.target.value);
+                              setSelectedTopicId("");
+                              setSelectedSubtopicId("");
+                            }}
+                          >
+                            {activeCourse?.modules.length ? (
+                              activeCourse.modules.map((module) => (
+                                <option key={module.id} value={module.id}>{module.title}</option>
+                              ))
+                            ) : (
+                              <option value="">Add a module first</option>
+                            )}
+                          </select>
+                        </label>
+                        <Field label="Topic title" value={topicForm.title} onChange={(value) => setTopicForm({ ...topicForm, title: value })} />
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                          Topic description
+                          <textarea
+                            className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                            value={topicForm.description}
+                            onChange={(event) => setTopicForm({ ...topicForm, description: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <SecondaryButton className="mt-4" type="button" onClick={addTopic}>
+                        Add Topic
+                      </SecondaryButton>
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-3">
+                          Active topic
+                          <select
+                            className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                            value={activeTopicId}
+                            onChange={(event) => {
+                              setSelectedTopicId(event.target.value);
+                              setSelectedSubtopicId("");
+                            }}
+                          >
+                            {activeModule?.topics.length ? (
+                              activeModule.topics.map((topic) => (
+                                <option key={topic.id} value={topic.id}>{topic.title}</option>
+                              ))
+                            ) : (
+                              <option value="">Add a topic first</option>
+                            )}
+                          </select>
+                        </label>
+                        <Field label="Subtopic title" value={subtopicForm.title} onChange={(value) => setSubtopicForm({ ...subtopicForm, title: value })} />
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                          Subtopic description
+                          <textarea
+                            className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                            value={subtopicForm.description}
+                            onChange={(event) => setSubtopicForm({ ...subtopicForm, description: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <SecondaryButton className="mt-4" type="button" onClick={addSubtopic}>
+                        Add Subtopic
+                      </SecondaryButton>
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-3">
+                          Active subtopic
+                          <select
+                            className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:border-emerald-400"
+                            value={activeSubtopicId}
+                            onChange={(event) => setSelectedSubtopicId(event.target.value)}
+                          >
+                            {activeTopic?.subtopics.length ? (
+                              activeTopic.subtopics.map((subtopic) => (
+                                <option key={subtopic.id} value={subtopic.id}>{subtopic.title}</option>
+                              ))
+                            ) : (
+                              <option value="">Add a subtopic first</option>
+                            )}
+                          </select>
+                        </label>
+                        <Field label="Quiz title" value={quizForm.title} onChange={(value) => setQuizForm({ ...quizForm, title: value })} />
+                        <Field label="Time limit" type="number" value={String(quizForm.timeLimitMinutes)} onChange={(value) => setQuizForm({ ...quizForm, timeLimitMinutes: Number(value) })} />
+                        <Field label="Attempts" type="number" value={String(quizForm.attemptsAllowed)} onChange={(value) => setQuizForm({ ...quizForm, attemptsAllowed: Number(value) })} />
+                        <Field label="Passing %" type="number" value={String(quizForm.passingPercent)} onChange={(value) => setQuizForm({ ...quizForm, passingPercent: Number(value) })} />
+                        <label className="grid gap-1 text-sm font-bold text-slate-700 sm:col-span-2">
+                          Quiz description
+                          <textarea
+                            className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                            value={quizForm.description}
+                            onChange={(event) => setQuizForm({ ...quizForm, description: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <SecondaryButton className="mt-4" type="button" onClick={addQuiz}>
+                        Add Quiz
+                      </SecondaryButton>
+                    </div>
+                  </>
+                ) : (
+                  <AdminCourseStatusList
+                    title={courseStatusView === "published" ? "Published courses" : "Draft courses"}
+                    courses={statusCourses}
+                    emptyText={courseStatusView === "published" ? "No published courses yet." : "No draft courses yet."}
+                    onOpenCourse={openCourseFromStatus}
+                    onPublishCourse={(courseId) => {
+                      void publishCourseById(courseId);
+                    }}
+                    onDeleteCourse={(courseId) => {
+                      void deleteCourseById(courseId);
+                    }}
+                  />
+                )}
                 {contentMessage && (
                   <p className="mt-4 rounded-lg bg-[var(--brand-mint)] p-3 text-sm font-bold text-[var(--brand-green)]">{contentMessage}</p>
                 )}
@@ -1480,14 +1891,25 @@ function CourseStructure({ modules }: { modules: api.CourseModule[] }) {
                   <strong className="block text-xs font-black uppercase tracking-wide text-sky-700">{topic.title}</strong>
                   {topic.description && <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{topic.description}</p>}
                   <div className="mt-2 grid gap-1">
-                    {topic.quizzes.length ? (
-                      topic.quizzes.map((quiz) => (
-                        <span className="rounded-md bg-white px-3 py-2 text-xs font-bold text-slate-700" key={quiz.id}>
-                          {quiz.title} · {quiz.timeLimitMinutes} min
-                        </span>
+                    {topic.subtopics.length ? (
+                      topic.subtopics.map((subtopic) => (
+                        <div className="rounded-md bg-white px-3 py-2" key={subtopic.id}>
+                          <strong className="block text-xs font-black text-slate-700">{subtopic.title}</strong>
+                          {subtopic.quizzes.length ? (
+                            <div className="mt-2 grid gap-1">
+                              {subtopic.quizzes.map((quiz) => (
+                                <span className="rounded-md bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700" key={quiz.id}>
+                                  {quiz.title} · {quiz.timeLimitMinutes} min
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="mt-2 block text-xs font-semibold text-slate-500">No quizzes yet.</span>
+                          )}
+                        </div>
                       ))
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500">No quizzes yet.</span>
+                      <span className="text-xs font-semibold text-slate-500">No subtopics yet.</span>
                     )}
                   </div>
                 </div>

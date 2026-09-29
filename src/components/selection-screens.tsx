@@ -1,12 +1,7 @@
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Sparkles, X } from "lucide-react";
-import type { CourseContent, CourseModule, CourseQuiz, CourseTopic } from "@/lib/api";
+import type { CourseContent, CourseModule, CourseQuiz, CourseSubtopic } from "@/lib/api";
 import type { Question } from "@/types/platform";
-import { BackButton, Metric, Panel, PrimaryButton, StatusBadge, TileIcon } from "./ui";
-
-const rowClass =
-  "interactive-lift flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-lg hover:shadow-indigo-100";
-const lockedRowClass =
-  "interactive-lift flex min-h-18 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-slate-950";
+import { BackButton, Metric, Panel, PrimaryButton } from "./ui";
 
 export function HowItWorks({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
   const steps = [
@@ -57,46 +52,107 @@ export function Courses({
   const availableCourses = courses;
 
   return (
-    <Panel title="Register for course" subtitle="Choose a course to unlock its topics, subtopics, and quizzes.">
+    <Panel bare title="Register for course" subtitle="Choose a course to unlock its topics, subtopics, and quizzes.">
       <BackButton className="mb-5" label="Home" onClick={onBack} />
-      <div className="stagger-list space-y-3">
+      <div className="stagger-list space-y-5">
         {availableCourses.length ? availableCourses.map((course, index) => {
           const registered = registeredCourses.includes(course.code);
+          const moduleCount = course.modules.length;
+          const topicCount = course.modules.reduce((sum, module) => sum + module.topics.length, 0);
+          const subtopicCount = course.modules.reduce(
+            (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + topic.subtopics.length, 0),
+            0
+          );
+          const quizCount = course.modules.reduce(
+            (sum, module) =>
+              sum +
+              module.topics.reduce(
+                (topicSum, topic) =>
+                  topicSum + topic.subtopics.reduce((subtopicSum, subtopic) => subtopicSum + subtopic.quizzes.length, 0),
+                0
+              ),
+            0
+          );
+          const focusModule = course.modules[0];
+          const focusTopic = focusModule?.topics[0];
+          const focusSubtopic = focusTopic?.subtopics[0];
+          const progress = Math.min(100, Math.max(12, registered ? 68 : moduleCount ? 26 + moduleCount * 12 : 16));
 
           return (
-          <button
-            className={rowClass}
-            key={course.id}
-            type="button"
-            onClick={() => {
-              if (registered) {
-                onSelectCourse(course.id);
-                return;
-              }
+            <button
+              className="interactive-lift group grid min-h-52 w-full overflow-hidden rounded-2xl border border-[var(--line)] bg-white text-left shadow-[0_22px_60px_rgba(8,43,99,0.12)] transition hover:-translate-y-1 hover:border-[var(--brand-blue)] hover:shadow-[0_30px_70px_rgba(8,43,99,0.18)] sm:grid-cols-[minmax(190px,0.82fr)_minmax(0,1.5fr)]"
+              key={course.id}
+              type="button"
+              onClick={() => {
+                if (registered) {
+                  onSelectCourse(course.id);
+                  return;
+                }
 
-              void onRegisterCourse(course);
-            }}
-          >
-            <TileIcon>{index + 1}</TileIcon>
-            <span className="min-w-0 flex-1">
-              <strong className="block text-sm font-black">{course.title}</strong>
-              <small className="mt-1 block text-xs font-semibold text-slate-500">
-                {course.code} · {course.modules.length} module{course.modules.length === 1 ? "" : "s"} · {registered ? "Registered" : "Available to register"}
-              </small>
-            </span>
-            <StatusBadge tone="available">
-              {registered ? "Continue" : "Register"}
-            </StatusBadge>
-          </button>
-        );
+                void onRegisterCourse(course);
+              }}
+            >
+              <span className="flex min-h-48 flex-col justify-between bg-[var(--brand-blue-deep)] p-7 text-white sm:min-h-full">
+                <span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/50">Course {index + 1}</span>
+                  <strong className="mt-5 block text-2xl font-semibold leading-tight tracking-normal text-white">{course.title}</strong>
+                </span>
+                <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-white/65 transition group-hover:text-white">
+                  View modules <ChevronRight aria-hidden="true" size={18} />
+                </span>
+              </span>
+
+              <span className="grid gap-8 p-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--ink-muted)]">
+                    {course.code || course.subject}
+                  </span>
+                  <strong className="mt-4 block text-3xl font-semibold leading-tight tracking-normal text-[var(--brand-blue-deep)]">
+                    {focusSubtopic?.title ?? focusTopic?.title ?? focusModule?.title ?? course.subject}
+                  </strong>
+                  <span className="mt-5 block text-sm font-semibold leading-6 text-[var(--ink-muted)]">
+                    {course.subject} · {moduleCount} module{moduleCount === 1 ? "" : "s"} · {topicCount} topic{topicCount === 1 ? "" : "s"} · {subtopicCount} subtopic{subtopicCount === 1 ? "" : "s"}
+                  </span>
+                </span>
+
+                <span className="flex min-w-[180px] flex-col items-start gap-8 sm:items-end">
+                  <span className="w-full max-w-56">
+                    <span className="block h-1.5 overflow-hidden rounded-full bg-[var(--line)]">
+                      <span className="block h-full rounded-full bg-[var(--brand-blue-deep)] transition-all" style={{ width: `${progress}%` }} />
+                    </span>
+                    <span className="mt-2 block text-right text-[11px] font-semibold tracking-[0.24em] text-[var(--ink-muted)]">
+                      {quizCount} Quiz{quizCount === 1 ? "" : "zes"}
+                    </span>
+                  </span>
+
+                  <span className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--brand-blue-deep)] px-8 text-base font-semibold text-white shadow-[0_16px_30px_rgba(8,43,99,0.22)] transition group-hover:bg-[var(--brand-blue)]">
+                    {registered ? "Continue" : "Register"}
+                  </span>
+                </span>
+              </span>
+            </button>
+          );
         }) : (
-          <button className={lockedRowClass} type="button" onClick={onComingSoon}>
-            <TileIcon>0</TileIcon>
-            <span className="min-w-0 flex-1">
-              <strong className="block text-sm font-black">No courses available</strong>
-              <small className="mt-1 block text-xs font-semibold text-slate-500">Ask an admin to publish a course.</small>
+          <button
+            className="interactive-lift grid min-h-48 w-full overflow-hidden rounded-2xl border border-dashed border-[var(--line)] bg-white text-left shadow-[0_18px_45px_rgba(8,43,99,0.08)] transition hover:border-[var(--brand-blue)] sm:grid-cols-[minmax(190px,0.82fr)_minmax(0,1.5fr)]"
+            type="button"
+            onClick={onComingSoon}
+          >
+            <span className="flex min-h-44 flex-col justify-between bg-slate-200 p-7 text-slate-600">
+              <span className="block text-[10px] font-black uppercase tracking-[0.3em]">Course 0</span>
+              <strong className="block text-2xl font-semibold leading-tight tracking-normal">No courses yet</strong>
+              <span className="text-sm font-semibold">Check again soon</span>
             </span>
-            <StatusBadge tone="neutral">Empty</StatusBadge>
+            <span className="flex flex-col justify-between gap-6 p-7 sm:flex-row sm:items-center">
+              <span className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--ink-muted)]">Empty library</span>
+                <strong className="mt-4 block text-3xl font-semibold leading-tight tracking-normal text-[var(--brand-blue-deep)]">Ask an admin to publish a course.</strong>
+                <span className="mt-5 block text-sm font-semibold text-[var(--ink-muted)]">Courses will appear here when they are available.</span>
+              </span>
+              <span className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-slate-200 px-8 text-base font-semibold text-slate-600">
+                Empty
+              </span>
+            </span>
           </button>
         )}
       </div>
@@ -114,7 +170,7 @@ export function Topics({
   course?: CourseContent;
   openModuleId?: string;
   onOpenModule: (moduleId: string) => void;
-  onSelectSubtopic: (module: CourseModule, subtopic: CourseTopic) => void;
+  onSelectSubtopic: (module: CourseModule, subtopic: CourseSubtopic) => void;
   onBack: () => void;
 }) {
   if (!course) {
@@ -136,34 +192,42 @@ export function Topics({
           const open = openModuleId === module.id;
 
           return (
-            <section className="overflow-hidden rounded-lg border border-[#ece9e3] bg-white shadow-sm" key={module.id}>
+            <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-sm" key={module.id}>
               <button
-                className={`flex min-h-20 w-full items-center gap-4 border-b px-6 text-left transition ${open ? "border-[#42b6ff]" : "border-transparent"}`}
+                className="flex min-h-20 w-full items-center gap-4 px-6 text-left transition"
                 type="button"
                 onClick={() => onOpenModule(open ? "" : module.id)}
               >
                 {open ? <ChevronDown className="text-[#1683d8]" size={20} /> : <ChevronRight className="text-slate-500" size={20} />}
-                <strong className="min-w-0 flex-1 text-lg font-black text-[#0d4167]">
-                  Topic {moduleIndex + 1} - {module.title}
+                <strong className="min-w-0 flex-1 text-lg font-semibold text-[var(--ink)]">
+                  Topic {moduleIndex + 1} - <span className="font-medium">{module.title}</span>
                 </strong>
                 <span className="hidden h-4 w-36 rounded-full bg-[#f1eee8] sm:block" />
               </button>
               {open && (
-                <div className="grid gap-y-9 divide-[#ece9e3] px-6 py-6 md:grid-cols-2 md:divide-x xl:grid-cols-3">
-                  {module.topics.length ? module.topics.map((subtopic, subtopicIndex) => (
-                    <button
-                      className="min-h-24 px-4 text-left text-[#0d4167] transition hover:text-[#1683d8]"
-                      key={subtopic.id}
-                      type="button"
-                      onClick={() => onSelectSubtopic(module, subtopic)}
-                    >
-                      <strong className="block text-base font-black">
-                        {moduleIndex + 1}.{subtopicIndex + 1} - {subtopic.title}
+                <div className="grid gap-y-9 divide-[var(--line)] px-6 py-6 md:grid-cols-2 md:divide-x xl:grid-cols-3">
+                  {module.topics.length ? module.topics.map((topic, topicIndex) => (
+                    <div className="px-4 text-left text-[var(--ink)]" key={topic.id}>
+                      <strong className="block text-base font-semibold">
+                        {moduleIndex + 1}.{topicIndex + 1} - <span className="font-medium">{topic.title}</span>
                       </strong>
-                      <span className="mt-5 block h-4 w-36 rounded-full bg-[#f1eee8]" />
-                    </button>
+                      <div className="mt-4 grid gap-3">
+                        {topic.subtopics.length ? topic.subtopics.map((subtopic, subtopicIndex) => (
+                          <button
+                            className="min-h-12 rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-left text-sm font-semibold transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green)]"
+                            key={subtopic.id}
+                            type="button"
+                            onClick={() => onSelectSubtopic(module, subtopic)}
+                          >
+                            {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1} - {subtopic.title}
+                          </button>
+                        )) : (
+                          <span className="block h-4 w-36 rounded-full bg-[#f1eee8]" />
+                        )}
+                      </div>
+                    </div>
                   )) : (
-                    <p className="px-4 text-sm font-bold text-slate-500">No subtopics available yet.</p>
+                    <p className="px-4 text-sm font-bold text-slate-500">No topics available yet.</p>
                   )}
                 </div>
               )}
@@ -228,7 +292,7 @@ export function QuizPickerModal({
   onStart,
   onClose,
 }: {
-  subtopic?: CourseTopic;
+  subtopic?: CourseSubtopic;
   selectedQuizId?: string;
   onSelectQuiz: (quiz: CourseQuiz) => void;
   onStart: () => void;
@@ -239,9 +303,9 @@ export function QuizPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 py-6">
-      <section className="relative min-h-[620px] w-full max-w-3xl rounded-2xl bg-white p-8 text-[#182437] shadow-[0_30px_110px_rgba(15,23,42,0.35)]">
+      <section className="relative min-h-[620px] w-full max-w-3xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-8 text-[var(--ink)] shadow-[0_30px_110px_rgba(15,23,42,0.35)]">
         <button
-          className="absolute right-5 top-5 grid h-14 w-14 place-items-center rounded-full border-4 border-[#2293ee] text-slate-500 transition hover:bg-slate-50"
+          className="absolute right-5 top-5 grid h-14 w-14 place-items-center rounded-full border-4 border-[var(--brand-blue)] text-[var(--ink-muted)] transition hover:bg-[var(--surface-muted)]"
           type="button"
           aria-label="Close quiz picker"
           onClick={onClose}
@@ -253,28 +317,28 @@ export function QuizPickerModal({
           {subtopic.quizzes.length ? subtopic.quizzes.map((quiz, index) => (
             <button
               className={`flex w-full items-center gap-5 rounded-lg border p-4 text-left transition ${
-                selectedQuizId === quiz.id ? "border-[#2293ee] bg-[#edf7ff]" : "border-slate-200 hover:border-[#2293ee]"
+                selectedQuizId === quiz.id ? "border-[var(--brand-blue)] bg-[var(--brand-ice)]" : "border-[var(--line)] hover:border-[var(--brand-blue)]"
               }`}
               key={quiz.id}
               type="button"
               onClick={() => onSelectQuiz(quiz)}
             >
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-[#182437] text-sm font-black text-white">{index + 1}</span>
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--brand-blue-deep)] text-sm font-black text-white">{index + 1}</span>
               <span className="min-w-0 flex-1">
                 <strong className="block text-lg font-black">{quiz.title}</strong>
-                <small className="mt-1 block text-sm font-semibold text-slate-500">{quiz.timeLimitMinutes} min · {quiz.attemptsAllowed} attempt(s)</small>
+                <small className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">{quiz.timeLimitMinutes} min · {quiz.attemptsAllowed} attempt(s)</small>
               </span>
             </button>
           )) : (
-            <p className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-sm font-bold text-slate-500">
+            <p className="rounded-lg border border-dashed border-[var(--line)] p-5 text-center text-sm font-bold text-[var(--ink-muted)]">
               No quizzes available for this subtopic yet.
             </p>
           )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end border-t border-[#ece9e3] px-8 py-6">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end border-t border-[var(--line)] px-8 py-6">
           {selectedQuiz && (
             <button
-              className="rounded-lg border-4 border-[#182437] px-8 py-4 text-xl font-black text-[#182437] shadow-[6px_8px_0_#182437] transition hover:-translate-y-0.5"
+              className="rounded-lg border-4 border-[var(--ink)] px-8 py-4 text-xl font-black text-[var(--ink)] shadow-[6px_8px_0_var(--ink)] transition hover:-translate-y-0.5"
               type="button"
               onClick={onStart}
             >

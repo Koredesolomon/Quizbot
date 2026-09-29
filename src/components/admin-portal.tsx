@@ -141,11 +141,11 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([api.getQuestions(), api.getCourses()])
-      .then(([backendQuestions, backendCourses]) => {
+    api
+      .getQuestions()
+      .then((backendQuestions) => {
         if (ignore) return;
         setQuestions(backendQuestions);
-        setCourses(backendCourses);
       })
       .catch(() => undefined);
 
@@ -159,11 +159,16 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
 
     let ignore = false;
 
-    Promise.all([api.getAdminAttempts(adminAccount.accessToken), api.getAdminFeedback(adminAccount.accessToken)])
-      .then(([backendAttempts, backendFeedback]) => {
+    Promise.all([
+      api.getAdminAttempts(adminAccount.accessToken),
+      api.getAdminFeedback(adminAccount.accessToken),
+      api.getAdminCourses(adminAccount.accessToken),
+    ])
+      .then(([backendAttempts, backendFeedback, backendCourses]) => {
         if (ignore) return;
         setAttempts(backendAttempts.map((attempt) => toAdminAttempt(attempt, questions.length)));
         setFeedback(backendFeedback.map(toStudentFeedback));
+        setCourses(backendCourses);
       })
       .catch(() => undefined);
 
@@ -256,8 +261,25 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       onCreateCourse={async (input) => {
         try {
           const createdCourse = await api.createCourse(input, adminAccount.accessToken ?? "");
-          setCourses(await api.getCourses());
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
           return createdCourse;
+        } catch (error) {
+          throw handleAdminRequestError(error);
+        }
+      }}
+      onUpdateCourse={async (courseId, input) => {
+        try {
+          const updatedCourse = await api.updateCourse(courseId, input, adminAccount.accessToken ?? "");
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
+          return updatedCourse;
+        } catch (error) {
+          throw handleAdminRequestError(error);
+        }
+      }}
+      onDeleteCourse={async (courseId) => {
+        try {
+          await api.deleteCourse(courseId, adminAccount.accessToken ?? "");
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
         } catch (error) {
           throw handleAdminRequestError(error);
         }
@@ -265,7 +287,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       onAddModule={async (courseId, input) => {
         try {
           await api.addModule(courseId, input, adminAccount.accessToken ?? "");
-          setCourses(await api.getCourses());
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
         } catch (error) {
           throw handleAdminRequestError(error);
         }
@@ -273,15 +295,23 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       onAddTopic={async (courseId, moduleId, input) => {
         try {
           await api.addTopic(courseId, moduleId, input, adminAccount.accessToken ?? "");
-          setCourses(await api.getCourses());
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
         } catch (error) {
           throw handleAdminRequestError(error);
         }
       }}
-      onAddQuiz={async (courseId, moduleId, topicId, input) => {
+      onAddSubtopic={async (courseId, moduleId, topicId, input) => {
         try {
-          const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, input, adminAccount.accessToken ?? "");
-          setCourses(await api.getCourses());
+          await api.addSubtopic(courseId, moduleId, topicId, input, adminAccount.accessToken ?? "");
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
+        } catch (error) {
+          throw handleAdminRequestError(error);
+        }
+      }}
+      onAddQuiz={async (courseId, moduleId, topicId, subtopicId, input) => {
+        try {
+          const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, subtopicId, input, adminAccount.accessToken ?? "");
+          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
           return updatedCourse;
         } catch (error) {
           throw handleAdminRequestError(error);

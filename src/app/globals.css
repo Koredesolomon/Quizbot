@@ -377,7 +377,7 @@ button:disabled {
 .flow-step {
   align-items: center;
   display: grid;
-  grid-template-columns: 4rem 3rem 1fr;
+  grid-template-columns: 4rem 2.35rem 1fr;
   min-width: 0;
   position: relative;
   width: 44%;
@@ -391,10 +391,11 @@ button:disabled {
 .flow-step > span,
 .flow-step > strong,
 .flow-step > small {
-  margin-left: 0.75rem;
+  margin-left: 0.35rem;
 }
 
 .flow-step > small {
+  grid-column: 2 / 4;
   max-width: 18rem;
 }
 
