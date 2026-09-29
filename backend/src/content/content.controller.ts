@@ -37,10 +37,24 @@ export class ContentController {
     return this.content.updateCourse(id, body);
   }
 
+  @Post("courses/:id/publish")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  publishCourse(@Param("id") id: string) {
+    return this.content.updateCourse(id, { status: "published" });
+  }
+
   @Delete("courses/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   deleteCourse(@Param("id") id: string) {
+    return this.content.deleteCourse(id);
+  }
+
+  @Post("courses/:id/delete")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  deleteCourseWithPost(@Param("id") id: string) {
     return this.content.deleteCourse(id);
   }
 

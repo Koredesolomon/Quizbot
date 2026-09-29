@@ -171,6 +171,16 @@ function formatApiError(body: unknown) {
   return "API request failed.";
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "";
+}
+
+function isMissingRouteFor(error: unknown, method: "PATCH" | "DELETE", path: string) {
+  const message = errorMessage(error);
+  const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`cannot\\s+${method}\\s+${escapedPath}`, "i").test(message) || /method not allowed/i.test(message);
+}
+
 export function registerAdmin(input: { fullName: string; email: string; username?: string; password: string }, token: string) {
   return apiRequest<AuthResponse>("/auth/register-admin", {
     method: "POST",
@@ -251,7 +261,7 @@ export function getCourses() {
 
 export function getAdminCourses(token: string) {
   return apiRequest<CourseContent[]>("/content/admin/courses", { token }).catch((error) => {
-    const message = error instanceof Error ? error.message : "";
+    const message = errorMessage(error);
 
     if (/cannot\s+get\s+\/content\/admin\/courses/i.test(message)) {
       return apiRequest<CourseContent[]>("/content/courses", { token });
@@ -277,17 +287,39 @@ export function updateCourse(
   input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" },
   token: string
 ) {
-  return apiRequest<CourseContent>(`/content/courses/${courseId}`, {
+  const path = `/content/courses/${courseId}`;
+
+  return apiRequest<CourseContent>(path, {
     method: "PATCH",
     token,
     body: JSON.stringify(input),
+  }).catch((error) => {
+    if (input.status === "published" && isMissingRouteFor(error, "PATCH", path)) {
+      return apiRequest<CourseContent>(`${path}/publish`, {
+        method: "POST",
+        token,
+      });
+    }
+
+    throw error;
   });
 }
 
 export function deleteCourse(courseId: string, token: string) {
-  return apiRequest<{ id: string; message: string }>(`/content/courses/${courseId}`, {
+  const path = `/content/courses/${courseId}`;
+
+  return apiRequest<{ id: string; message: string }>(path, {
     method: "DELETE",
     token,
+  }).catch((error) => {
+    if (isMissingRouteFor(error, "DELETE", path)) {
+      return apiRequest<{ id: string; message: string }>(`${path}/delete`, {
+        method: "POST",
+        token,
+      });
+    }
+
+    throw error;
   });
 }
 
