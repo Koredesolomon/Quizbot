@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
+import { ArrayUnique, IsArray, IsMongoId, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
 
 export class CreateCourseDto {
   @IsString()
@@ -98,4 +98,24 @@ export class CreateQuizDto {
   @Min(0)
   @Max(100)
   passingPercent: number;
+}
+
+export class EditStructureDto extends CreateModuleDto {
+  @IsMongoId()
+  moduleId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  topicId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  subtopicId?: string;
+}
+
+export class ReorderModulesDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsMongoId({ each: true })
+  moduleIds: string[];
 }

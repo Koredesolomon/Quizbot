@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Course, CourseDocument } from "./course.schema";
-import { CreateCourseDto, CreateModuleDto, CreateQuizDto, CreateSubtopicDto, CreateTopicDto, UpdateCourseDto } from "./dto";
+import { EditStructureDto, CreateCourseDto, CreateModuleDto, CreateQuizDto, CreateSubtopicDto, CreateTopicDto, UpdateCourseDto } from "./dto";
 
 @Injectable()
 export class ContentService {
@@ -58,6 +58,44 @@ export class ContentService {
       id: course.id,
       message: "Course deleted.",
     };
+  }
+
+  async editStructure(courseId: string, input: EditStructureDto) {
+    if (!input.title.trim()) throw new BadRequestException("Enter a title.");
+    if (input.subtopicId && !input.topicId) throw new BadRequestException("A subtopic requires a topic.");
+    const course = await this.courseModel.findById(courseId).exec();
+    if (!course) throw new NotFoundException("Course was not found.");
+    const module = course.modules.find((item) => item._id.toString() === input.moduleId);
+    if (!module) throw new NotFoundException("Module was not found.");
+    let item: { title: string; description?: string } = module;
+    if (input.topicId) {
+      const topic = module.topics.find((entry) => entry._id.toString() === input.topicId);
+      if (!topic) throw new NotFoundException("Topic was not found.");
+      item = topic;
+      if (input.subtopicId && input.subtopicId !== input.topicId) {
+        const subtopic = topic.subtopics.find((entry) => entry._id.toString() === input.subtopicId);
+        if (!subtopic) throw new NotFoundException("Subtopic was not found.");
+        item = subtopic;
+      }
+    }
+    item.title = input.title.trim();
+    if (input.description !== undefined) item.description = input.description.trim() || undefined;
+    course.markModified("modules");
+    await course.save();
+    return this.publicCourse(course);
+  }
+
+  async reorderModules(courseId: string, moduleIds: string[]) {
+    const course = await this.courseModel.findById(courseId).exec();
+    if (!course) throw new NotFoundException("Course was not found.");
+    const modules = new Map(course.modules.map((module) => [module._id.toString(), module]));
+    if (moduleIds.length !== modules.size || new Set(moduleIds).size !== modules.size || moduleIds.some((id) => !modules.has(id))) {
+      throw new BadRequestException("Module order must include every module exactly once. Refresh and try again.");
+    }
+    course.modules = moduleIds.map((id) => modules.get(id)!);
+    course.markModified("modules");
+    await course.save();
+    return this.publicCourse(course);
   }
 
   async addModule(courseId: string, input: CreateModuleDto) {

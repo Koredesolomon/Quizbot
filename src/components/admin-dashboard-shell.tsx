@@ -25,10 +25,8 @@ import {
   LogOut,
   MoreVertical,
   MoreHorizontal,
-  NotebookText,
   Pencil,
   Plus,
-  Puzzle,
   Search,
   Settings,
   ShieldCheck,
@@ -43,6 +41,7 @@ import type { LucideIcon } from "lucide-react";
 import type * as api from "@/lib/api";
 import { parseQuestionImportFile } from "@/lib/question-import";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
+import { CourseStructure } from "./course-structure";
 import { MathContent } from "./math-content";
 import { PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 
@@ -183,6 +182,8 @@ export function AdminDashboard({
   onCreateCourse,
   onUpdateCourse,
   onDeleteCourse,
+  onEditStructure,
+  onReorderModules,
   onAddModule,
   onAddTopic,
   onAddSubtopic,
@@ -213,6 +214,8 @@ export function AdminDashboard({
     input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onDeleteCourse: (courseId: string) => void | Promise<void>;
+  onEditStructure: (courseId: string, input: api.StructureEdit) => Promise<void>;
+  onReorderModules: (courseId: string, ids: string[]) => Promise<void>;
   onAddModule: (courseId: string, input: { title: string; description?: string }) => void | Promise<void>;
   onAddTopic: (courseId: string, moduleId: string, input: { title: string; description?: string }) => void | Promise<void>;
   onAddSubtopic: (courseId: string, moduleId: string, topicId: string, input: { title: string; description?: string }) => void | Promise<void>;
@@ -385,30 +388,29 @@ export function AdminDashboard({
     }
   };
 
-  const createQuizFromUpload = async (file: File | null) => {
+  const createQuizFromUpload = async (file: File | null, onProgress?: (stage: number) => void) => {
     if (!file) return false;
 
     if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse || !activeSubtopic) {
-      setMessage("Create or select a subtopic before creating a quiz.");
-      return false;
+      throw new Error("Create or select a subtopic before creating a quiz.");
     }
 
     if (!quizForm.title.trim()) {
-      setMessage("Enter a quiz title before uploading questions.");
-      return false;
+      throw new Error("Enter a quiz title before uploading questions.");
     }
 
     try {
+      onProgress?.(0);
       const cleanQuestions = await parseQuestionImportFile(file, {
         defaultSubject: activeCourse.subject,
         idOffset: questions.length,
       });
 
       if (!cleanQuestions.length) {
-        setMessage("No valid questions were found in that Excel file.");
-        return false;
+        throw new Error("No valid questions were found in that Excel file.");
       }
 
+      onProgress?.(1);
       const existingQuizIds = new Set((activeSubtopic?.quizzes ?? []).map((quiz) => quiz.id));
       const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
         title: quizForm.title.trim(),
@@ -425,6 +427,7 @@ export function AdminDashboard({
         (updatedSubtopic?.quizzes ?? []).find((quiz) => !existingQuizIds.has(quiz.id)) ??
         updatedSubtopic?.quizzes?.at(-1);
 
+      onProgress?.(2);
       await onImportQuestions(
         cleanQuestions.map((question) => ({
           ...question,
@@ -434,12 +437,12 @@ export function AdminDashboard({
           quizId: createdQuiz?.id,
         }))
       );
-      setQuizForm(emptyQuizForm);
+      onProgress?.(3);
       setMessage(`Quiz created and ${cleanQuestions.length} questions uploaded.`);
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Quiz could not be created from that Excel file.");
-      return false;
+      throw error;
     }
   };
 
@@ -853,6 +856,8 @@ export function AdminDashboard({
                 onPublishCourse={publishCourse}
                 onDeleteCourseById={deleteCourseById}
                 onPublishCourseById={publishCourseById}
+                onEditStructure={(input) => onEditStructure(activeCourseId, input)}
+                onReorderModules={(ids) => onReorderModules(activeCourseId, ids)}
                 onAddModule={addModule}
                 onAddTopic={addTopic}
                 onAddSubtopic={addSubtopic}
@@ -1325,6 +1330,8 @@ function CourseBuilder({
   onPublishCourse,
   onDeleteCourseById,
   onPublishCourseById,
+  onEditStructure,
+  onReorderModules,
   onAddModule,
   onAddTopic,
   onAddSubtopic,
@@ -1358,10 +1365,12 @@ function CourseBuilder({
   onPublishCourse: () => boolean | Promise<boolean>;
   onDeleteCourseById: (courseId: string) => boolean | Promise<boolean>;
   onPublishCourseById: (courseId: string) => boolean | Promise<boolean>;
+  onEditStructure: (input: api.StructureEdit) => Promise<void>;
+  onReorderModules: (ids: string[]) => Promise<void>;
   onAddModule: () => boolean | Promise<boolean>;
   onAddTopic: () => boolean | Promise<boolean>;
   onAddSubtopic: () => boolean | Promise<boolean>;
-  onCreateQuizFromUpload: (file: File | null) => boolean | Promise<boolean>;
+  onCreateQuizFromUpload: (file: File | null, onProgress?: (stage: number) => void) => boolean | Promise<boolean>;
   onOpenStep: (step: CourseBuilderStep) => void;
 }) {
   const quizUploadRef = useRef<HTMLInputElement>(null);
@@ -1420,9 +1429,8 @@ function CourseBuilder({
     onQuizFormChange(emptyQuizForm);
     setQuizModalOpen(false);
   };
-  const uploadQuizQuestions = async (file: File | null) => {
-    const uploaded = await Promise.resolve(onCreateQuizFromUpload(file));
-    if (uploaded) setQuizModalOpen(false);
+  const uploadQuizQuestions = async (file: File | null, onProgress?: (stage: number) => void) => {
+    return await Promise.resolve(onCreateQuizFromUpload(file, onProgress));
   };
   const openCourseEditor = () => {
     if (!activeCourse) return;
@@ -1503,6 +1511,8 @@ function CourseBuilder({
         ) : (
           <div className="grid gap-4 p-4">
             <CourseStructure
+              onEdit={onEditStructure}
+              onReorder={onReorderModules}
               modules={modules}
               courseStatus={activeCourse?.status}
               activeModuleId={activeModuleId}
@@ -1858,253 +1868,73 @@ function QuizUploadModal({
   title: string;
   onTitleChange: (value: string) => void;
   onCancel: () => void;
-  onUpload: (file: File | null) => void;
+  onUpload: (file: File | null, onProgress?: (stage: number) => void) => Promise<boolean>;
 }) {
   const inputId = "course-quiz-upload";
-
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [stage, setStage] = useState(0);
+  const [error, setError] = useState("");
+  const uploading = status === "uploading";
+  const steps = ["Reading Excel file", "Creating quiz", "Saving questions"];
+  const upload = async (selected: File) => {
+    if (uploading) return;
+    setFile(selected);
+    setStatus("uploading");
+    setStage(0);
+    setError("");
+    try {
+      const saved = await onUpload(selected, setStage);
+      if (!saved) throw new Error("Upload did not complete. Please try again.");
+      setStage(3);
+      setStatus("done");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
+      setStatus("error");
+    }
+  };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#071a38]/45 px-4 py-6">
-      <div className="w-full max-w-3xl rounded-xl border border-[#d5e2f0] bg-[#f6f7fb] p-6 shadow-[0_24px_90px_rgba(8,43,99,0.26)]">
+      <div role="dialog" aria-modal="true" aria-labelledby="quiz-upload-title" aria-busy={uploading} className="w-full max-w-3xl rounded-xl border border-[#d5e2f0] bg-[#f6f7fb] p-6 shadow-[0_24px_90px_rgba(8,43,99,0.26)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <span className="text-xs font-black uppercase tracking-wide text-[#06479b]">Quiz</span>
-            <h3 className="mt-1 text-2xl font-black text-[#10243f]">Add quiz questions</h3>
+            <h3 id="quiz-upload-title" className="mt-1 text-2xl font-black text-[#10243f]">Add quiz questions</h3>
           </div>
-          <button className="min-h-10 px-2 text-sm font-black text-[#596273]" type="button" onClick={onCancel}>Cancel</button>
+          <button className="min-h-10 px-2 text-sm font-black text-[#596273] disabled:opacity-40" type="button" disabled={uploading} onClick={onCancel}>{status === "done" ? "Done" : "Cancel"}</button>
         </div>
-
         <div className="grid gap-5">
           <input
+            aria-label="Quiz title"
             className="min-h-16 rounded-lg border-0 bg-white px-5 text-xl font-semibold text-[#404756] outline-none placeholder:text-[#737b8d]"
             placeholder="Quiz title"
             value={title}
+            disabled={uploading || status === "done"}
             onChange={(event) => onTitleChange(event.target.value)}
             autoFocus
           />
-
-          <label className="grid min-h-72 cursor-pointer place-items-center rounded-lg border-2 border-dashed border-[#8dbcf5] bg-white p-8 text-center transition hover:bg-[#f8fbff]" htmlFor={inputId}>
-            <span>
-              <UploadCloud className="mx-auto text-[#3867ee]" size={46} />
-              <strong className="mt-4 block text-xl font-black text-[#10243f]">Bulk upload quiz questions</strong>
-              <span className="mt-3 inline-flex rounded-md bg-[#e9edff] px-6 py-3 text-base font-black text-[#3867ee]">Choose Excel file</span>
+          <div className="grid min-h-72 place-items-center rounded-lg border-2 border-dashed border-[#8dbcf5] bg-white p-8 text-center">
+            <div className="w-full min-w-0">
+              {status === "done" ? <CheckCircle2 className="mx-auto text-emerald-600" size={46} /> : <UploadCloud className="mx-auto text-[#3867ee]" size={46} />}
+              <strong className="mt-4 block text-xl font-black text-[#10243f]">{file ? file.name : "Bulk upload quiz questions"}</strong>
+              {file && <small className="mt-1 block text-[#737b8d]">{(file.size / 1024).toFixed(1)} KB</small>}
+              <div role="status" aria-live="polite" className="mt-4 text-sm font-bold text-[#06479b]">
+                {uploading ? `${steps[stage] ?? "Finishing upload"}…` : status === "done" ? "Upload complete — quiz and questions saved." : ""}
+              </div>
+              {(uploading || status === "done") && <div className="mt-4">
+                <progress className="h-3 w-full accent-[#3867ee]" value={stage} max={3} aria-label="Quiz upload steps completed" />
+                <ol className="mt-2 flex flex-wrap justify-center gap-3 text-xs text-[#737b8d]">{steps.map((step, index) => <li key={step}>{stage > index ? "✓ " : ""}{step}</li>)}</ol>
+              </div>}
+              {error && <p role="alert" className="mt-3 text-sm font-bold text-rose-700">{error}</p>}
+              {!uploading && status !== "done" && <label htmlFor={inputId} className="mt-3 inline-flex cursor-pointer rounded-md bg-[#e9edff] px-6 py-3 text-base font-black text-[#3867ee]">{file ? "Choose another Excel file" : "Choose Excel file"}</label>}
               <small className="mt-4 block font-semibold text-[#737b8d]">Supports .xlsx and .xls question templates</small>
-            </span>
-            <input
-              id={inputId}
-              className="sr-only"
-              type="file"
-              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              onChange={(event) => {
-                onUpload(event.target.files?.[0] ?? null);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CourseStructure({
-  modules,
-  courseStatus,
-  activeModuleId,
-  activeTopicId,
-  activeSubtopicId,
-  onSelectModule,
-  onSelectTopic,
-  onSelectSubtopic,
-  onAddTopic,
-  onAddSubtopic,
-  onAddQuiz,
-  onPublishCourse,
-  onDeleteCourse,
-}: {
-  modules: api.CourseModule[];
-  courseStatus?: api.CourseContent["status"];
-  activeModuleId?: string;
-  activeTopicId?: string;
-  activeSubtopicId?: string;
-  onSelectModule: (moduleId: string) => void;
-  onSelectTopic: (topicId: string) => void;
-  onSelectSubtopic: (subtopicId: string) => void;
-  onAddTopic: (moduleId: string) => void;
-  onAddSubtopic: (moduleId: string, topicId?: string) => void;
-  onAddQuiz: (moduleId: string, topicId?: string, subtopicId?: string) => void;
-  onPublishCourse: () => void;
-  onDeleteCourse: () => void;
-}) {
-  if (!modules.length) {
-    return <p className="rounded-lg border border-dashed border-[#d5e2f0] bg-white p-6 text-center text-sm font-bold text-[#5e7086]">No modules yet. Add Module 1 to start the course outline.</p>;
-  }
-
-  return (
-    <div className="grid gap-4">
-      {modules.map((module, moduleIndex) => (
-        <article
-          className={`overflow-hidden rounded-lg border bg-white ${
-            activeModuleId === module.id ? "border-[#8dbcf5] ring-2 ring-[#edf5ff]" : "border-[#c4cad4]"
-          }`}
-          key={module.id}
-        >
-          <button
-            className="grid w-full grid-cols-[28px_1fr] gap-5 p-6 text-left sm:grid-cols-[36px_1fr]"
-            type="button"
-            onClick={() => onSelectModule(module.id)}
-          >
-            <GripVertical className="mt-1 text-[#9aa3b2]" size={24} />
-            <span className="min-w-0">
-              <strong className="block text-xl font-black leading-7 text-[#404756]">
-                {module.title || `Module ${moduleIndex + 1}`}
-              </strong>
-              <span className="mt-5 block text-base font-semibold leading-8 text-[#737b8d]">
-                {module.description || "Add a short module overview so admins can see what this part covers."}
-              </span>
-            </span>
-          </button>
-
-          <div className="border-t border-[#d9dde5] px-6 py-5">
-            <div className="grid gap-5">
-              {module.topics.length ? module.topics.map((topic, topicIndex) => (
-                <div className="rounded-md border border-[#e1e7ef] bg-[#f8fbff] p-3" key={topic.id}>
-                  <button
-                    className={`flex min-h-12 w-full items-start gap-5 rounded-md px-3 py-2 text-left transition ${
-                      activeTopicId === topic.id ? "bg-[#edf5ff] text-[#06479b]" : "text-[#3f4654] hover:bg-white"
-                    }`}
-                    type="button"
-                    onClick={() => {
-                      onSelectModule(module.id);
-                      onSelectTopic(topic.id);
-                    }}
-                  >
-                    <NotebookText className="mt-0.5 shrink-0 text-[#8d95a5]" size={23} />
-                    <span className="min-w-0">
-                      <strong className="block text-lg font-black leading-7">
-                        Topic {moduleIndex + 1}.{topicIndex + 1} - {topic.title}
-                      </strong>
-                      {topic.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{topic.description}</span>}
-                    </span>
-                  </button>
-
-                  <div className="mt-3 grid gap-3 pl-4 sm:pl-10">
-                    {topic.subtopics.length ? topic.subtopics.map((subtopic, subtopicIndex) => (
-                      <div className="rounded-md border border-[#e8edf5] bg-white p-3" key={subtopic.id}>
-                        <button
-                          className={`flex min-h-10 w-full items-start gap-4 rounded-md px-2 py-2 text-left transition ${
-                            activeSubtopicId === subtopic.id ? "bg-[#edf5ff] text-[#06479b]" : "text-[#3f4654] hover:bg-[#f8fbff]"
-                          }`}
-                          type="button"
-                          onClick={() => {
-                            onSelectModule(module.id);
-                            onSelectTopic(topic.id);
-                            onSelectSubtopic(subtopic.id);
-                          }}
-                        >
-                          <NotebookText className="mt-0.5 shrink-0 text-[#8d95a5]" size={19} />
-                          <span className="min-w-0">
-                            <strong className="block text-base font-black leading-6">
-                              Subtopic {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1} - {subtopic.title}
-                            </strong>
-                            {subtopic.description && <span className="mt-1 block text-sm font-semibold leading-6 text-[#737b8d]">{subtopic.description}</span>}
-                          </span>
-                        </button>
-
-                        <div className="mt-2 grid gap-2 pl-4 sm:pl-8">
-                          {subtopic.quizzes.length ? subtopic.quizzes.map((quiz) => (
-                            <button
-                              className="flex min-h-10 items-start gap-4 rounded-md px-2 py-2 text-left text-[#3f4654] transition hover:bg-[#f8fbff]"
-                              key={quiz.id}
-                              type="button"
-                              onClick={() => {
-                                onSelectModule(module.id);
-                                onSelectTopic(topic.id);
-                                onSelectSubtopic(subtopic.id);
-                                onAddQuiz(module.id, topic.id, subtopic.id);
-                              }}
-                            >
-                              <Puzzle className="mt-0.5 shrink-0 text-[#f5a400]" size={19} />
-                              <span className="min-w-0">
-                                <strong className="block text-sm font-black leading-6">
-                                  {quiz.title} ({quiz.timeLimitMinutes} min)
-                                </strong>
-                                {quiz.description && <span className="mt-1 block text-xs font-semibold leading-5 text-[#737b8d]">{quiz.description}</span>}
-                              </span>
-                            </button>
-                          )) : <p className="rounded-md bg-[#f8fbff] p-3 text-xs font-semibold text-[#5e7086]">No quizzes yet.</p>}
-                        </div>
-                      </div>
-                    )) : <p className="rounded-md bg-white p-3 text-xs font-semibold text-[#5e7086]">No subtopics yet.</p>}
-                  </div>
-                </div>
-              )) : <p className="rounded-md bg-[#f8fbff] p-3 text-xs font-semibold text-[#5e7086]">No topics yet.</p>}
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <ShellActionButton
-                label="Topic"
-                onClick={() => {
-                  onSelectModule(module.id);
-                  onAddTopic(module.id);
-                }}
-              />
-              <ShellActionButton
-                label="Subtopic"
-                onClick={() => {
-                  onSelectModule(module.id);
-                  if (module.topics[0]) {
-                    onSelectTopic(module.topics[0].id);
-                    onAddSubtopic(module.id, module.topics[0].id);
-                  } else {
-                    onAddSubtopic(module.id);
-                  }
-                }}
-              />
-              <ShellActionButton
-                label="Quiz"
-                onClick={() => {
-                  const firstTopic = module.topics[0];
-                  const firstSubtopic = firstTopic?.subtopics[0];
-                  onSelectModule(module.id);
-                  if (firstTopic) onSelectTopic(firstTopic.id);
-                  if (firstSubtopic) onSelectSubtopic(firstSubtopic.id);
-                  onAddQuiz(module.id, firstTopic?.id, firstSubtopic?.id);
-                }}
-              />
-              {courseStatus === "published" ? (
-                <span className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-50 px-5 text-sm font-black text-emerald-700">
-                  Published
-                </span>
-              ) : (
-                <button
-                  className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
-                  type="button"
-                  onClick={onPublishCourse}
-                >
-                  <UploadCloud size={18} />
-                  Publish Course
-                </button>
-              )}
-              <button
-                className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-rose-200 bg-white px-5 text-sm font-black text-rose-700 transition hover:bg-rose-50"
-                type="button"
-                onClick={onDeleteCourse}
-              >
-                <Trash2 size={18} />
-                Delete Course
-              </button>
-              <button
-                className="ml-auto grid h-10 w-10 place-items-center rounded-md text-[#8d95a5] transition hover:bg-[#f8fbff] hover:text-[#404756]"
-                type="button"
-                aria-label="Module options"
-                onClick={() => onSelectModule(module.id)}
-              >
-                <MoreVertical size={24} />
-              </button>
+              <input id={inputId} className="sr-only" type="file" disabled={uploading || status === "done"}
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={(event) => { const selected = event.target.files?.[0]; event.currentTarget.value = ""; if (selected) void upload(selected); }} />
             </div>
           </div>
-        </article>
-      ))}
+        </div>
+      </div>
     </div>
   );
 }

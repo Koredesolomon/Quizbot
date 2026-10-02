@@ -435,3 +435,17 @@ export function markFeedbackReviewed(id: string, token: string) {
     token,
   });
 }
+
+export type StructureEdit = { moduleId: string; topicId?: string; subtopicId?: string; title: string; description: string };
+
+export function editCourseStructure(courseId: string, input: StructureEdit, token: string) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/structure`, {
+    method: "PATCH", token, body: JSON.stringify(input),
+  });
+}
+
+export function reorderCourseModules(courseId: string, moduleIds: string[], token: string) {
+  return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/order`, {
+    method: "PATCH", token, body: JSON.stringify({ moduleIds }),
+  });
+}

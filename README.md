@@ -140,6 +140,25 @@ closes.
 
 Production should use process management and HTTPS rather than Next/Nest watch-mode dev servers.
 
+## VPS deployment
+
+The manually triggered `.github/workflows/deploy.yml` deploys `main` to the Hostinger VPS.
+It installs dependencies and builds both applications before restarting either service. Deployments
+run one at a time to avoid overlapping builds and restarts.
+
+The VPS must have Node.js, npm, PM2, curl, a running MongoDB instance, and the frontend PM2
+process named `tlchub-web`. Keep the production frontend environment in `.env.local` and the
+backend environment in `backend/.env` on the server.
+
+The workflow restarts the backend process named `tlchub-api`, or creates it from
+`backend/dist/main.js` with `backend/` as its working directory. An existing `tlchub-api`
+process must use that same entry point and working directory so configuration and uploads resolve
+correctly. The API must listen on port 4000 for the deployment health check.
+
+After starting the backend, the workflow retries `http://127.0.0.1:4000/health` before
+restarting `tlchub-web` and saving the PM2 process list. A failed build or backend health check
+fails the deployment. This workflow updates the checkout in place and does not provide automatic rollback.
+
 ## LaTeX in Questions and Answers
 
 Admin question entry and JSON imports support LaTeX inside normal text fields. Use `$...$` for inline math and `$$...$$` for display equations.

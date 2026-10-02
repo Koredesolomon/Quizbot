@@ -5,7 +5,7 @@ import type { JwtUser } from "../common/jwt-user.type";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { ContentService } from "./content.service";
-import { CreateCourseDto, CreateModuleDto, CreateQuizDto, CreateSubtopicDto, CreateTopicDto, UpdateCourseDto } from "./dto";
+import { EditStructureDto, ReorderModulesDto, CreateCourseDto, CreateModuleDto, CreateQuizDto, CreateSubtopicDto, CreateTopicDto, UpdateCourseDto } from "./dto";
 
 @Controller("content")
 export class ContentController {
@@ -56,6 +56,20 @@ export class ContentController {
   @Roles("admin")
   deleteCourseWithPost(@Param("id") id: string) {
     return this.content.deleteCourse(id);
+  }
+
+  @Patch("courses/:id/structure")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  editStructure(@Param("id") id: string, @Body() body: EditStructureDto) {
+    return this.content.editStructure(id, body);
+  }
+
+  @Patch("courses/:id/modules/order")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  reorderModules(@Param("id") id: string, @Body() body: ReorderModulesDto) {
+    return this.content.reorderModules(id, body.moduleIds);
   }
 
   @Post("courses/:id/modules")

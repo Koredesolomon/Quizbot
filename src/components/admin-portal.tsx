@@ -284,6 +284,18 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
           throw handleAdminRequestError(error);
         }
       }}
+      onEditStructure={async (courseId, input) => {
+        try {
+          const updated = await api.editCourseStructure(courseId, input, adminAccount.accessToken ?? "");
+          setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
+        } catch (error) { throw handleAdminRequestError(error); }
+      }}
+      onReorderModules={async (courseId, ids) => {
+        try {
+          const updated = await api.reorderCourseModules(courseId, ids, adminAccount.accessToken ?? "");
+          setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
+        } catch (error) { throw handleAdminRequestError(error); }
+      }}
       onAddModule={async (courseId, input) => {
         try {
           await api.addModule(courseId, input, adminAccount.accessToken ?? "");
