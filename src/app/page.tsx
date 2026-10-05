@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDashboard, AdminLogin, type AdminAccount } from "@/components/admin-dashboard";
 import { TlchubAiAssistant } from "@/components/ai-assistant";
@@ -457,10 +457,9 @@ export default function Home() {
   const selectedQuiz = (selectedSubtopic?.quizzes ?? []).find((quiz) => quiz.id === selectedQuizId);
   const selectedCourseSubject = selectedCourse?.subject;
   const selectedSubtopicTitle = selectedSubtopic?.title;
-  const activeQuestions = useMemo(
-    () => {
-      if (selectedQuizId) {
-        const quizQuestions = questions.filter((question) => question.quizId === selectedQuizId);
+  const getQuizQuestions = useCallback((quizId: string) => {
+      if (quizId) {
+        const quizQuestions = questions.filter((question) => question.quizId === quizId);
         if (quizQuestions.length) return quizQuestions;
       }
 
@@ -474,7 +473,7 @@ export default function Home() {
         if (titleQuestions.length) return titleQuestions;
       }
 
-      if (selectedQuizId && selectedCourseSubject) {
+      if (quizId && selectedCourseSubject) {
         const unassignedCourseQuestions = questions.filter(
           (question) =>
             !question.quizId &&
@@ -487,9 +486,8 @@ export default function Home() {
       }
 
       return selectedSubtopicTitle ? [] : questions;
-    },
-    [questions, selectedCourseSubject, selectedQuizId, selectedSubtopicId, selectedSubtopicTitle]
-  );
+  }, [questions, selectedCourseSubject, selectedSubtopicId, selectedSubtopicTitle]);
+  const activeQuestions = useMemo(() => getQuizQuestions(selectedQuizId), [getQuizQuestions, selectedQuizId]);
   const answeredCount = Object.values(answers).filter(Boolean).length;
   const totalMarks = useMemo(() => activeQuestions.reduce((sum, question) => sum + question.marks, 0), [activeQuestions]);
   const score = marked.reduce((sum, question) => sum + question.awarded, 0);
@@ -568,7 +566,7 @@ export default function Home() {
     }, 1100);
   };
 
-  const startTest = async () => {
+  const startTest = async (testQuestions: Question[] = activeQuestions) => {
     if (!studentSession?.accessToken) {
       setScreen("student");
       return;
@@ -580,14 +578,14 @@ export default function Home() {
       status: "active",
       startedAt: new Date().toISOString(),
       answered: 0,
-      questionCount: activeQuestions.length,
-      totalMarks,
+      questionCount: testQuestions.length,
+      totalMarks: testQuestions.reduce((sum, question) => sum + question.marks, 0),
     };
 
     if (backendQuestionsLoaded) {
       try {
         const backendAttempt = await api.startAttempt(studentSession.accessToken);
-        nextAttempt = toStudentAttempt(backendAttempt, activeQuestions.length, 0, activeStudentName);
+        nextAttempt = toStudentAttempt(backendAttempt, testQuestions.length, 0, activeStudentName);
       } catch {
         setBackendQuestionsLoaded(false);
       }
@@ -820,12 +818,8 @@ export default function Home() {
 
   const selectQuiz = (quiz: api.CourseQuiz) => {
     setSelectedQuizId(quiz.id);
-  };
-
-  const startSelectedQuiz = () => {
-    if (!selectedQuiz || !selectedSubtopic) return;
     setQuizPickerOpen(false);
-    void startTest();
+    void startTest(getQuizQuestions(quiz.id));
   };
 
   const continueWithGoogle = async (role: "admin" | "student") => {
@@ -1016,7 +1010,6 @@ export default function Home() {
 	          subtopic={selectedSubtopic}
 	          selectedQuizId={selectedQuizId}
 	          onSelectQuiz={selectQuiz}
-	          onStart={startSelectedQuiz}
 	          onClose={() => setQuizPickerOpen(false)}
 	        />
 	      )}

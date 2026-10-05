@@ -294,17 +294,14 @@ export function QuizPickerModal({
   subtopic,
   selectedQuizId,
   onSelectQuiz,
-  onStart,
   onClose,
 }: {
   subtopic?: CourseSubtopic;
   selectedQuizId?: string;
   onSelectQuiz: (quiz: CourseQuiz) => void;
-  onStart: () => void;
   onClose: () => void;
 }) {
   if (!subtopic) return null;
-  const selectedQuiz = (subtopic.quizzes ?? []).find((quiz) => quiz.id === selectedQuizId);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 py-6">
@@ -340,17 +337,7 @@ export function QuizPickerModal({
             </p>
           )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end border-t border-[var(--line)] px-8 py-6">
-          {selectedQuiz && (
-            <button
-              className="rounded-lg border-4 border-[var(--ink)] px-8 py-4 text-xl font-black text-[var(--ink)] shadow-[6px_8px_0_var(--ink)] transition hover:-translate-y-0.5"
-              type="button"
-              onClick={onStart}
-            >
-              Get started
-            </button>
-          )}
-        </div>
+
       </section>
     </div>
   );
