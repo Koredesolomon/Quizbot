@@ -346,7 +346,9 @@ export default function Home() {
       const savedAdmin = window.localStorage.getItem(adminStorageKey);
       if (savedAdmin) {
         try {
-          setAdminAccount(JSON.parse(savedAdmin) as AdminAccount);
+          const restoredAdmin = JSON.parse(savedAdmin) as AdminAccount;
+          setAdminAccount(restoredAdmin);
+          setAdminUnlocked(Boolean(restoredAdmin.accessToken));
         } catch {
           window.localStorage.removeItem(adminStorageKey);
         }
@@ -373,7 +375,10 @@ export default function Home() {
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([api.getQuestions(), api.getCourses()])
+    const courseRequest = adminUnlocked && adminAccount?.accessToken
+      ? api.getAdminCourses(adminAccount.accessToken)
+      : api.getCourses();
+    Promise.all([api.getQuestions(), courseRequest])
       .then(([backendQuestions, backendCourses]) => {
         if (!ignore) {
           setQuestions(backendQuestions);
@@ -388,7 +393,7 @@ export default function Home() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [adminAccount?.accessToken, adminUnlocked]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !themeLoaded) return;
@@ -403,17 +408,19 @@ export default function Home() {
 
     let ignore = false;
 
-    Promise.all([
+    Promise.allSettled([
       api.getAdminAttempts(adminAccount.accessToken),
       api.getAdminFeedback(adminAccount.accessToken),
-      api.getAdminCourses(adminAccount.accessToken),
     ])
-      .then(([backendAttempts, backendFeedback, backendCourses]) => {
+      .then(([backendAttempts, backendFeedback]) => {
         if (ignore) return;
 
-        setAttempts(backendAttempts.map((attempt) => toAdminAttempt(attempt, questions.length)));
-        setFeedback(backendFeedback.map(toStudentFeedback));
-        setCourses(backendCourses);
+        if (backendAttempts.status === "fulfilled") {
+          setAttempts(backendAttempts.value.map((attempt) => toAdminAttempt(attempt, questions.length)));
+        }
+        if (backendFeedback.status === "fulfilled") {
+          setFeedback(backendFeedback.value.map(toStudentFeedback));
+        }
       })
       .catch(() => {
         // Leave the local dashboard data in place when the API is not available.

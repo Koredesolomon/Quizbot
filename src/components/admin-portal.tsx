@@ -99,6 +99,9 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   const [adminAuthError, setAdminAuthError] = useState("");
   const [passwordResetEmail, setPasswordResetEmail] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [coursesLoadedToken, setCoursesLoadedToken] = useState<string | null>(null);
+  const [coursesLoadError, setCoursesLoadError] = useState("");
+  const [loadRevision, setLoadRevision] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,27 +162,49 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
 
     let ignore = false;
 
-    Promise.all([
-      api.getAdminAttempts(adminAccount.accessToken),
-      api.getAdminFeedback(adminAccount.accessToken),
-      api.getAdminCourses(adminAccount.accessToken),
-    ])
-      .then(([backendAttempts, backendFeedback, backendCourses]) => {
-        if (ignore) return;
-        setAttempts(backendAttempts.map((attempt) => toAdminAttempt(attempt, questions.length)));
-        setFeedback(backendFeedback.map(toStudentFeedback));
-        setCourses(backendCourses);
-      })
-      .catch(() => undefined);
+    const token = adminAccount.accessToken;
+    void Promise.allSettled([
+      api.getAdminAttempts(token),
+      api.getAdminFeedback(token),
+    ]).then(([backendAttempts, backendFeedback]) => {
+      if (ignore) return;
+      if (backendAttempts.status === "fulfilled") {
+        setAttempts(backendAttempts.value.map((attempt) => toAdminAttempt(attempt, questions.length)));
+      }
+      if (backendFeedback.status === "fulfilled") {
+        setFeedback(backendFeedback.value.map(toStudentFeedback));
+      }
+    });
+
+    void api.getAdminCourses(token).then((backendCourses) => {
+      if (ignore) return;
+      setCourses(backendCourses);
+      setCoursesLoadError("");
+      setCoursesLoadedToken(token);
+    }).catch((error: unknown) => {
+      if (ignore) return;
+      const message = error instanceof Error ? error.message : "Could not load admin courses.";
+      if (/unauthorized/i.test(message)) {
+        setAdminAccount(null);
+        window.localStorage.removeItem(adminStorageKey);
+        setAdminAuthError("Admin session expired. Please sign in again.");
+      } else {
+        setCoursesLoadError(message);
+      }
+      setCoursesLoadedToken(token);
+    });
 
     return () => {
       ignore = true;
     };
-  }, [adminAccount?.accessToken, questions.length]);
+  }, [adminAccount?.accessToken, questions.length, loadRevision]);
 
   const clearAdminSession = () => {
     setAdminAccount(null);
     setAdminAuthError("");
+    setCourses([]);
+    setCoursesLoadedToken(null);
+    setCoursesLoadError("");
     window.localStorage.removeItem(adminStorageKey);
   };
 
@@ -245,6 +270,31 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
         onForgotPassword={(email) => setPasswordResetEmail(email)}
         onBack={() => router.push("/")}
       />
+    );
+  }
+
+  if (coursesLoadedToken !== adminAccount.accessToken || coursesLoadError) {
+    return (
+      <section className="admin-shell grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-950">
+        <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-sm font-black text-slate-600 shadow-sm" role="status">
+          {coursesLoadedToken !== adminAccount.accessToken ? "Loading admin courses..." : (
+            <>
+              <p>{coursesLoadError}</p>
+              <button
+                type="button"
+                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white"
+                onClick={() => {
+                  setCoursesLoadedToken(null);
+                  setCoursesLoadError("");
+                  setLoadRevision((current) => current + 1);
+                }}
+              >
+                Retry
+              </button>
+            </>
+          )}
+        </div>
+      </section>
     );
   }
 
