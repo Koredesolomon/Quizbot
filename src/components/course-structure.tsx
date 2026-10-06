@@ -16,6 +16,7 @@ type Props = {
   onAddTopic: (moduleId: string) => void;
   onAddSubtopic: (moduleId: string, topicId: string) => void;
   onAddQuiz: (moduleId: string, topicId: string, subtopicId: string) => void;
+  onManageQuiz: (moduleId: string, topicId: string, subtopicId: string, quizId: string) => void;
   onPublishCourse: () => void;
   onDeleteCourse: () => void;
   onEdit: (input: StructureEdit) => Promise<void>;
@@ -94,7 +95,7 @@ export function CourseStructure(props: Props) {
                           <details open className="group/section">
                             <summary className="flex cursor-pointer list-none items-center gap-4 py-3 text-lg font-normal text-[#123f63] [&::-webkit-details-marker]:hidden" onClick={() => { props.onSelectModule(module.id); props.onSelectTopic(topic.id); props.onSelectSubtopic(subtopic.id); }}><ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} className="shrink-0 text-[#8d95a5] transition-transform [[open]>summary>&]:rotate-90" />{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, title: subtopic.title, description: subtopic.description ?? "" })} ({subtopic.quizzes.length} quizzes)</summary>
                             {subtopic.description && <p className="mt-2 text-sm text-[#737b8d]">{subtopic.description}</p>}
-                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="py-1 pl-4 text-[#5e7086]"><strong>{quiz.title}</strong> · {quiz.timeLimitMinutes} min{quiz.description && <p>{quiz.description}</p>}</li>)}</ul>
+                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{quiz.title}</strong> · {quiz.timeLimitMinutes} min{quiz.description && <p>{quiz.description}</p>}</div><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button></li>)}</ul>
                             {!subtopic.quizzes.length && <p className="mt-2 text-sm text-[#737b8d]">No quizzes yet.</p>}
                           </details>
                           <button className={`${action} ml-4`} type="button" disabled={busy} onClick={() => props.onAddQuiz(module.id, topic.id, subtopic.id)}><Plus size={16} />Add Quiz</button>

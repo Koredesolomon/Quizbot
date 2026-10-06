@@ -1,5 +1,6 @@
 import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
+import { PartialType } from "@nestjs/mapped-types";
 
 export class CreateQuestionDto {
   @IsIn(["objective", "theory"])
@@ -77,6 +78,8 @@ export class CreateQuestionDto {
   @IsString({ each: true })
   keywords?: string[];
 }
+
+export class UpdateQuestionDto extends PartialType(CreateQuestionDto) {}
 
 export class ImportQuestionsDto {
   @IsArray()

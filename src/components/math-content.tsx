@@ -1,15 +1,6 @@
 import katex from "katex";
 
-type Segment =
-  | {
-      type: "text";
-      value: string;
-    }
-  | {
-      type: "math";
-      value: string;
-      display: boolean;
-    };
+import { parseMathSegments } from "@/lib/math-segments";
 
 export function MathContent({
   children,
@@ -24,27 +15,58 @@ export function MathContent({
 }
 
 function normalizeMathInput(value: string) {
-  return value
-    .replace(/\uFF04/g, "$")
-    .replace(/\\\$/g, "$")
-    .replace(/\\\\(?=[A-Za-z([])/g, "\\");
+  return value.replace(/\uFF04/g, "$");
 }
 
 function renderMathText(value: string) {
-  return parseMathSegments(value)
+  // Keep generated math HTML out of the formatting parser.
+  const protectedHtml: string[] = [];
+  const protect = (html: string) => {
+    const expanded = html.replace(/\u0000(\d+)\u0000/g, (_, index: string) => protectedHtml[Number(index)] ?? "");
+    return `\u0000${protectedHtml.push(expanded) - 1}\u0000`;
+  };
+  const withCode = value.replace(/`([^`\n]+)`/g, (_, text: string) => protect(`<code class="rounded bg-slate-200 px-1 font-mono">${escapeHtml(text)}</code>`));
+  const formatted = parseMathSegments(withCode)
     .map((segment) => {
-      if (segment.type === "text") return renderTextWithAutoMath(segment.value);
+      if (segment.type === "text") return renderTextWithAutoMath(segment.value, protect);
 
       try {
-        return renderKatex(segment.value, segment.display);
+        return protect(renderKatex(segment.value, segment.display));
       } catch {
         return escapeHtml(segment.value);
       }
     })
     .join("");
+
+  return renderFormatting(formatted, protect)
+    .replace(/\u0000(\d+)\u0000/g, (_, index: string) => protectedHtml[Number(index)] ?? "");
 }
 
-function renderTextWithAutoMath(value: string) {
+function renderFormatting(value: string, protect: (html: string) => string) {
+  const inline = value
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g,
+      (_, text: string, href: string) => protect(`<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-sky-700 underline">${text}</a>`))
+    .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+    .replace(/_([^\n]+?)_/g, "<em>$1</em>")
+    .replace(/\+\+([^\n]+?)\+\+/g, "<u>$1</u>")
+    .replace(/~~([^\n]+?)~~/g, "<s>$1</s>")
+    .replace(/&lt;u&gt;([^\n]+?)&lt;\/u&gt;/g, "<u>$1</u>");
+
+  return inline.split("\n").map((line) => {
+    const heading = line.match(/^(#{2,4}) (.*)$/);
+    if (heading) {
+      const size = heading[1].length === 2 ? "text-xl" : heading[1].length === 3 ? "text-lg" : "text-base";
+      return `<span class="block ${size} font-bold">${heading[2]}</span>`;
+    }
+    if (line.startsWith("- ")) return `<span class="block pl-3">• ${line.slice(2)}</span>`;
+    if (/^\d+\. /.test(line)) return `<span class="block pl-3">${line}</span>`;
+    if (line.startsWith("&gt; ")) return `<span class="block border-l-2 border-slate-300 pl-3 italic">${line.slice(5)}</span>`;
+    return line;
+  }).join("<br />");
+}
+
+function renderTextWithAutoMath(value: string, protect: (html: string) => string) {
   const dimensionPattern = /\b(?:[MLT](?:\^-?\d+)?){2,}\b/g;
   const unitExpressionPattern =
     /\b(?:kg|g|m|s|A|K|mol|cd|N|Pa|J|W|C|V|Hz|Ω|ohm|Ohm)(?:\^-?\d+)?(?:\s+(?:kg|g|m|s|A|K|mol|cd|N|Pa|J|W|C|V|Hz|Ω|ohm|Ohm)(?:\^-?\d+)?)+\b/g;
@@ -81,12 +103,12 @@ function renderTextWithAutoMath(value: string) {
   for (const match of mathMatches) {
     if (match.start < cursor) continue;
 
-    html += escapeHtml(value.slice(cursor, match.start)).replace(/\n/g, "<br />");
-    html += renderKatex(match.value, false);
+    html += escapeHtml(value.slice(cursor, match.start));
+    html += protect(renderKatex(match.value, false));
     cursor = match.end;
   }
 
-  html += escapeHtml(value.slice(cursor)).replace(/\n/g, "<br />");
+  html += escapeHtml(value.slice(cursor));
   return html;
 }
 
@@ -128,60 +150,7 @@ function normalizeLatex(value: string) {
     .replace(/^\$+|\$+$/g, "")
     .replace(/^\\\(|\\\)$/g, "")
     .replace(/^\\\[|\\\]$/g, "")
-    .replace(/\\\\(?=[A-Za-z([])/g, "\\")
     .trim();
-}
-
-function parseMathSegments(value: string): Segment[] {
-  const segments: Segment[] = [];
-  let cursor = 0;
-
-  while (cursor < value.length) {
-    const match = findNextDelimiter(value, cursor);
-
-    if (!match) {
-      segments.push({ type: "text", value: value.slice(cursor) });
-      break;
-    }
-
-    if (match.start > cursor) {
-      segments.push({ type: "text", value: value.slice(cursor, match.start) });
-    }
-
-    const contentStart = match.start + match.open.length;
-    const closeIndex = value.indexOf(match.close, contentStart);
-
-    if (closeIndex === -1) {
-      segments.push({ type: "text", value: value.slice(match.start) });
-      break;
-    }
-
-    segments.push({
-      type: "math",
-      value: value.slice(contentStart, closeIndex),
-      display: match.display,
-    });
-    cursor = closeIndex + match.close.length;
-  }
-
-  return segments;
-}
-
-function findNextDelimiter(value: string, cursor: number) {
-  const delimiters = [
-    { open: "$$", close: "$$", display: true },
-    { open: "\\[", close: "\\]", display: true },
-    { open: "\\(", close: "\\)", display: false },
-    { open: "$", close: "$", display: false },
-  ];
-
-  return delimiters
-    .map((delimiter) => ({
-      ...delimiter,
-      start: value.indexOf(delimiter.open, cursor),
-    }))
-    .filter((delimiter) => delimiter.start >= 0)
-    .sort((a, b) => a.start - b.start || b.open.length - a.open.length)[0];
 }
 
 function escapeHtml(value: string) {

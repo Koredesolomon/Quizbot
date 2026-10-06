@@ -9,6 +9,7 @@ import {
 import { AdminDashboard, type AdminSection, type CourseBuilderStep } from "@/components/admin-dashboard-shell";
 import { PasswordReset } from "@/components/password-reset";
 import * as api from "@/lib/api";
+import { questionInput } from "@/lib/question-editor";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const adminStorageKey = "stem-jupeb-admin-account";
@@ -43,25 +44,6 @@ function getGoogleAdminCallback(): GoogleAdminCallback {
   };
 }
 
-function toQuestionPayload(question: Question): Omit<Question, "id"> {
-  return {
-    type: question.type,
-    subject: question.subject,
-    topic: question.topic,
-    prompt: question.prompt,
-    imageUrl: question.imageUrl,
-    options: question.options,
-    answer: question.answer,
-    explanation: question.explanation,
-    marks: question.marks,
-    difficulty: question.difficulty,
-    learningObjective: question.learningObjective,
-    rubricPoints: question.rubricPoints,
-    commonMistakes: question.commonMistakes,
-    keywords: question.keywords,
-  };
-}
-
 function toAdminAttempt(attempt: api.ApiAttempt, questionCount: number): StudentAttempt {
   return {
     id: attempt.id,
@@ -92,6 +74,8 @@ function toStudentFeedback(feedback: api.ApiFeedback): StudentFeedback {
 export function AdminPortal({ section, courseStep = "courses" }: { section: AdminSection; courseStep?: CourseBuilderStep }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoaded, setQuestionsLoaded] = useState(false);
+  const [questionsLoadError, setQuestionsLoadError] = useState("");
   const [courses, setCourses] = useState<api.CourseContent[]>([]);
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
@@ -149,13 +133,19 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       .then((backendQuestions) => {
         if (ignore) return;
         setQuestions(backendQuestions);
+        setQuestionsLoadError("");
+        setQuestionsLoaded(true);
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if (ignore) return;
+        setQuestionsLoadError(error instanceof Error ? error.message : "Could not load admin questions.");
+        setQuestionsLoaded(true);
+      });
 
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [loadRevision]);
 
   useEffect(() => {
     if (!adminAccount?.accessToken) return;
@@ -273,19 +263,21 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
     );
   }
 
-  if (coursesLoadedToken !== adminAccount.accessToken || coursesLoadError) {
+  if (coursesLoadedToken !== adminAccount.accessToken || !questionsLoaded || coursesLoadError || questionsLoadError) {
     return (
       <section className="admin-shell grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-950">
         <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-sm font-black text-slate-600 shadow-sm" role="status">
-          {coursesLoadedToken !== adminAccount.accessToken ? "Loading admin courses..." : (
+          {coursesLoadedToken !== adminAccount.accessToken || !questionsLoaded ? "Loading admin content..." : (
             <>
-              <p>{coursesLoadError}</p>
+              <p>{coursesLoadError || questionsLoadError}</p>
               <button
                 type="button"
                 className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white"
                 onClick={() => {
                   setCoursesLoadedToken(null);
                   setCoursesLoadError("");
+                  setQuestionsLoaded(false);
+                  setQuestionsLoadError("");
                   setLoadRevision((current) => current + 1);
                 }}
               >
@@ -373,7 +365,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       onAddQuiz={async (courseId, moduleId, topicId, subtopicId, input) => {
         try {
           const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, subtopicId, input, adminAccount.accessToken ?? "");
-          setCourses(await api.getAdminCourses(adminAccount.accessToken ?? ""));
+          setCourses((current) => current.map((course) => course.id === courseId ? updatedCourse : course));
           return updatedCourse;
         } catch (error) {
           throw handleAdminRequestError(error);
@@ -381,19 +373,27 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       }}
       onAddQuestion={async (question) => {
         try {
-          await api.createQuestion(toQuestionPayload(question), adminAccount.accessToken ?? "");
-          setQuestions(await api.getQuestions());
+          const saved = await api.createQuestion(questionInput(question), adminAccount.accessToken ?? "");
+          setQuestions((current) => [...current, saved]);
+        } catch (error) {
+          throw handleAdminRequestError(error);
+        }
+      }}
+      onUpdateQuestion={async (id, question) => {
+        try {
+          const saved = await api.updateQuestion(id, questionInput(question), adminAccount.accessToken ?? "");
+          setQuestions((current) => current.map((item) => item.id === id ? saved : item));
         } catch (error) {
           throw handleAdminRequestError(error);
         }
       }}
       onImportQuestions={async (incomingQuestions) => {
         try {
-          await api.importQuestions(
-            incomingQuestions.map((question) => toQuestionPayload(question)),
+          const saved = await api.importQuestions(
+            incomingQuestions.map((question) => questionInput(question)),
             adminAccount.accessToken ?? ""
           );
-          setQuestions(await api.getQuestions());
+          setQuestions((current) => [...current, ...saved]);
         } catch (error) {
           throw handleAdminRequestError(error);
         }

@@ -380,6 +380,14 @@ export function createQuestion(question: Omit<Question, "id">, token: string) {
   });
 }
 
+export function updateQuestion(questionId: string, question: Partial<Omit<Question, "id">>, token: string) {
+  return apiRequest<Question>(`/questions/${questionId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(question),
+  });
+}
+
 export function importQuestions(questions: Omit<Question, "id">[], token: string) {
   return apiRequest<Question[]>("/questions/import", {
     method: "POST",

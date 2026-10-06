@@ -9,6 +9,7 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+  app.useBodyParser("json", { limit: "3mb" });
   const uploadsRoot = join(process.cwd(), "uploads");
 
   mkdirSync(uploadsRoot, { recursive: true });

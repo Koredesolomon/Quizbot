@@ -13,36 +13,31 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
-  Download,
   FileQuestion,
-  FileSpreadsheet,
   FlaskConical,
   Gauge,
   GraduationCap,
   GripVertical,
-  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
   MoreVertical,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Settings,
   ShieldCheck,
-  Sigma,
   Star,
   Trash2,
-  Upload,
   UploadCloud,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type * as api from "@/lib/api";
 import { parseQuestionImportFile } from "@/lib/question-import";
+import { quizQuestionContexts, questionInput, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
+import { QuestionManager } from "./question-manager";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
 import { CourseStructure } from "./course-structure";
-import { MathContent } from "./math-content";
 import { PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 
 export type AdminSection = "overview" | "courses" | "questions" | "reports" | "feedback" | "settings";
@@ -93,23 +88,6 @@ function savedCourseBuilderSelection() {
   }
 }
 
-const emptyQuestion = {
-  type: "objective",
-  subject: "Physics",
-  topic: "Physical quantities and units",
-  prompt: "",
-  imageUrl: "",
-  options: "Option A\nOption B\nOption C\nOption D",
-  answer: "",
-  explanation: "",
-  marks: 2,
-  difficulty: "medium",
-  learningObjective: "",
-  rubricPoints: "",
-  commonMistakes: "",
-  keywords: "",
-};
-
 const emptyCourseForm = {
   title: "",
   code: "",
@@ -141,8 +119,7 @@ const emptyQuizForm = {
   passingPercent: 50,
 };
 
-type QuestionForm = typeof emptyQuestion;
-type QuestionBankView = "exams" | "subjects" | "bank" | "add" | "bulk";
+type QuestionBankView = "exams" | "subjects" | "bank";
 type ExamOption = {
   id: string;
   title: string;
@@ -168,6 +145,7 @@ const subjectCatalog: SubjectOption[] = [
   { id: "English Language", title: "English Language", icon: BookOpen, accent: "rose" },
   { id: "Physics", title: "Physics", icon: Atom, accent: "purple" },
   { id: "Chemistry", title: "Chemistry", icon: FlaskConical, accent: "orange" },
+  { id: "Biology", title: "Biology", icon: BookOpen, accent: "green" },
 ];
 
 export function AdminDashboard({
@@ -189,6 +167,7 @@ export function AdminDashboard({
   onAddSubtopic,
   onAddQuiz,
   onAddQuestion,
+  onUpdateQuestion,
   onImportQuestions,
   onReviewFeedback,
   onSignOut,
@@ -226,8 +205,9 @@ export function AdminDashboard({
     subtopicId: string,
     input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
-  onAddQuestion: (question: Question) => void | Promise<void>;
-  onImportQuestions: (questions: Question[]) => void | Promise<void>;
+  onAddQuestion: (question: QuestionInput) => Promise<void>;
+  onUpdateQuestion: (id: string, question: QuestionInput) => Promise<void>;
+  onImportQuestions: (questions: QuestionInput[]) => Promise<void>;
   onReviewFeedback: (id: string) => void;
   onSignOut: () => void;
   onBack: () => void;
@@ -243,7 +223,7 @@ export function AdminDashboard({
   const [selectedModuleId, setSelectedModuleId] = useState(initialCourseSelection.moduleId);
   const [selectedTopicId, setSelectedTopicId] = useState(initialCourseSelection.topicId);
   const [selectedSubtopicId, setSelectedSubtopicId] = useState(initialCourseSelection.subtopicId);
-  const [questionForm, setQuestionForm] = useState<QuestionForm>(emptyQuestion);
+  const [managedQuiz, setManagedQuiz] = useState<QuizQuestionContext | null>(null);
   const [questionBankView, setQuestionBankView] = useState<QuestionBankView>("exams");
   const [selectedExamId, setSelectedExamId] = useState(examOptions[0].id);
   const [selectedSubjectId, setSelectedSubjectId] = useState("Physics");
@@ -322,70 +302,44 @@ export function AdminDashboard({
 
   const chooseSubject = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
-    setQuestionForm((current) => ({ ...current, subject: subjectId }));
     setQuestionBankView("bank");
   };
 
-  const createQuestion = async () => {
-    const options = questionForm.options
-      .split("\n")
-      .map((option) => option.trim())
-      .filter(Boolean);
-
-    if (!questionForm.prompt.trim() || !questionForm.answer.trim() || !questionForm.explanation.trim()) {
-      setMessage("Complete the question, answer, and explanation.");
-      return;
-    }
-
-    if (questionForm.type === "objective" && options.length < 2) {
-      setMessage("Objective questions need at least two options.");
-      return;
-    }
-
-    try {
-      await onAddQuestion({
-        id: nextQuestionId(questions),
-        type: questionForm.type as Question["type"],
-        subject: questionForm.subject,
-        topic: questionForm.topic.trim() || "General",
-        prompt: questionForm.prompt.trim(),
-        imageUrl: questionForm.imageUrl || undefined,
-        options: questionForm.type === "objective" ? options : undefined,
-        answer: questionForm.answer.trim(),
-        explanation: questionForm.explanation.trim(),
-        marks: Math.max(1, Number(questionForm.marks) || 1),
-        difficulty: questionForm.difficulty as Question["difficulty"],
-        learningObjective: questionForm.learningObjective.trim() || undefined,
-        rubricPoints: lines(questionForm.rubricPoints),
-        commonMistakes: lines(questionForm.commonMistakes),
-        keywords: questionForm.type === "theory" ? commaList(questionForm.keywords) : undefined,
-      });
-      setQuestionForm({ ...emptyQuestion, subject: selectedSubject.id });
-      setMessage("Question saved.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Question could not be saved.");
-    }
+  const manageQuiz = (moduleId: string, topicId: string, subtopicId: string, quizId: string) => {
+    const context = quizQuestionContexts(courses).find((quiz) => quiz.courseId === activeCourseId && quiz.quizId === quizId);
+    if (!context) { setMessage("Quiz was not found. Refresh and try again."); return; }
+    setSelectedModuleId(moduleId);
+    setSelectedTopicId(topicId);
+    setSelectedSubtopicId(subtopicId);
+    setManagedQuiz(context);
+    setMessage("");
   };
 
-  const importQuestions = async (file: File | null) => {
-    if (!file) return;
-
-    try {
-      const cleanQuestions = await parseQuestionImportFile(file, {
-        defaultSubject: selectedSubject.id,
-        idOffset: questions.length,
-      });
-
-      if (!cleanQuestions.length) {
-        setMessage("No valid questions were found in that file.");
-        return;
-      }
-
-      await onImportQuestions(cleanQuestions);
-      setMessage(`${cleanQuestions.length} questions imported.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Import failed. Use a valid Excel file.");
+  const createQuiz = async (): Promise<QuizQuestionContext> => {
+    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse) {
+      throw new Error("Create or select a subtopic before creating a quiz.");
     }
+    if (!quizForm.title.trim()) throw new Error("Enter a quiz title.");
+    const existingQuizIds = new Set(activeSubtopic?.quizzes.map((quiz) => quiz.id) ?? []);
+    const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
+      title: quizForm.title.trim(),
+      description: quizForm.description.trim() || undefined,
+      timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
+      attemptsAllowed: Math.max(1, Number(quizForm.attemptsAllowed) || 1),
+      passingPercent: Math.min(100, Math.max(0, Number(quizForm.passingPercent) || 0)),
+    });
+    const created = updatedCourse && quizQuestionContexts([updatedCourse]).find((quiz) =>
+      quiz.moduleId === activeModuleId && quiz.subtopicId === activeSubtopicId && !existingQuizIds.has(quiz.quizId ?? ""));
+    if (!created) throw new Error("Could not identify the created quiz. Refresh before trying again.");
+    return created;
+  };
+
+  const createEmptyQuiz = async () => {
+    const created = await createQuiz();
+    setManagedQuiz(created);
+    setQuizForm(emptyQuizForm);
+    setMessage("Quiz created. Add your first question below.");
+    return true;
   };
 
   const createQuizFromUpload = async (file: File | null, onProgress?: (stage: number) => void) => {
@@ -411,34 +365,22 @@ export function AdminDashboard({
       }
 
       onProgress?.(1);
-      const existingQuizIds = new Set((activeSubtopic?.quizzes ?? []).map((quiz) => quiz.id));
-      const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
-        title: quizForm.title.trim(),
-        description: quizForm.description.trim() || undefined,
-        timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
-        attemptsAllowed: Math.max(1, Number(quizForm.attemptsAllowed) || 1),
-        passingPercent: Math.min(100, Math.max(0, Number(quizForm.passingPercent) || 0)),
-      });
-      const updatedTopic = (updatedCourse?.modules ?? [])
-        .find((module) => module.id === activeModuleId)
-        ?.topics?.find((topic) => topic.id === activeTopicId);
-      const updatedSubtopic = updatedTopic?.subtopics?.find((subtopic) => subtopic.id === activeSubtopicId);
-      const createdQuiz =
-        (updatedSubtopic?.quizzes ?? []).find((quiz) => !existingQuizIds.has(quiz.id)) ??
-        updatedSubtopic?.quizzes?.at(-1);
+      const createdQuiz = await createQuiz();
 
       onProgress?.(2);
       await onImportQuestions(
         cleanQuestions.map((question) => ({
-          ...question,
-          courseId: activeCourseId,
-          moduleId: activeModuleId,
-          subtopicId: activeSubtopicId,
-          quizId: createdQuiz?.id,
+          ...questionInput(question),
+          courseId: createdQuiz.courseId,
+          moduleId: createdQuiz.moduleId,
+          subtopicId: createdQuiz.subtopicId,
+          quizId: createdQuiz.quizId,
+          subject: createdQuiz.subject,
         }))
       );
       onProgress?.(3);
       setMessage(`Quiz created and ${cleanQuestions.length} questions uploaded.`);
+      setManagedQuiz(createdQuiz);
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Quiz could not be created from that Excel file.");
@@ -684,6 +626,7 @@ export function AdminDashboard({
 
           <nav className="flex-1 space-y-1 px-4 py-3 text-sm font-bold">
             <SideItem active={section === "overview"} icon={LayoutDashboard} label="Dashboard" onClick={() => openSection("overview")} />
+            <SideItem active={section === "questions"} icon={FileQuestion} label="Question Bank" onClick={() => openSection("questions")} />
             <SideItem active={section === "courses"} icon={BookOpen} label="Courses" onClick={() => openSection("courses")} />
             <SideItem active={section === "reports"} icon={Users} label="Students" onClick={() => openSection("reports")} />
             <SideItem active={section === "feedback"} icon={Bell} label="Feedback" badge={unreadFeedback} onClick={() => openSection("feedback")} />
@@ -770,12 +713,9 @@ export function AdminDashboard({
                   section === "questions" ? (
                     <QuestionBankActions
                       view={questionBankView}
-                      onAdd={() => setQuestionBankView("add")}
-                      onBulk={() => setQuestionBankView("bulk")}
                       onBack={() => {
                         if (questionBankView === "subjects") setQuestionBankView("exams");
                         if (questionBankView === "bank") setQuestionBankView("subjects");
-                        if (questionBankView === "add" || questionBankView === "bulk") setQuestionBankView("bank");
                       }}
                     />
                   ) : (
@@ -815,7 +755,13 @@ export function AdminDashboard({
               </>
             )}
 
-            {section === "courses" && (
+            {section === "courses" && (managedQuiz ? (
+              <div className="space-y-4">
+                <SecondaryButton type="button" onClick={() => setManagedQuiz(null)}><ArrowLeft size={16} /> Back to Course</SecondaryButton>
+                <QuestionManager key={managedQuiz.quizId} context={managedQuiz} subject={managedQuiz.subject}
+                  courses={courses} questions={questions} onCreate={onAddQuestion} onUpdate={onUpdateQuestion} onImport={onImportQuestions} />
+              </div>
+            ) : (
               <CourseBuilder
                 courses={courses}
                 step={courseStep}
@@ -862,9 +808,11 @@ export function AdminDashboard({
                 onAddTopic={addTopic}
                 onAddSubtopic={addSubtopic}
                 onCreateQuizFromUpload={createQuizFromUpload}
+                onCreateEmptyQuiz={createEmptyQuiz}
+                onManageQuiz={manageQuiz}
                 onOpenStep={openCourseStep}
               />
-            )}
+            ))}
 
             {section === "questions" && (
               <QuestionBankFlow
@@ -875,13 +823,12 @@ export function AdminDashboard({
                 selectedSubject={selectedSubject}
                 questions={selectedSubjectQuestions}
                 questionCountsBySubject={questionCountsBySubject}
-                questionForm={questionForm}
+                courses={courses}
                 onChooseExam={chooseExam}
                 onChooseSubject={chooseSubject}
-                onQuestionFormChange={setQuestionForm}
-                onCreateQuestion={createQuestion}
-                onImportQuestions={importQuestions}
-                onDownloadTemplate={() => setMessage("Template download will use the selected exam and subject format.")}
+                onCreateQuestion={onAddQuestion}
+                onUpdateQuestion={onUpdateQuestion}
+                onImportQuestions={onImportQuestions}
               />
             )}
 
@@ -1336,6 +1283,8 @@ function CourseBuilder({
   onAddTopic,
   onAddSubtopic,
   onCreateQuizFromUpload,
+  onCreateEmptyQuiz,
+  onManageQuiz,
   onOpenStep,
 }: {
   courses: api.CourseContent[];
@@ -1371,6 +1320,8 @@ function CourseBuilder({
   onAddTopic: () => boolean | Promise<boolean>;
   onAddSubtopic: () => boolean | Promise<boolean>;
   onCreateQuizFromUpload: (file: File | null, onProgress?: (stage: number) => void) => boolean | Promise<boolean>;
+  onCreateEmptyQuiz: () => Promise<boolean>;
+  onManageQuiz: (moduleId: string, topicId: string, subtopicId: string, quizId: string) => void;
   onOpenStep: (step: CourseBuilderStep) => void;
 }) {
   const quizUploadRef = useRef<HTMLInputElement>(null);
@@ -1524,6 +1475,7 @@ function CourseBuilder({
               onAddTopic={openTopicModal}
               onAddSubtopic={openSubtopicModal}
               onAddQuiz={openQuizModal}
+              onManageQuiz={onManageQuiz}
               onPublishCourse={publishActiveCourse}
               onDeleteCourse={deleteActiveCourse}
             />
@@ -1636,6 +1588,9 @@ function CourseBuilder({
           onTitleChange={(title) => onQuizFormChange({ ...quizForm, title })}
           onCancel={closeQuizModal}
           onUpload={uploadQuizQuestions}
+          onCreateEmpty={onCreateEmptyQuiz}
+          settings={quizForm}
+          onSettingsChange={onQuizFormChange}
         />
       )}
     </section>
@@ -1864,21 +1819,29 @@ function QuizUploadModal({
   onTitleChange,
   onCancel,
   onUpload,
+  onCreateEmpty,
+  settings,
+  onSettingsChange,
 }: {
   title: string;
   onTitleChange: (value: string) => void;
   onCancel: () => void;
   onUpload: (file: File | null, onProgress?: (stage: number) => void) => Promise<boolean>;
+  onCreateEmpty: () => Promise<boolean>;
+  settings: typeof emptyQuizForm;
+  onSettingsChange: (settings: typeof emptyQuizForm) => void;
 }) {
   const inputId = "course-quiz-upload";
   const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "uploading" | "creating" | "done" | "error">("idle");
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
-  const uploading = status === "uploading";
+  const uploading = status === "uploading" || status === "creating";
+  const busyRef = useRef(false);
   const steps = ["Reading Excel file", "Creating quiz", "Saving questions"];
   const upload = async (selected: File) => {
-    if (uploading) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setFile(selected);
     setStatus("uploading");
     setStage(0);
@@ -1891,15 +1854,28 @@ function QuizUploadModal({
     } catch (error) {
       setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       setStatus("error");
-    }
+    } finally { busyRef.current = false; }
+  };
+  const createEmpty = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setStatus("creating");
+    setError("");
+    try {
+      if (!await onCreateEmpty()) throw new Error("Quiz could not be created.");
+      onCancel();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Quiz could not be created.");
+      setStatus("error");
+    } finally { busyRef.current = false; }
   };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#071a38]/45 px-4 py-6">
-      <div role="dialog" aria-modal="true" aria-labelledby="quiz-upload-title" aria-busy={uploading} className="w-full max-w-3xl rounded-xl border border-[#d5e2f0] bg-[#f6f7fb] p-6 shadow-[0_24px_90px_rgba(8,43,99,0.26)]">
+      <div role="dialog" aria-modal="true" aria-labelledby="quiz-upload-title" aria-busy={uploading} className="max-h-full w-full max-w-3xl overflow-y-auto rounded-xl border border-[#d5e2f0] bg-[#f6f7fb] p-6 shadow-[0_24px_90px_rgba(8,43,99,0.26)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <span className="text-xs font-black uppercase tracking-wide text-[#06479b]">Quiz</span>
-            <h3 id="quiz-upload-title" className="mt-1 text-2xl font-black text-[#10243f]">Add quiz questions</h3>
+            <h3 id="quiz-upload-title" className="mt-1 text-2xl font-black text-[#10243f]">Create Quiz</h3>
           </div>
           <button className="min-h-10 px-2 text-sm font-black text-[#596273] disabled:opacity-40" type="button" disabled={uploading} onClick={onCancel}>{status === "done" ? "Done" : "Cancel"}</button>
         </div>
@@ -1913,6 +1889,17 @@ function QuizUploadModal({
             onChange={(event) => onTitleChange(event.target.value)}
             autoFocus
           />
+          <fieldset disabled={uploading} className="grid gap-3 sm:grid-cols-3">
+            <Field label="Time limit (minutes)" type="number" value={String(settings.timeLimitMinutes)} onChange={(value) => onSettingsChange({ ...settings, timeLimitMinutes: Number(value) })} />
+            <Field label="Attempts allowed" type="number" value={String(settings.attemptsAllowed)} onChange={(value) => onSettingsChange({ ...settings, attemptsAllowed: Number(value) })} />
+            <Field label="Passing score (%)" type="number" value={String(settings.passingPercent)} onChange={(value) => onSettingsChange({ ...settings, passingPercent: Number(value) })} />
+          </fieldset>
+          <div className="rounded-lg border border-[#d5e2f0] bg-white p-4">
+            <p className="mb-3 text-sm text-[#5e7086]">Create an empty quiz, then add questions one at a time.</p>
+            <PrimaryButton type="button" disabled={uploading || !title.trim()} onClick={() => void createEmpty()}>
+              {status === "creating" ? "Creating…" : "Create Quiz & Add Questions"}
+            </PrimaryButton>
+          </div>
           <div className="grid min-h-72 place-items-center rounded-lg border-2 border-dashed border-[#8dbcf5] bg-white p-8 text-center">
             <div className="w-full min-w-0">
               {status === "done" ? <CheckCircle2 className="mx-auto text-emerald-600" size={46} /> : <UploadCloud className="mx-auto text-[#3867ee]" size={46} />}
@@ -1952,62 +1939,15 @@ function ShellActionButton({ label, onClick }: { label: string; onClick: () => v
   );
 }
 
-function QuestionBankActions({
-  view,
-  onAdd,
-  onBulk,
-  onBack,
-}: {
-  view: QuestionBankView;
-  onAdd: () => void;
-  onBulk: () => void;
-  onBack: () => void;
-}) {
+function QuestionBankActions({ view, onBack }: { view: QuestionBankView; onBack: () => void }) {
   if (view === "exams") return <DatePill />;
-
-  if (view === "add" || view === "bulk") {
-    return (
-      <SecondaryButton className="h-10 min-h-10 gap-2 border-0 bg-transparent px-0 text-xs" type="button" onClick={onBack}>
-        <ArrowLeft size={15} /> Back
-      </SecondaryButton>
-    );
-  }
-
-  if (view === "subjects") {
-    return (
-      <SecondaryButton className="h-10 min-h-10 gap-2 border-0 bg-transparent px-0 text-xs" type="button" onClick={onBack}>
-        <ArrowLeft size={15} /> Exams
-      </SecondaryButton>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      <PrimaryButton className="h-10 min-h-10 gap-2 rounded-md px-4 text-xs" type="button" onClick={onAdd}>
-        <Plus size={15} /> Add Question
-      </PrimaryButton>
-      <SecondaryButton className="h-10 min-h-10 gap-2 rounded-md px-4 text-xs" type="button" onClick={onBulk}>
-        <Upload size={15} /> Bulk Upload
-      </SecondaryButton>
-    </div>
-  );
+  return <SecondaryButton className="h-10 min-h-10 gap-2 border-0 bg-transparent px-0 text-xs" type="button" onClick={onBack}>
+    <ArrowLeft size={15} /> {view === "subjects" ? "Exams" : "Subjects"}
+  </SecondaryButton>;
 }
 
-function QuestionBankFlow({
-  view,
-  exams,
-  subjects,
-  selectedExam,
-  selectedSubject,
-  questions,
-  questionCountsBySubject,
-  questionForm,
-  onChooseExam,
-  onChooseSubject,
-  onQuestionFormChange,
-  onCreateQuestion,
-  onImportQuestions,
-  onDownloadTemplate,
+function QuestionBankFlow({ view, exams, subjects, selectedExam, selectedSubject, questions, courses,
+  questionCountsBySubject, onChooseExam, onChooseSubject, onCreateQuestion, onUpdateQuestion, onImportQuestions,
 }: {
   view: QuestionBankView;
   exams: ExamOption[];
@@ -2015,14 +1955,13 @@ function QuestionBankFlow({
   selectedExam: ExamOption;
   selectedSubject: SubjectOption;
   questions: Question[];
+  courses: api.CourseContent[];
   questionCountsBySubject: Map<string, number>;
-  questionForm: QuestionForm;
   onChooseExam: (examId: string) => void;
   onChooseSubject: (subjectId: string) => void;
-  onQuestionFormChange: (form: QuestionForm) => void;
-  onCreateQuestion: () => void;
-  onImportQuestions: (file: File | null) => void;
-  onDownloadTemplate: () => void;
+  onCreateQuestion: (input: QuestionInput) => Promise<void>;
+  onUpdateQuestion: (id: string, input: QuestionInput) => Promise<void>;
+  onImportQuestions: (questions: QuestionInput[]) => Promise<void>;
 }) {
   if (view === "exams") {
     return (
@@ -2058,170 +1997,11 @@ function QuestionBankFlow({
     );
   }
 
-  if (view === "add") {
-    return (
-      <div className="space-y-5">
-        <Breadcrumb items={["Question Bank", selectedExam.title, selectedSubject.title, "Add Question"]} />
-        <Panel title="Add Question">
-          <div className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <ReadOnlyField label="Exam" value={selectedExam.title} />
-              <ReadOnlyField label="Subject" value={selectedSubject.title} />
-              <Field label="Topic" value={questionForm.topic} onChange={(value) => onQuestionFormChange({ ...questionForm, topic: value })} />
-              <Select label="Question Type" value={questionForm.type} onChange={(value) => onQuestionFormChange({ ...questionForm, type: value as QuestionForm["type"] })}>
-                <option value="objective">Multiple Choice</option>
-                <option value="theory">Theory</option>
-              </Select>
-              <Select label="Year" value="2025" onChange={() => undefined}>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-              </Select>
-              <Select label="Difficulty" value={questionForm.difficulty} onChange={(value) => onQuestionFormChange({ ...questionForm, difficulty: value as QuestionForm["difficulty"] })}>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </Select>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[1fr_240px]">
-              <TextArea label="Question" value={questionForm.prompt} onChange={(value) => onQuestionFormChange({ ...questionForm, prompt: value })} />
-              <ImagePicker
-                imageUrl={questionForm.imageUrl}
-                onChange={(imageUrl) => onQuestionFormChange({ ...questionForm, imageUrl })}
-              />
-            </div>
-            {subjectUsesLatex(selectedSubject.id) && (
-              <LatexHelper
-                subject={selectedSubject.id}
-                value={questionForm.prompt}
-                onInsert={(snippet) =>
-                  onQuestionFormChange({
-                    ...questionForm,
-                    prompt: `${questionForm.prompt}${questionForm.prompt.endsWith(" ") || !questionForm.prompt ? "" : " "}${snippet}`,
-                  })
-                }
-              />
-            )}
-
-            {questionForm.type === "objective" && (
-              <div className="grid gap-3 xl:grid-cols-[1fr_320px]">
-                <div className="grid gap-2">
-                  {["A", "B", "C", "D"].map((label, index) => (
-                    <OptionField
-                      key={label}
-                      label={label}
-                      value={questionForm.options.split("\n")[index] ?? ""}
-                      onChange={(value) => {
-                        const options = questionForm.options.split("\n");
-                        options[index] = value;
-                        onQuestionFormChange({ ...questionForm, options: options.join("\n") });
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="grid gap-3">
-                  <Field label="Correct Answer" value={questionForm.answer} onChange={(value) => onQuestionFormChange({ ...questionForm, answer: value })} />
-                  <TextArea label="Explanation / Feedback" value={questionForm.explanation} onChange={(value) => onQuestionFormChange({ ...questionForm, explanation: value })} />
-                </div>
-              </div>
-            )}
-
-            {questionForm.type === "theory" && (
-              <div className="grid gap-3 xl:grid-cols-2">
-                <Field label="Model Answer" value={questionForm.answer} onChange={(value) => onQuestionFormChange({ ...questionForm, answer: value })} />
-                <TextArea label="Explanation / Feedback" value={questionForm.explanation} onChange={(value) => onQuestionFormChange({ ...questionForm, explanation: value })} />
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <SecondaryButton className="h-10 min-h-10 rounded-md px-8 text-xs" type="button">Save as Draft</SecondaryButton>
-              <PrimaryButton className="h-10 min-h-10 gap-2 rounded-md px-8 text-xs" type="button" onClick={onCreateQuestion}>
-                Save & Add Next <ArrowRight size={15} />
-              </PrimaryButton>
-            </div>
-          </div>
-        </Panel>
-      </div>
-    );
-  }
-
-  if (view === "bulk") {
-    return (
-      <div className="space-y-5">
-        <Breadcrumb items={["Question Bank", selectedExam.title, selectedSubject.title, "Bulk Upload"]} />
-        <Panel
-          title="Bulk Upload Questions"
-          toolbar={
-            <SecondaryButton className="h-10 min-h-10 gap-2 rounded-md px-4 text-xs" type="button" onClick={onDownloadTemplate}>
-              <Download size={15} /> Download Template
-            </SecondaryButton>
-          }
-        >
-          <div className="mb-4 flex items-center gap-3 rounded-lg bg-[#edf5ff] p-4 text-sm font-bold text-[#10243f]">
-            <SubjectIconBadge subject={selectedSubject} />
-            <span>
-              You are uploading to:
-              <strong className="ml-2">{selectedExam.title} | {selectedSubject.title}</strong>
-            </span>
-          </div>
-          <label className="grid min-h-56 cursor-pointer place-items-center rounded-lg border-2 border-dashed border-[#8dbcf5] bg-[#f8fbff] p-8 text-center">
-            <span>
-              <UploadCloud className="mx-auto text-[#06479b]" size={42} />
-              <strong className="mt-4 block text-base font-black">Drag and drop your Excel file here</strong>
-              <span className="mt-2 inline-flex rounded-md border border-[#8dbcf5] bg-white px-5 py-2 text-sm font-black text-[#06479b]">Browse File</span>
-              <small className="mt-3 block font-semibold text-[#5e7086]">Supports: .xlsx, .xls</small>
-            </span>
-            <input className="sr-only" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => onImportQuestions(event.target.files?.[0] ?? null)} />
-          </label>
-          <div className="mt-4 rounded-lg bg-[#edf5ff] p-4 text-sm font-semibold text-[#06479b]">
-            <strong className="mb-2 flex items-center gap-2 text-[#10243f]"><FileSpreadsheet size={16} /> Follow these steps:</strong>
-            <ol className="ml-5 list-decimal space-y-1">
-              <li>Download the template and fill in your questions.</li>
-              <li>Upload the completed file.</li>
-              <li>Preview and correct errors before import.</li>
-              <li>Import your questions.</li>
-            </ol>
-          </div>
-        </Panel>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      <Breadcrumb items={["Question Bank", selectedExam.title, selectedSubject.title]} />
-      <Panel
-        title={`${selectedSubject.title} Question Bank`}
-        toolbar={<span className="rounded-md bg-violet-50 px-4 py-2 text-xs font-black text-violet-700">{questions.length} Questions</span>}
-      >
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 text-sm font-semibold text-[#5e7086]">
-            <Search size={15} />
-            <input className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search questions, topics or keywords..." type="search" />
-          </label>
-          <FilterPills labels={["All Topics", "All Types"]} />
-        </div>
-        <DataTable
-          headers={["", "#", "Question", "Topic", "Type", "Linked To", "Status", "Actions"]}
-          rows={questions.map((question, index) => [
-            <input key="select" aria-label={`Select question ${index + 1}`} type="checkbox" />,
-            String(index + 1),
-            <span className="line-clamp-3 max-w-xl" key="prompt">{question.prompt}</span>,
-            question.topic,
-            question.type === "objective" ? "MCQ" : "Theory",
-            <span className="text-xs font-black text-[#5e7086]" key="linked">
-              {question.quizId ? "Quiz" : question.subtopicId ? "Subtopic" : question.courseId ? "Course" : "Unassigned"}
-            </span>,
-            <StatusBadge key="status" tone={question.quizId || question.subtopicId ? "available" : "neutral"}>
-              {question.quizId || question.subtopicId ? "Frontend ready" : "Question bank"}
-            </StatusBadge>,
-            <MoreHorizontal key="more" size={18} className="text-[#06479b]" />,
-          ])}
-        />
-      </Panel>
-    </div>
-  );
+  return <div className="space-y-5">
+    <Breadcrumb items={["Question Bank", selectedExam.title, selectedSubject.title]} />
+    <QuestionManager key={selectedSubject.id} subject={selectedSubject.id} questions={questions} courses={courses}
+      onCreate={onCreateQuestion} onUpdate={onUpdateQuestion} onImport={onImportQuestions} />
+  </div>;
 }
 
 function ExamCard({ exam, questions, onClick }: { exam: ExamOption; questions: number; onClick: () => void }) {
@@ -2272,16 +2052,6 @@ function SubjectCard({ subject, questions, onClick }: { subject: SubjectOption; 
   );
 }
 
-function SubjectIconBadge({ subject }: { subject: SubjectOption }) {
-  const Icon = subject.icon;
-
-  return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${accentClasses(subject.accent).icon}`}>
-      <Icon size={20} />
-    </span>
-  );
-}
-
 function Breadcrumb({ items }: { items: string[] }) {
   return (
     <nav className="flex flex-wrap items-center gap-2 text-xs font-black text-[#5e7086]" aria-label="Question bank breadcrumb">
@@ -2309,47 +2079,11 @@ function ExamHero({ exam }: { exam: ExamOption }) {
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="grid gap-1 text-xs font-black text-[#5e7086]">
-      {label}
-      <span className="flex h-10 items-center rounded-md border border-[#d5e2f0] bg-[#eef3f8] px-3 text-sm font-semibold text-[#10243f]">
-        {value}
-      </span>
-    </label>
-  );
-}
-
-function OptionField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-xs font-black text-[#5e7086]">
-      <span className="grid h-9 w-9 place-items-center rounded-md border border-[#8dbcf5] bg-[#edf5ff] text-[#06479b]">{label}</span>
-      <input
-        className="h-10 min-w-0 flex-1 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 text-sm font-semibold text-[#10243f] outline-none focus:border-[#06479b]"
-        placeholder={`Enter option ${label}`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
 function Field({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (value: string) => void }) {
   return (
     <label className="grid gap-1 text-xs font-black text-[#5e7086]">
       {label}
       <input className="h-10 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 text-sm font-semibold text-[#10243f] outline-none focus:border-[#06479b]" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
-  return (
-    <label className="grid gap-1 text-xs font-black text-[#5e7086]">
-      {label}
-      <select className="h-10 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 text-sm font-semibold text-[#10243f] outline-none focus:border-[#06479b]" value={value} onChange={(event) => onChange(event.target.value)}>
-        {children}
-      </select>
     </label>
   );
 }
@@ -2363,115 +2097,11 @@ function TextArea({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
-function LatexHelper({
-  subject,
-  value,
-  onInsert,
-}: {
-  subject: string;
-  value: string;
-  onInsert: (snippet: string) => void;
-}) {
-  const snippets = latexSnippets(subject);
-
-  return (
-    <div className="rounded-lg border border-[#b8d8ff] bg-[#edf5ff] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2 text-sm font-black text-[#06479b]">
-          <Sigma size={17} /> LaTeX enabled
-        </span>
-        <span className="text-xs font-bold text-[#5e7086]">{subject}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {snippets.map((snippet) => (
-          <button
-            className="rounded-md border border-[#b8d8ff] bg-white px-3 py-2 text-xs font-black text-[#06479b] transition hover:border-[#06479b] hover:bg-[#f8fbff]"
-            key={snippet.label}
-            type="button"
-            onClick={() => onInsert(snippet.value)}
-          >
-            {snippet.label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-3 rounded-md border border-[#d5e2f0] bg-white p-3 text-sm font-semibold text-[#10243f]">
-        <strong className="mb-2 block text-xs font-black uppercase text-[#5e7086]">Preview</strong>
-        <MathContent>{value || "$x^2$"}</MathContent>
-      </div>
-    </div>
-  );
-}
-
-function ImagePicker({ imageUrl, onChange }: { imageUrl: string; onChange: (imageUrl: string) => void }) {
-  const [error, setError] = useState("");
-
-  const handleFile = async (file: File | null) => {
-    setError("");
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("Choose a valid image file.");
-      return;
-    }
-
-    if (file.size > 1_500_000) {
-      setError("Choose an image smaller than 1.5 MB.");
-      return;
-    }
-
-    try {
-      onChange(await readFileAsDataUrl(file));
-    } catch {
-      setError("Image could not be loaded.");
-    }
-  };
-
-  return (
-    <div className="grid gap-2">
-      <label className="flex min-h-20 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#b8d8ff] bg-[#edf5ff] px-3 text-center text-sm font-black text-[#06479b] transition hover:border-[#06479b]">
-        <ImageIcon size={17} /> {imageUrl ? "Replace Image / Diagram" : "Add Image / Diagram"}
-        <input
-          className="sr-only"
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
-        />
-      </label>
-      {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
-      {imageUrl && (
-        <div className="rounded-md border border-[#d5e2f0] bg-white p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="max-h-40 w-full rounded object-contain" src={imageUrl} alt="Question diagram preview" />
-          <button
-            className="mt-2 inline-flex h-8 w-full items-center justify-center gap-2 rounded-md bg-rose-50 px-3 text-xs font-black text-rose-600 transition hover:bg-rose-100"
-            type="button"
-            onClick={() => onChange("")}
-          >
-            <Trash2 size={14} /> Remove image
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DatePill() {
   return (
     <span className="inline-flex h-10 items-center gap-2 rounded-md border border-[#d5e2f0] bg-white px-3 text-xs font-black text-[#5e7086]">
       Sep 22, 2026 <CalendarDays size={15} />
     </span>
-  );
-}
-
-function FilterPills({ labels }: { labels: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {labels.map((label, index) => (
-        <button className={`rounded-md px-3 py-1.5 text-xs font-black ${index === 0 ? "bg-[#06479b] text-white" : "bg-[#edf5ff] text-[#06479b]"}`} key={label} type="button">
-          {label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -2600,44 +2230,6 @@ function accentClasses(accent: ExamOption["accent"] | SubjectOption["accent"]) {
   }[accent];
 }
 
-function subjectUsesLatex(subject: string) {
-  return ["Mathematics", "Physics", "Chemistry"].includes(subject);
-}
-
-function latexSnippets(subject: string) {
-  const common = [
-    { label: "Inline", value: "$x^2$" },
-    { label: "Display", value: "$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$" },
-    { label: "Fraction", value: "$\\frac{a}{b}$" },
-    { label: "Root", value: "$\\sqrt{x}$" },
-  ];
-
-  if (subject === "Physics") {
-    return [
-      ...common,
-      { label: "Vector", value: "$\\vec{F}$" },
-      { label: "Unit", value: "$\\mathrm{m\\,s^{-2}}$" },
-      { label: "Dimension", value: "$MLT^{-2}$" },
-    ];
-  }
-
-  if (subject === "Chemistry") {
-    return [
-      ...common,
-      { label: "Formula", value: "$\\mathrm{H_2O}$" },
-      { label: "Ion", value: "$\\mathrm{Na^+}$" },
-      { label: "State", value: "$\\mathrm{CO_2(g)}$" },
-    ];
-  }
-
-  return [
-    ...common,
-    { label: "Power", value: "$a^n$" },
-    { label: "Subscript", value: "$x_1$" },
-    { label: "Integral", value: "$\\int_0^1 x\\,dx$" },
-  ];
-}
-
 function estimatedExamQuestions(exam: ExamOption, questionCountsBySubject: Map<string, number>) {
   const actual = subjectCatalog.reduce((sum, subject) => sum + (questionCountsBySubject.get(subject.id) ?? 0), 0);
   const fallback = { ssce: 1420, utme: 980, jupeb: 640, ijmb: 520 }[exam.id] ?? 0;
@@ -2647,16 +2239,12 @@ function estimatedExamQuestions(exam: ExamOption, questionCountsBySubject: Map<s
 function getQuestionPageTitle(view: QuestionBankView, exam: ExamOption, subject: SubjectOption) {
   if (view === "subjects") return exam.title;
   if (view === "bank") return subject.title;
-  if (view === "add") return "Add Question";
-  if (view === "bulk") return "Bulk Upload Questions";
   return "Question Bank";
 }
 
 function getQuestionPageSubtitle(view: QuestionBankView, exam: ExamOption, subject: SubjectOption) {
   if (view === "subjects") return "Choose a subject under the selected exam.";
   if (view === "bank") return `View, search, and manage questions for ${exam.title} - ${subject.title}.`;
-  if (view === "add") return `Create a new question for ${exam.title} - ${subject.title}.`;
-  if (view === "bulk") return `Upload multiple questions for ${exam.title} - ${subject.title}.`;
   return "Select an examination to manage questions.";
 }
 
@@ -2706,18 +2294,6 @@ function initials(name: string) {
     .join("") || "TA";
 }
 
-function nextQuestionId(questions: Question[]) {
-  return String(Math.max(0, ...questions.map((question) => Number(question.id) || 0)) + 1);
-}
-
-function lines(value: string) {
-  return value.split("\n").map((item) => item.trim()).filter(Boolean);
-}
-
-function commaList(value: string) {
-  return value.split(",").map((item) => item.trim()).filter(Boolean);
-}
-
 function slugCode(value: string) {
   return value
     .trim()
@@ -2725,20 +2301,4 @@ function slugCode(value: string) {
     .replace(/[^A-Z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 24) || "COURSE";
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("File reader returned an unsupported result."));
-    });
-    reader.addEventListener("error", () => reject(reader.error ?? new Error("File could not be read.")));
-    reader.readAsDataURL(file);
-  });
 }

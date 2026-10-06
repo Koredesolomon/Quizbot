@@ -1,28 +1,4 @@
-import {
-  Bold,
-  Code2,
-  FileText,
-  Heading2,
-  Heading3,
-  Heading4,
-  ImageIcon,
-  Italic,
-  Link,
-  List,
-  ListOrdered,
-  Quote,
-  Redo2,
-  Sigma,
-  Strikethrough,
-  Subscript,
-  Superscript,
-  Trash2,
-  Underline,
-  Undo2,
-  Upload,
-  X,
-} from "lucide-react";
-import type { ComponentType } from "react";
+import { FileText, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import {
   dedupeAttachments,
@@ -32,52 +8,8 @@ import {
 } from "@/lib/answer-attachments";
 import type { Question } from "@/types/platform";
 import { MathContent } from "./math-content";
+import { MathTextEditor } from "./math-text-editor";
 import { BackButton, PrimaryButton, SecondaryButton } from "./ui";
-
-type AnswerTool =
-  | "bold"
-  | "italic"
-  | "underline"
-  | "strike"
-  | "code"
-  | "h2"
-  | "h3"
-  | "h4"
-  | "bullet"
-  | "numbered"
-  | "quote"
-  | "link"
-  | "superscript"
-  | "subscript"
-  | "image"
-  | "undo"
-  | "redo"
-  | "equation";
-
-const answerTools: {
-  label: string;
-  command: AnswerTool;
-  icon: ComponentType<{ "aria-hidden"?: "true"; size?: number; strokeWidth?: number }>;
-}[] = [
-  { label: "Bold", command: "bold", icon: Bold },
-  { label: "Italic", command: "italic", icon: Italic },
-  { label: "Underline", command: "underline", icon: Underline },
-  { label: "Strikethrough", command: "strike", icon: Strikethrough },
-  { label: "Code", command: "code", icon: Code2 },
-  { label: "Heading 2", command: "h2", icon: Heading2 },
-  { label: "Heading 3", command: "h3", icon: Heading3 },
-  { label: "Heading 4", command: "h4", icon: Heading4 },
-  { label: "Bullet list", command: "bullet", icon: List },
-  { label: "Numbered list", command: "numbered", icon: ListOrdered },
-  { label: "Quote", command: "quote", icon: Quote },
-  { label: "Link", command: "link", icon: Link },
-  { label: "Superscript", command: "superscript", icon: Superscript },
-  { label: "Subscript", command: "subscript", icon: Subscript },
-  { label: "Image note", command: "image", icon: ImageIcon },
-  { label: "Undo", command: "undo", icon: Undo2 },
-  { label: "Redo", command: "redo", icon: Redo2 },
-  { label: "Equation", command: "equation", icon: Sigma },
-];
 
 export function TestInterface({
   questions,
@@ -313,99 +245,12 @@ function WordAnswerBox({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadMessage, setUploadMessage] = useState("");
   const answer = useMemo(() => parseAnswerValue(value), [value]);
 
-  const focusTextarea = () => textareaRef.current?.focus();
-
   const updateAnswer = (nextText: string, nextAttachments = answer.attachments) => {
-    onChange(serializeAnswerValue(normalizeEditableMath(nextText), nextAttachments));
-  };
-
-  const updateSelection = (nextValue: string, start: number, end = start) => {
-    updateAnswer(nextValue);
-    requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      textarea.focus();
-      textarea.setSelectionRange(start, end);
-    });
-  };
-
-  const wrapSelection = (before: string, after = before, fallback = "answer") => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, selectionEnd } = textarea;
-    const selected = answer.text.slice(selectionStart, selectionEnd) || fallback;
-    const nextValue = `${answer.text.slice(0, selectionStart)}${before}${selected}${after}${answer.text.slice(selectionEnd)}`;
-    const cursorStart = selectionStart + before.length;
-    updateSelection(nextValue, cursorStart, cursorStart + selected.length);
-  };
-
-  const insertBlock = (prefix: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, selectionEnd } = textarea;
-    const lineStart = answer.text.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
-    const needsBreak = lineStart === 0 ? "" : answer.text[lineStart - 1] === "\n" ? "" : "\n";
-    const selected = answer.text.slice(selectionStart, selectionEnd) || "Type here";
-    const nextValue = `${answer.text.slice(0, lineStart)}${needsBreak}${prefix}${selected}${answer.text.slice(selectionEnd)}`;
-    const cursorStart = lineStart + needsBreak.length + prefix.length;
-    updateSelection(nextValue, cursorStart, cursorStart + selected.length);
-  };
-
-  const insertText = (text: string, cursorOffset = text.length) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, selectionEnd } = textarea;
-    const nextValue = `${answer.text.slice(0, selectionStart)}${text}${answer.text.slice(selectionEnd)}`;
-    updateSelection(nextValue, selectionStart + cursorOffset);
-  };
-
-  const replaceMathTarget = (template: (selected: string) => string, fallback = "x", selectInside = false) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const range = getMathTargetRange(answer.text, textarea.selectionStart, textarea.selectionEnd);
-    const selected = answer.text.slice(range.start, range.end).trim() || fallback;
-    const replacement = template(stripMathDelimiters(selected));
-    const nextValue = `${answer.text.slice(0, range.start)}${replacement}${answer.text.slice(range.end)}`;
-    const selectedStart = selectInside ? range.start + replacement.indexOf(stripMathDelimiters(selected)) : range.start + replacement.length;
-    const selectedEnd = selectInside ? selectedStart + stripMathDelimiters(selected).length : selectedStart;
-
-    updateSelection(nextValue, selectedStart, selectedEnd);
-  };
-
-  const runNativeEdit = (command: "undo" | "redo") => {
-    focusTextarea();
-    document.execCommand(command);
-  };
-
-  const applyTool = (command: AnswerTool) => {
-    const actions: Record<AnswerTool, () => void> = {
-      bold: () => wrapSelection("**"),
-      italic: () => wrapSelection("_"),
-      underline: () => wrapSelection("<u>", "</u>"),
-      strike: () => wrapSelection("~~"),
-      code: () => wrapSelection("`"),
-      h2: () => insertBlock("## "),
-      h3: () => insertBlock("### "),
-      h4: () => insertBlock("#### "),
-      bullet: () => insertBlock("- "),
-      numbered: () => insertBlock("1. "),
-      quote: () => insertBlock("> "),
-      link: () => wrapSelection("[", "](https://)", "link text"),
-      superscript: () => replaceMathTarget((selected) => `${selected}${toSuperscript("2")}`, "x"),
-      subscript: () => replaceMathTarget((selected) => `${selected}${toSubscript("2")}`, "x"),
-      image: () => insertText("[image: describe your diagram]"),
-      undo: () => runNativeEdit("undo"),
-      redo: () => runNativeEdit("redo"),
-      equation: () => insertText("∑"),
-    };
-
-    actions[command]();
+    onChange(serializeAnswerValue(nextText, nextAttachments));
   };
 
   const handleFiles = (files: FileList | null) => {
@@ -448,37 +293,14 @@ function WordAnswerBox({
 
   return (
     <div className="content-rise mt-6">
-      <div className="focus-glow overflow-hidden rounded-lg border border-sky-300 bg-white shadow-sm shadow-sky-100 transition focus-within:border-emerald-500">
-        <div className="flex min-h-10 flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-3 py-2">
-          {answerTools.map(({ label, command, icon: Icon }, index) => (
-            <button
-              aria-label={label}
-              className={`grid h-8 w-8 place-items-center rounded-md text-slate-500 transition hover:-translate-y-0.5 hover:bg-white hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-emerald-300 active:translate-y-0 ${
-                index === 5 || index === 8 || index === 11 || index === 15 ? "ml-1 border-l border-slate-200 pl-1" : ""
-              }`}
-              key={label}
-              title={label}
-              type="button"
-              onClick={() => applyTool(command)}
-            >
-              <Icon aria-hidden="true" size={15} strokeWidth={2.1} />
-            </button>
-          ))}
-        </div>
-        <textarea
-          aria-label={`Answer for question ${questionId}`}
-          className="min-h-44 w-full resize-y border-0 bg-white px-4 py-4 text-base leading-7 text-slate-900 outline-none placeholder:text-slate-400"
-          ref={textareaRef}
-          value={answer.text}
-          onChange={(event) => updateAnswer(event.target.value)}
-          placeholder="Write your answer (supports LaTeX)"
-        />
-        <div className="border-t border-slate-200 bg-white px-4 py-3">
-          <strong className="text-xs font-black uppercase text-slate-500">Preview</strong>
-          <div className="mt-2 min-h-8 rounded-md bg-slate-50 px-3 py-2 text-base font-semibold leading-7 text-slate-900">
-            {answer.text.trim() ? <MathContent>{answer.text}</MathContent> : <span className="text-sm text-slate-400">LaTeX preview appears here.</span>}
-          </div>
-        </div>
+      <MathTextEditor
+        key={questionId}
+        label={`Answer for question ${questionId}`}
+        value={answer.text}
+        onChange={updateAnswer}
+        placeholder="Write your answer (supports LaTeX)"
+        imageNote
+      >
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
@@ -528,112 +350,9 @@ function WordAnswerBox({
             </div>
           )}
         </div>
-      </div>
+      </MathTextEditor>
     </div>
   );
-}
-
-function getMathTargetRange(value: string, selectionStart: number, selectionEnd: number) {
-  if (selectionStart !== selectionEnd) return { start: selectionStart, end: selectionEnd };
-
-  let start = selectionStart;
-  let end = selectionEnd;
-
-  while (start > 0 && isMathTokenCharacter(value[start - 1])) start -= 1;
-  while (end < value.length && isMathTokenCharacter(value[end])) end += 1;
-
-  if (start === end) return { start: selectionStart, end: selectionEnd };
-  return { start, end };
-}
-
-function isMathTokenCharacter(character: string | undefined) {
-  return Boolean(character && /[A-Za-z0-9\\{}[\]()+\-*/=.,_^]/.test(character));
-}
-
-function stripMathDelimiters(value: string) {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("$$") && trimmed.endsWith("$$")) return trimmed.slice(2, -2).trim();
-  if (trimmed.startsWith("$") && trimmed.endsWith("$")) return trimmed.slice(1, -1).trim();
-  if (trimmed.startsWith("\\(") && trimmed.endsWith("\\)")) return trimmed.slice(2, -2).trim();
-  if (trimmed.startsWith("\\[") && trimmed.endsWith("\\]")) return trimmed.slice(2, -2).trim();
-  return trimmed;
-}
-
-function normalizeEditableMath(value: string): string {
-  return value
-    .replace(/\$([^$\n]+)\$/g, (_, expression: string) => normalizeInlineExpression(expression))
-    .replace(/\\\((.*?)\\\)/g, (_, expression: string) => normalizeInlineExpression(expression))
-    .replace(/\^\{([^{}\n]+)\}/g, (_, exponent: string) => toSuperscript(exponent))
-    .replace(/_\{([^{}\n]+)\}/g, (_, subscript: string) => toSubscript(subscript))
-    .replace(/\^(-?\d+)/g, (_, exponent: string) => toSuperscript(exponent))
-    .replace(/_(\d+)/g, (_, subscript: string) => toSubscript(subscript));
-}
-
-function normalizeInlineExpression(value: string): string {
-  return normalizeEditableMath(value.trim());
-}
-
-function toSuperscript(value: string) {
-  const map: Record<string, string> = {
-    "0": "⁰",
-    "1": "¹",
-    "2": "²",
-    "3": "³",
-    "4": "⁴",
-    "5": "⁵",
-    "6": "⁶",
-    "7": "⁷",
-    "8": "⁸",
-    "9": "⁹",
-    "+": "⁺",
-    "-": "⁻",
-    "=": "⁼",
-    "(": "⁽",
-    ")": "⁾",
-    n: "ⁿ",
-    i: "ⁱ",
-  };
-
-  return value.split("").map((character) => map[character] ?? character).join("");
-}
-
-function toSubscript(value: string) {
-  const map: Record<string, string> = {
-    "0": "₀",
-    "1": "₁",
-    "2": "₂",
-    "3": "₃",
-    "4": "₄",
-    "5": "₅",
-    "6": "₆",
-    "7": "₇",
-    "8": "₈",
-    "9": "₉",
-    "+": "₊",
-    "-": "₋",
-    "=": "₌",
-    "(": "₍",
-    ")": "₎",
-    a: "ₐ",
-    e: "ₑ",
-    h: "ₕ",
-    i: "ᵢ",
-    j: "ⱼ",
-    k: "ₖ",
-    l: "ₗ",
-    m: "ₘ",
-    n: "ₙ",
-    o: "ₒ",
-    p: "ₚ",
-    r: "ᵣ",
-    s: "ₛ",
-    t: "ₜ",
-    u: "ᵤ",
-    v: "ᵥ",
-    x: "ₓ",
-  };
-
-  return value.split("").map((character) => map[character] ?? character).join("");
 }
 
 function isSupportedAnswerFile(file: File) {

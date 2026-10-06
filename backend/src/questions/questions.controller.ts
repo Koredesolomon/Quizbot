@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { JwtUser } from "../common/jwt-user.type";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { CreateQuestionDto, ImportQuestionsDto } from "./dto";
+import { CreateQuestionDto, ImportQuestionsDto, UpdateQuestionDto } from "./dto";
 import { QuestionsService } from "./questions.service";
 
 @Controller("questions")
@@ -28,5 +28,12 @@ export class QuestionsController {
   @Roles("admin")
   import(@Body() body: ImportQuestionsDto, @CurrentUser() user: JwtUser) {
     return this.questions.import(body.questions, user.sub);
+  }
+
+  @Patch(":id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  update(@Param("id") id: string, @Body() body: UpdateQuestionDto) {
+    return this.questions.update(id, body);
   }
 }

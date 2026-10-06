@@ -36,6 +36,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 Admin question saves require a backend admin session. Successful form and import actions are persisted to MongoDB through the Nest API.
 
+To add questions without a spreadsheet, open a course's subtopic, choose **Add Quiz**, enter a title, and select
+**Create Quiz & Add Questions**. In **Manage Questions**, use **Add Question** for MCQ or theory questions,
+including marks, explanations, images, LaTeX, and grading metadata. **Save & Add Another** keeps the editor open
+for the next question.
+
+Every quiz has **Manage Questions** with **Preview** and **Edit** actions for both manual and imported questions.
+**Save Changes** updates the existing record rather than importing a duplicate. Quiz links are preserved unless
+an admin explicitly changes the assignment from the **Question Bank** editor. The question bank also supports
+standalone questions, optional quiz assignment, search, topic/type filters, and an Excel template download.
+Save and import errors are shown before reporting success.
+
 Question uploads can include AI engine metadata:
 
 ```json
@@ -162,6 +173,13 @@ fails the deployment. This workflow updates the checkout in place and does not p
 ## LaTeX in Questions and Answers
 
 Admin question entry and JSON imports support LaTeX inside normal text fields. Use `$...$` for inline math and `$$...$$` for display equations.
+
+The admin question field and student answer field share a rich-text editor. Formatting and equations
+render directly inside the editable box, without a separate preview. Click an equation to edit it.
+Choose **Equation** to insert inline or display LaTeX, with templates for fractions, roots, powers,
+subscripts, integrals, and sums. Equation source is preserved when typing, saving, and reopening questions.
+The superscript and subscript toolbar buttons let you enter a custom number, symbol, or expression.
+Click an existing equation to change its script values using the labeled fields.
 
 ```json
 {

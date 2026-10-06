@@ -50,6 +50,7 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
 - `GET /questions`
 - `POST /questions` admin only
 - `POST /questions/import` admin only
+- `PATCH /questions/:id` admin only (edit a manual or imported question)
 - `POST /attempts/start`
 - `POST /attempts/:id/submit`
 - `POST /feedback`

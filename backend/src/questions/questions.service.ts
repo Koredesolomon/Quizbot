@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { CreateQuestionDto } from "./dto";
+import { CreateQuestionDto, UpdateQuestionDto } from "./dto";
 import { Question, QuestionDocument } from "./question.schema";
 
 @Injectable()
@@ -27,11 +27,27 @@ export class QuestionsService {
   async import(questions: CreateQuestionDto[], adminId: string) {
     const savedQuestions = [];
 
+    // Validate the whole upload before persisting any of its questions.
+    questions.forEach((question) => this.validateQuestion(question));
+
     for (const question of questions) {
       savedQuestions.push(await this.create(question, adminId));
     }
 
     return savedQuestions;
+  }
+
+  async update(id: string, input: UpdateQuestionDto) {
+    if (!Types.ObjectId.isValid(id)) throw new BadRequestException("Invalid question ID.");
+    const question = await this.findById(id);
+    const updated = { ...question.toObject(), ...input };
+    this.validateQuestion(updated);
+
+    question.set(input);
+    if (updated.type === "theory") question.options = undefined;
+    if (updated.type === "objective") question.keywords = undefined;
+    await question.save();
+    return this.publicQuestion(question);
   }
 
   async findById(id: string) {
@@ -48,8 +64,27 @@ export class QuestionsService {
   }
 
   private validateQuestion(input: CreateQuestionDto) {
-    if (input.type === "objective" && (!input.options || input.options.length < 2)) {
-      throw new BadRequestException("Objective questions need at least two options.");
+    if (input.type !== "objective" && input.type !== "theory") {
+      throw new BadRequestException("Select a valid question type.");
+    }
+    for (const field of ["topic", "prompt", "answer", "explanation"] as const) {
+      if (typeof input[field] !== "string" || !input[field].trim()) {
+        throw new BadRequestException(`Enter a valid ${field}.`);
+      }
+    }
+    if (!Number.isInteger(input.marks) || input.marks < 1) {
+      throw new BadRequestException("Marks must be a positive whole number.");
+    }
+    if (input.type === "objective") {
+      if (!input.options || input.options.length < 2 || input.options.some((option) => !option.trim())) {
+        throw new BadRequestException("Objective questions need at least two non-empty options.");
+      }
+      const answer = input.answer.trim();
+      const letter = answer.match(/^(?:option\s*)?([A-E])[).:-]?$/i);
+      const isOption = input.options.some((option) => option.trim().toLowerCase() === answer.toLowerCase());
+      if (!isOption && !(letter && input.options[letter[1].toUpperCase().charCodeAt(0) - 65])) {
+        throw new BadRequestException("Select a correct answer from the question options.");
+      }
     }
   }
 
