@@ -1,9 +1,11 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { QuestionsService } from "../questions/questions.service";
 import type { QuestionDocument } from "../questions/question.schema";
-import { Answer, AnswerDocument } from "./answer.schema";
+import type { AnswerDocument } from "./answer.schema";
+import { randomUUID } from "node:crypto";
+import { ContentService } from "../content/content.service";
 import { Attempt, AttemptDocument } from "./attempt.schema";
 import { AiMarkerService } from "./ai-marker.service";
 import { SubmitAnswerDto } from "./dto";
@@ -16,70 +18,121 @@ type PopulatedStudent = {
 
 @Injectable()
 export class AttemptsService {
+  private readonly logger = new Logger(AttemptsService.name);
+
   constructor(
     @InjectModel(Attempt.name) private readonly attemptModel: Model<AttemptDocument>,
-    @InjectModel(Answer.name) private readonly answerModel: Model<AnswerDocument>,
     private readonly questions: QuestionsService,
-    private readonly aiMarker: AiMarkerService
+    private readonly aiMarker: AiMarkerService,
+    private readonly content: ContentService
   ) {}
 
-  async start(studentId: string) {
+  async start(studentId: string, quizId: string) {
+    const context = await this.content.findPublishedQuiz(quizId);
+    const quizQuestions = await this.questions.forQuiz(quizId);
+    if (!quizQuestions.length) throw new BadRequestException("This quiz has no questions yet.");
     const attempt = await this.attemptModel.create({
       studentId: new Types.ObjectId(studentId),
+      courseId: context.courseId,
+      quizId,
+      questionSnapshots: quizQuestions.map((question) => question.toObject()),
+      questionCount: quizQuestions.length,
       status: "active",
       startedAt: new Date(),
       score: 0,
-      totalMarks: await this.questions.totalMarks(),
+      totalMarks: quizQuestions.reduce((sum, question) => sum + question.marks, 0),
       percent: 0,
     });
 
-    return this.publicAttempt(attempt);
+    return {
+      attempt: this.publicAttempt(attempt),
+      questions: quizQuestions.map((question) => this.questions.publicPrompt(question)),
+    };
   }
 
   async submit(attemptId: string, studentId: string, answers: SubmitAnswerDto[]) {
     const attempt = await this.findOwnedAttempt(attemptId, studentId);
-    const markedAnswers = await Promise.all(answers.map((answer) => this.markAnswer(attempt.id, answer)));
-    const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
-    const totalMarks = markedAnswers.reduce((sum, answer) => sum + answer.question.marks, 0);
-    const percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
-    const aiSummary = await this.aiMarker.reviewCompletedTest(
-      {
-        score,
-        totalMarks,
-        percent,
-        answers: markedAnswers.map((answer) => ({
-          topic: answer.question.topic,
-          prompt: answer.question.prompt,
-          modelAnswer: answer.question.answer,
-          explanation: answer.question.explanation,
-          difficulty: answer.question.difficulty,
-          learningObjective: answer.question.learningObjective,
-          rubricPoints: answer.question.rubricPoints ?? [],
-          commonMistakes: answer.question.commonMistakes ?? [],
-          studentAnswer: answer.answer,
-          awarded: answer.awarded,
-          marks: answer.question.marks,
-          correct: answer.correct,
-        })),
-      },
-      this.fallbackTestSummary(score, totalMarks, percent, markedAnswers)
-    );
+    if (attempt.status !== "active") throw new ConflictException("This attempt has already been submitted.");
+    const snapshots = attempt.questionSnapshots;
+    if (!snapshots?.length) {
+      throw new ConflictException("This attempt predates secure quiz grading. Please start a new test.");
+    }
+    const expectedIds = new Set(snapshots.map((question) => question._id.toString()));
+    const submitted = new Map<string, string>();
+    for (const answer of answers) {
+      if (submitted.has(answer.questionId)) throw new BadRequestException("Each question can only be answered once.");
+      if (!expectedIds.has(answer.questionId)) throw new BadRequestException("This question does not belong to your attempt.");
+      submitted.set(answer.questionId, answer.answer);
+    }
 
-    await this.answerModel.deleteMany({ attemptId: attempt._id }).exec();
-    const savedAnswers = await this.answerModel.insertMany(markedAnswers.map((answer) => this.persistedAnswer(answer)));
+    const submissionToken = randomUUID();
+    const claimed = await this.attemptModel.findOneAndUpdate({
+      _id: attempt._id, studentId: attempt.studentId, status: "active",
+      $or: [
+        { submissionToken: { $exists: false } },
+        { submissionStartedAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) } },
+      ],
+    }, { $set: { submissionToken, submissionStartedAt: new Date() } }, { new: true }).exec();
+    if (!claimed) throw new ConflictException("This attempt is already being submitted or has been completed.");
 
-    attempt.status = "completed";
-    attempt.submittedAt = new Date();
-    attempt.score = score;
-    attempt.totalMarks = totalMarks;
-    attempt.percent = percent;
-    attempt.aiSummary = aiSummary;
-    await attempt.save();
+    try {
+      const markedAnswers = await Promise.all(snapshots.map((question) =>
+        this.markAnswer(attempt.id, question, submitted.get(question._id.toString()) ?? "")));
+      const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
+      const totalMarks = snapshots.reduce((sum, question) => sum + question.marks, 0);
+      const percent = Math.round((score / totalMarks) * 100);
+      const aiSummary = await this.aiMarker.reviewCompletedTest(
+        {
+          score, totalMarks, percent,
+          answers: markedAnswers.map((answer) => ({
+            topic: answer.question.topic,
+            prompt: answer.question.prompt,
+            modelAnswer: answer.question.answer,
+            explanation: answer.question.explanation,
+            difficulty: answer.question.difficulty,
+            learningObjective: answer.question.learningObjective,
+            rubricPoints: answer.question.rubricPoints ?? [],
+            commonMistakes: answer.question.commonMistakes ?? [],
+            studentAnswer: answer.answer,
+            awarded: answer.awarded,
+            marks: answer.question.marks,
+            correct: answer.correct,
+          })),
+        },
+        this.fallbackTestSummary(score, totalMarks, percent, markedAnswers)
+      );
 
-    return {
-      attempt: this.publicAttempt(attempt),
-      answers: savedAnswers.map((answer) => this.publicAnswer(answer)),
-    };
+      // Store scores and every marked answer together, including on standalone MongoDB.
+      const completed = await this.attemptModel.findOneAndUpdate({
+        _id: attempt._id, studentId: attempt.studentId, status: "active", submissionToken,
+      }, {
+        $set: {
+          status: "completed", submittedAt: new Date(), score, totalMarks, percent, aiSummary,
+          answeredCount: markedAnswers.filter((answer) => answer.answer.length > 0).length,
+          gradedAnswers: markedAnswers.map((answer) => this.persistedAnswer(answer)),
+        },
+        $unset: { submissionToken: 1, submissionStartedAt: 1 },
+      }, { new: true, runValidators: true }).select("+questionSnapshots +gradedAnswers").exec();
+      if (!completed) throw new ConflictException("The submission changed. Please retry to retrieve your result.");
+      return this.publicResult(completed);
+    } catch (error) {
+      try {
+        await this.attemptModel.updateOne({ _id: attempt._id, status: "active", submissionToken }, {
+          $unset: { submissionToken: 1, submissionStartedAt: 1 },
+        }).exec();
+      } catch {
+        this.logger.warn("Could not release a failed submission. Its lock will expire after ten minutes.");
+      }
+      throw error;
+    }
+  }
+
+  async result(attemptId: string, studentId: string) {
+    const attempt = await this.findOwnedAttempt(attemptId, studentId);
+    if (attempt.status !== "completed" || !attempt.gradedAnswers || !attempt.questionSnapshots?.length) {
+      throw new ConflictException("A completed result is not available yet.");
+    }
+    return this.publicResult(attempt);
   }
 
   async myAttempts(studentId: string) {
@@ -93,15 +146,15 @@ export class AttemptsService {
   }
 
   private async findOwnedAttempt(attemptId: string, studentId: string) {
-    const attempt = await this.attemptModel.findById(attemptId).exec();
+    if (!Types.ObjectId.isValid(attemptId)) throw new BadRequestException("Invalid attempt ID.");
+    const attempt = await this.attemptModel.findById(attemptId).select("+questionSnapshots +gradedAnswers").exec();
     if (!attempt) throw new NotFoundException("Attempt not found.");
     if (attempt.studentId.toString() !== studentId) throw new ForbiddenException("You cannot submit this attempt.");
     return attempt;
   }
 
-  private async markAnswer(attemptId: string, answer: SubmitAnswerDto) {
-    const question = await this.questions.findById(answer.questionId);
-    const response = answer.answer.trim();
+  private async markAnswer(attemptId: string, question: QuestionDocument, answer: string) {
+    const response = answer.trim();
 
     if (!response) {
       return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.");
@@ -239,6 +292,10 @@ export class AttemptsService {
 
     return {
       id: attempt.id,
+      quizId: attempt.quizId,
+      courseId: attempt.courseId,
+      questionCount: attempt.questionCount,
+      answeredCount: attempt.answeredCount,
       studentId: student?._id.toString() ?? attempt.studentId.toString(),
       studentName: student?.fullName,
       studentEmail: student?.email,
@@ -270,14 +327,25 @@ export class AttemptsService {
     };
   }
 
+  private publicResult(attempt: AttemptDocument) {
+    return {
+      attempt: this.publicAttempt(attempt),
+      answers: (attempt.gradedAnswers ?? []).map((answer) => this.publicAnswer(answer)),
+      questions: (attempt.questionSnapshots ?? []).map((question) => this.questions.publicQuestion(question)),
+    };
+  }
+
   private persistedAnswer(answer: ReturnType<typeof this.answerRecord>) {
     return {
+      _id: new Types.ObjectId(),
       attemptId: answer.attemptId,
       questionId: answer.questionId,
       answer: answer.answer,
       awarded: answer.awarded,
       correct: answer.correct,
       aiFeedback: answer.aiFeedback,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
   }
 

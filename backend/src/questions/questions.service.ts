@@ -10,7 +10,16 @@ export class QuestionsService {
 
   async list() {
     const questions = await this.questionModel.find().sort({ createdAt: 1, _id: 1 }).exec();
+    return questions.map((question) => this.publicPrompt(question));
+  }
+
+  async listForAdmin() {
+    const questions = await this.questionModel.find().sort({ createdAt: 1, _id: 1 }).exec();
     return questions.map((question) => this.publicQuestion(question));
+  }
+
+  async forQuiz(quizId: string) {
+    return this.questionModel.find({ quizId }).sort({ createdAt: 1, _id: 1 }).exec();
   }
 
   async create(input: CreateQuestionDto, adminId: string) {
@@ -88,7 +97,7 @@ export class QuestionsService {
     }
   }
 
-  publicQuestion(question: QuestionDocument) {
+  publicPrompt(question: QuestionDocument) {
     return {
       id: question.id,
       type: question.type,
@@ -101,11 +110,17 @@ export class QuestionsService {
       prompt: question.prompt,
       imageUrl: question.imageUrl,
       options: question.options,
-      answer: question.answer,
-      explanation: question.explanation,
       marks: question.marks,
       difficulty: question.difficulty,
       learningObjective: question.learningObjective,
+    };
+  }
+
+  publicQuestion(question: QuestionDocument) {
+    return {
+      ...this.publicPrompt(question),
+      answer: question.answer,
+      explanation: question.explanation,
       rubricPoints: question.rubricPoints,
       commonMistakes: question.commonMistakes,
       keywords: question.keywords,

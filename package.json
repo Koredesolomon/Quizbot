@@ -11,7 +11,8 @@
     "backend:lint": "npm run lint --prefix backend",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.71.0",

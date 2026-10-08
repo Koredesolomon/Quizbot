@@ -54,7 +54,7 @@ export class AuthService implements OnModuleInit {
 
   async register(input: { fullName: string; email: string; username?: string; password: string; role: UserRole }) {
     const passwordHash = await bcrypt.hash(input.password, 10);
-    const user = await this.users.createOrAttachPasswordUser({
+    const user = await this.users.createPasswordUser({
       fullName: input.fullName,
       email: input.email,
       username: input.username,
@@ -83,7 +83,7 @@ export class AuthService implements OnModuleInit {
         throw new UnauthorizedException("Invalid email or password.");
       }
 
-      throw new UnauthorizedException("This account uses Google sign-in. Create a password account with this email first, or continue with Google.");
+      throw new UnauthorizedException("This account uses Google sign-in. Continue with Google, or use Forgot password to set a password through your email.");
     }
 
     if (!(await bcrypt.compare(input.password, user.passwordHash))) {

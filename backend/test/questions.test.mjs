@@ -23,6 +23,7 @@ function fixture() {
   const records = new Map();
   let saves = 0;
   const model = {
+    find() { return { sort: () => ({ exec: async () => Array.from(records.values()) }) }; },
     async create(input) {
       const id = new Types.ObjectId().toString();
       const record = {
@@ -120,6 +121,33 @@ test('question updates require authentication and an admin role', () => {
   const handler = QuestionsController.prototype.update;
   const guards = Reflect.getMetadata('__guards__', handler);
   assert.deepEqual(guards.map((guard) => guard.name), ['JwtAuthGuard', 'RolesGuard']);
+  const roles = new RolesGuard(new Reflector());
+  const context = (role) => ({ getHandler: () => handler, getClass: () => QuestionsController,
+    switchToHttp: () => ({ getRequest: () => role ? { user: { role } } : {} }) });
+  assert.equal(roles.canActivate(context('admin')), true);
+  assert.equal(roles.canActivate(context('student')), false);
+  assert.equal(roles.canActivate(context()), false);
+});
+
+test('public question lists omit answer keys, explanations and private grading metadata', async () => {
+  const f = fixture();
+  await f.service.create({ ...linkedQuestion(), rubricPoints: ['PRIVATE_RUBRIC'],
+    commonMistakes: ['PRIVATE_MISTAKE'], keywords: ['PRIVATE_KEYWORD'], learningObjective: 'Identify SI units' }, adminId);
+  const [prompt] = await f.service.list();
+  for (const field of ['answer', 'explanation', 'rubricPoints', 'commonMistakes', 'keywords', 'createdBy']) {
+    assert.equal(Object.hasOwn(prompt, field), false, field);
+  }
+  assert.equal(prompt.prompt, linkedQuestion().prompt);
+  assert.deepEqual(prompt.options, linkedQuestion().options);
+  assert.equal(prompt.marks, 2);
+  const [privateQuestion] = await f.service.listForAdmin();
+  assert.equal(privateQuestion.answer, 'Kilogram');
+  assert.deepEqual(privateQuestion.rubricPoints, ['PRIVATE_RUBRIC']);
+});
+
+test('answer-bearing question lists are available only to authenticated admins', () => {
+  const handler = QuestionsController.prototype.listForAdmin;
+  assert.deepEqual(Reflect.getMetadata('__guards__', handler).map((guard) => guard.name), ['JwtAuthGuard', 'RolesGuard']);
   const roles = new RolesGuard(new Reflector());
   const context = (role) => ({ getHandler: () => handler, getClass: () => QuestionsController,
     switchToHttp: () => ({ getRequest: () => role ? { user: { role } } : {} }) });

@@ -6,7 +6,7 @@ import {
   parseAnswerValue,
   serializeAnswerValue,
 } from "@/lib/answer-attachments";
-import type { Question } from "@/types/platform";
+import type { QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { MathTextEditor } from "./math-text-editor";
 import { BackButton, PrimaryButton, SecondaryButton } from "./ui";
@@ -20,7 +20,7 @@ export function TestInterface({
   onBack,
   onSubmit,
 }: {
-  questions: Question[];
+  questions: QuizQuestion[];
   answers: Record<string, string>;
   currentQuestion: number;
   onAnswer: (id: string, value: string) => void;

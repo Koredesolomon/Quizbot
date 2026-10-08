@@ -160,6 +160,7 @@ export function AdminDashboard({
   onCreateCourse,
   onUpdateCourse,
   onDeleteCourse,
+  onDeleteStructure,
   onEditStructure,
   onReorderModules,
   onAddModule,
@@ -193,6 +194,7 @@ export function AdminDashboard({
     input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onDeleteCourse: (courseId: string) => void | Promise<void>;
+  onDeleteStructure: (courseId: string, input: api.StructureDelete) => Promise<void>;
   onEditStructure: (courseId: string, input: api.StructureEdit) => Promise<void>;
   onReorderModules: (courseId: string, ids: string[]) => Promise<void>;
   onAddModule: (courseId: string, input: { title: string; description?: string }) => void | Promise<void>;
@@ -312,6 +314,18 @@ export function AdminDashboard({
     setSelectedTopicId(topicId);
     setSelectedSubtopicId(subtopicId);
     setManagedQuiz(context);
+    setMessage("");
+  };
+
+  const deleteStructure = async (input: api.StructureDelete) => {
+    await onDeleteStructure(activeCourseId, input);
+    if (input.kind === "topic" && activeTopic?.id === input.topicId) {
+      setSelectedTopicId("");
+      setSelectedSubtopicId("");
+    } else if (input.kind === "subtopic" && activeSubtopic?.id === input.subtopicId) {
+      setSelectedSubtopicId("");
+    }
+    setManagedQuiz(null);
     setMessage("");
   };
 
@@ -803,6 +817,7 @@ export function AdminDashboard({
                 onDeleteCourseById={deleteCourseById}
                 onPublishCourseById={publishCourseById}
                 onEditStructure={(input) => onEditStructure(activeCourseId, input)}
+                onDeleteStructure={deleteStructure}
                 onReorderModules={(ids) => onReorderModules(activeCourseId, ids)}
                 onAddModule={addModule}
                 onAddTopic={addTopic}
@@ -1278,6 +1293,7 @@ function CourseBuilder({
   onDeleteCourseById,
   onPublishCourseById,
   onEditStructure,
+  onDeleteStructure,
   onReorderModules,
   onAddModule,
   onAddTopic,
@@ -1315,6 +1331,7 @@ function CourseBuilder({
   onDeleteCourseById: (courseId: string) => boolean | Promise<boolean>;
   onPublishCourseById: (courseId: string) => boolean | Promise<boolean>;
   onEditStructure: (input: api.StructureEdit) => Promise<void>;
+  onDeleteStructure: (input: api.StructureDelete) => Promise<void>;
   onReorderModules: (ids: string[]) => Promise<void>;
   onAddModule: () => boolean | Promise<boolean>;
   onAddTopic: () => boolean | Promise<boolean>;
@@ -1463,6 +1480,7 @@ function CourseBuilder({
           <div className="grid gap-4 p-4">
             <CourseStructure
               onEdit={onEditStructure}
+              onDeleteStructure={onDeleteStructure}
               onReorder={onReorderModules}
               modules={modules}
               courseStatus={activeCourse?.status}

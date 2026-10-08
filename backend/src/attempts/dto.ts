@@ -1,9 +1,13 @@
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayUnique, IsArray, IsMongoId, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
+export class StartAttemptDto {
+  @IsMongoId()
+  quizId: string;
+}
+
 export class SubmitAnswerDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsMongoId()
   questionId: string;
 
   @IsString()
@@ -12,6 +16,8 @@ export class SubmitAnswerDto {
 
 export class SubmitAttemptDto {
   @IsArray()
+  @ArrayMaxSize(1000)
+  @ArrayUnique((answer: SubmitAnswerDto) => answer.questionId)
   @ValidateNested({ each: true })
   @Type(() => SubmitAnswerDto)
   answers: SubmitAnswerDto[];

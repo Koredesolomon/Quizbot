@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, GripVertical, Plus } from "lucide-react";
-import type { CourseContent, CourseModule, StructureEdit } from "@/lib/api";
+import { ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
+import type { CourseContent, CourseModule, StructureDelete, StructureEdit } from "@/lib/api";
 
 type Props = {
   modules: CourseModule[];
@@ -19,6 +19,7 @@ type Props = {
   onManageQuiz: (moduleId: string, topicId: string, subtopicId: string, quizId: string) => void;
   onPublishCourse: () => void;
   onDeleteCourse: () => void;
+  onDeleteStructure: (input: StructureDelete) => Promise<void>;
   onEdit: (input: StructureEdit) => Promise<void>;
   onReorder: (ids: string[]) => Promise<void>;
 };
@@ -29,16 +30,36 @@ export function CourseStructure(props: Props) {
   const [edit, setEdit] = useState<StructureEdit | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [dragged, setDragged] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const run = async (save: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try { await save(); } catch (error) {
       setError(error instanceof Error ? error.message : "Could not save changes.");
     } finally { setBusy(false); }
   };
+  const deleteButton = (input: StructureDelete, title: string) => (
+    <button
+      className={action.replace("text-[#06479b]", "text-rose-700")}
+      type="button"
+      disabled={busy}
+      aria-label={`Delete ${input.kind} ${title}`}
+      onClick={() => {
+        const children = input.kind === "topic" ? " Its subtopics and quizzes will also be deleted." : input.kind === "subtopic" ? " Its quizzes will also be deleted." : "";
+        if (!window.confirm(`Delete ${input.kind} "${title}"?${children} Questions will stay in the question bank. This cannot be undone.`)) return;
+        void run(async () => {
+          await props.onDeleteStructure(input);
+          setNotice(`${input.kind === "quiz" ? "Quiz" : input.kind === "topic" ? "Topic" : "Subtopic"} deleted.`);
+        });
+      }}
+    >
+      <Trash2 aria-hidden="true" size={15} />Delete {input.kind}
+    </button>
+  );
   const move = (source: string, targetIndex: number) => {
     const ids = props.modules.map((module) => module.id);
     const sourceIndex = ids.indexOf(source);
@@ -68,7 +89,7 @@ export function CourseStructure(props: Props) {
     <div className="grid gap-4" aria-busy={busy}>
       <p className="text-sm text-[#5e7086]">Click a title to edit it. Use the arrow beside it to expand or collapse the section. Drag a module handle or use Move Up / Down to change the order.</p>
       {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-rose-700">{error}</p>}
-      <span role="status" className="text-sm text-[#5e7086]">{busy ? "Saving changes…" : ""}</span>
+      <span role="status" className="text-sm text-[#5e7086]">{busy ? "Saving changes…" : notice}</span>
       {props.modules.map((module, index) => (
         <article key={module.id} className={`border-b border-[#e1e7ef] py-4 ${over === module.id ? "bg-blue-50" : ""}`}
           onDragOver={(event) => { if (dragged && !busy) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setOver(module.id); } }}
@@ -95,16 +116,20 @@ export function CourseStructure(props: Props) {
                           <details open className="group/section">
                             <summary className="flex cursor-pointer list-none items-center gap-4 py-3 text-lg font-normal text-[#123f63] [&::-webkit-details-marker]:hidden" onClick={() => { props.onSelectModule(module.id); props.onSelectTopic(topic.id); props.onSelectSubtopic(subtopic.id); }}><ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} className="shrink-0 text-[#8d95a5] transition-transform [[open]>summary>&]:rotate-90" />{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, title: subtopic.title, description: subtopic.description ?? "" })} ({subtopic.quizzes.length} quizzes)</summary>
                             {subtopic.description && <p className="mt-2 text-sm text-[#737b8d]">{subtopic.description}</p>}
-                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{quiz.title}</strong> · {quiz.timeLimitMinutes} min{quiz.description && <p>{quiz.description}</p>}</div><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button></li>)}</ul>
+                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{quiz.title}</strong> · {quiz.timeLimitMinutes} min{quiz.description && <p>{quiz.description}</p>}</div><div className="flex flex-wrap items-center gap-3"><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button>{deleteButton({ kind: "quiz", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id }, quiz.title)}</div></li>)}</ul>
                             {!subtopic.quizzes.length && <p className="mt-2 text-sm text-[#737b8d]">No quizzes yet.</p>}
                           </details>
-                          <button className={`${action} ml-4`} type="button" disabled={busy} onClick={() => props.onAddQuiz(module.id, topic.id, subtopic.id)}><Plus size={16} />Add Quiz</button>
+                          <div className="ml-4 flex flex-wrap items-center gap-3">
+                            <button className={action} type="button" disabled={busy} onClick={() => props.onAddQuiz(module.id, topic.id, subtopic.id)}><Plus size={16} />Add Quiz</button>
+                            {deleteButton({ kind: "subtopic", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id }, subtopic.title)}
+                          </div>
                         </div>
                       ))}
                       {!topic.subtopics.length && <p className="text-sm text-[#737b8d]">No subtopics yet.</p>}
                       <button className={`${action} justify-self-start`} type="button" disabled={busy} onClick={() => props.onAddSubtopic(module.id, topic.id)}><Plus size={16} />Add Subtopic</button>
                     </div>
                   </details>
+                  {deleteButton({ kind: "topic", moduleId: module.id, topicId: topic.id }, topic.title)}
                 </div>
               ))}
               {!module.topics.length && <p className="text-sm text-[#737b8d]">No topics yet.</p>}

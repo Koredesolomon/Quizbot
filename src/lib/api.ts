@@ -1,4 +1,4 @@
-import type { Question } from "@/types/platform";
+import type { Question, QuizQuestion } from "@/types/platform";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -28,6 +28,10 @@ export type ApiAttempt = {
   studentId: string;
   studentName?: string;
   studentEmail?: string;
+  quizId?: string;
+  courseId?: string;
+  questionCount?: number;
+  answeredCount?: number;
   status: "active" | "completed";
   startedAt: string;
   submittedAt?: string;
@@ -52,6 +56,12 @@ export type ApiMarkedAnswer = {
 export type SubmitAttemptResponse = {
   attempt: ApiAttempt;
   answers: ApiMarkedAnswer[];
+  questions: Question[];
+};
+
+export type StartAttemptResponse = {
+  attempt: ApiAttempt;
+  questions: QuizQuestion[];
 };
 
 export type ApiFeedback = {
@@ -252,7 +262,11 @@ export function removeProfileAvatar(token: string) {
 }
 
 export function getQuestions() {
-  return apiRequest<Question[]>("/questions");
+  return apiRequest<QuizQuestion[]>("/questions");
+}
+
+export function getAdminQuestions(token: string) {
+  return apiRequest<Question[]>("/questions/admin", { token });
 }
 
 export function getCourses() {
@@ -396,10 +410,11 @@ export function importQuestions(questions: Omit<Question, "id">[], token: string
   });
 }
 
-export function startAttempt(token: string) {
-  return apiRequest<ApiAttempt>("/attempts/start", {
+export function startAttempt(quizId: string, token: string) {
+  return apiRequest<StartAttemptResponse>("/attempts/start", {
     method: "POST",
     token,
+    body: JSON.stringify({ quizId }),
   });
 }
 
@@ -415,6 +430,10 @@ export function submitAttempt(attemptId: string, answers: Record<string, string>
 
 export function getMyAttempts(token: string) {
   return apiRequest<ApiAttempt[]>("/attempts/me", { token });
+}
+
+export function getAttemptResult(attemptId: string, token: string) {
+  return apiRequest<SubmitAttemptResponse>(`/attempts/${attemptId}/result`, { token });
 }
 
 export function submitFeedback(input: { message: string; rating: number }, token: string) {
@@ -445,6 +464,19 @@ export function markFeedbackReviewed(id: string, token: string) {
 }
 
 export type StructureEdit = { moduleId: string; topicId?: string; subtopicId?: string; title: string; description: string };
+
+export type StructureDelete = { moduleId: string; topicId: string } & (
+  | { kind: "topic" }
+  | { kind: "subtopic"; subtopicId: string }
+  | { kind: "quiz"; subtopicId: string; quizId: string }
+);
+
+export function deleteCourseStructure(courseId: string, input: StructureDelete, token: string) {
+  let path = `/content/courses/${courseId}/modules/${input.moduleId}/topics/${input.topicId}`;
+  if (input.kind !== "topic") path += `/subtopics/${input.subtopicId}`;
+  if (input.kind === "quiz") path += `/quizzes/${input.quizId}`;
+  return apiRequest<CourseContent>(path, { method: "DELETE", token });
+}
 
 export function editCourseStructure(courseId: string, input: StructureEdit, token: string) {
   return apiRequest<CourseContent>(`/content/courses/${courseId}/structure`, {

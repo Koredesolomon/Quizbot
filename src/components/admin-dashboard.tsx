@@ -508,6 +508,7 @@ export function AdminDashboard({
   onCreateCourse,
   onUpdateCourse,
   onDeleteCourse,
+  onDeleteStructure,
   onAddModule,
   onAddTopic,
   onAddSubtopic,
@@ -537,6 +538,7 @@ export function AdminDashboard({
     input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onDeleteCourse: (courseId: string) => void | Promise<void>;
+  onDeleteStructure: (courseId: string, input: api.StructureDelete) => Promise<void>;
   onAddModule: (
     courseId: string,
     input: { title: string; description?: string }
@@ -1625,7 +1627,15 @@ export function AdminDashboard({
                       <strong className="mt-1 block text-base font-black text-slate-950">{activeCourse.code} · {activeCourse.title}</strong>
                       <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{activeCourse.description || "No description yet."}</p>
                     </div>
-                    <CourseStructure modules={activeCourse.modules} />
+                    <CourseStructure modules={activeCourse.modules} onDeleteStructure={async (input) => {
+                      await onDeleteStructure(activeCourseId, input);
+                      if (input.kind === "topic" && activeTopic?.id === input.topicId) {
+                        setSelectedTopicId("");
+                        setSelectedSubtopicId("");
+                      } else if (input.kind === "subtopic" && activeSubtopicId === input.subtopicId) {
+                        setSelectedSubtopicId("");
+                      }
+                    }} />
                   </div>
                 ) : (
                   <p className="text-sm font-semibold leading-6 text-slate-500">Create a course to start adding modules, topics, and quizzes.</p>
@@ -1869,7 +1879,35 @@ function PreviewLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CourseStructure({ modules }: { modules: api.CourseModule[] }) {
+function CourseStructure({ modules, onDeleteStructure }: {
+  modules: api.CourseModule[];
+  onDeleteStructure: (input: api.StructureDelete) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const deleteButton = (input: api.StructureDelete, title: string) => (
+    <button
+      className="mt-2 min-h-9 text-xs font-bold text-rose-700 hover:underline disabled:opacity-40"
+      type="button"
+      disabled={busy}
+      aria-label={`Delete ${input.kind} ${title}`}
+      onClick={async () => {
+        if (busy) return;
+        const children = input.kind === "topic" ? " Its subtopics and quizzes will also be deleted." : input.kind === "subtopic" ? " Its quizzes will also be deleted." : "";
+        if (!window.confirm(`Delete ${input.kind} "${title}"?${children} Questions will stay in the question bank. This cannot be undone.`)) return;
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+          await onDeleteStructure(input);
+          setNotice(`${input.kind === "quiz" ? "Quiz" : input.kind === "topic" ? "Topic" : "Subtopic"} deleted.`);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Could not delete this item.");
+        } finally { setBusy(false); }
+      }}
+    >Delete {input.kind}</button>
+  );
   if (!modules.length) {
     return (
       <p className="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm font-semibold text-slate-500">
@@ -1879,7 +1917,9 @@ function CourseStructure({ modules }: { modules: api.CourseModule[] }) {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" aria-busy={busy}>
+      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+      <p role="status" className="text-sm text-slate-600">{busy ? "Deleting…" : notice}</p>
       {modules.map((module) => (
         <div className="rounded-lg border border-slate-200 bg-white p-3" key={module.id}>
           <strong className="block text-sm font-black text-slate-950">{module.title}</strong>
@@ -1898,20 +1938,23 @@ function CourseStructure({ modules }: { modules: api.CourseModule[] }) {
                           {subtopic.quizzes.length ? (
                             <div className="mt-2 grid gap-1">
                               {subtopic.quizzes.map((quiz) => (
-                                <span className="rounded-md bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700" key={quiz.id}>
+                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700" key={quiz.id}>
                                   {quiz.title} · {quiz.timeLimitMinutes} min
-                                </span>
+                                  {deleteButton({ kind: "quiz", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id }, quiz.title)}
+                                </div>
                               ))}
                             </div>
                           ) : (
                             <span className="mt-2 block text-xs font-semibold text-slate-500">No quizzes yet.</span>
                           )}
+                          {deleteButton({ kind: "subtopic", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id }, subtopic.title)}
                         </div>
                       ))
                     ) : (
                       <span className="text-xs font-semibold text-slate-500">No subtopics yet.</span>
                     )}
                   </div>
+                  {deleteButton({ kind: "topic", moduleId: module.id, topicId: topic.id }, topic.title)}
                 </div>
               ))
             ) : (

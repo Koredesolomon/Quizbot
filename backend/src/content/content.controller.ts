@@ -72,6 +72,38 @@ export class ContentController {
     return this.content.reorderModules(id, body.moduleIds);
   }
 
+  @Delete("courses/:id/modules/:moduleId/topics/:topicId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  deleteTopic(@Param("id") id: string, @Param("moduleId") moduleId: string, @Param("topicId") topicId: string) {
+    return this.content.deleteStructure(id, { kind: "topic", moduleId, topicId });
+  }
+
+  @Delete("courses/:id/modules/:moduleId/topics/:topicId/subtopics/:subtopicId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  deleteSubtopic(
+    @Param("id") id: string,
+    @Param("moduleId") moduleId: string,
+    @Param("topicId") topicId: string,
+    @Param("subtopicId") subtopicId: string
+  ) {
+    return this.content.deleteStructure(id, { kind: "subtopic", moduleId, topicId, subtopicId });
+  }
+
+  @Delete("courses/:id/modules/:moduleId/topics/:topicId/subtopics/:subtopicId/quizzes/:quizId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  deleteQuiz(
+    @Param("id") id: string,
+    @Param("moduleId") moduleId: string,
+    @Param("topicId") topicId: string,
+    @Param("subtopicId") subtopicId: string,
+    @Param("quizId") quizId: string
+  ) {
+    return this.content.deleteStructure(id, { kind: "quiz", moduleId, topicId, subtopicId, quizId });
+  }
+
   @Post("courses/:id/modules")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")

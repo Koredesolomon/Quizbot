@@ -4,6 +4,12 @@ import { Model, Types } from "mongoose";
 import { Course, CourseDocument } from "./course.schema";
 import { EditStructureDto, CreateCourseDto, CreateModuleDto, CreateQuizDto, CreateSubtopicDto, CreateTopicDto, UpdateCourseDto } from "./dto";
 
+type StructureDelete = { moduleId: string; topicId: string } & (
+  | { kind: "topic" }
+  | { kind: "subtopic"; subtopicId: string }
+  | { kind: "quiz"; subtopicId: string; quizId: string }
+);
+
 @Injectable()
 export class ContentService {
   constructor(@InjectModel(Course.name) private readonly courseModel: Model<CourseDocument>) {}
@@ -20,6 +26,19 @@ export class ContentService {
 
     const course = await this.courseModel.findOne({ code: normalizedCode, status: "published" }).exec();
     return course ? this.publicCourse(course) : null;
+  }
+
+  async findPublishedQuiz(quizId: string) {
+    if (!Types.ObjectId.isValid(quizId)) throw new BadRequestException("Invalid quiz ID.");
+    const course = await this.courseModel.findOne({
+      status: "published",
+      $or: [
+        { "modules.topics.subtopics.quizzes._id": new Types.ObjectId(quizId) },
+        { "modules.topics.quizzes._id": new Types.ObjectId(quizId) },
+      ],
+    }).exec();
+    if (!course) throw new NotFoundException("Published quiz was not found.");
+    return { courseId: course.id, quizId };
   }
 
   async createCourse(input: CreateCourseDto, adminId: string) {
@@ -93,6 +112,45 @@ export class ContentService {
       throw new BadRequestException("Module order must include every module exactly once. Refresh and try again.");
     }
     course.modules = moduleIds.map((id) => modules.get(id)!);
+    course.markModified("modules");
+    await course.save();
+    return this.publicCourse(course);
+  }
+
+  async deleteStructure(courseId: string, input: StructureDelete) {
+    const ids = [courseId, input.moduleId, input.topicId];
+    if (input.kind !== "topic") ids.push(input.subtopicId);
+    if (input.kind === "quiz") ids.push(input.quizId);
+    if (ids.some((id) => !Types.ObjectId.isValid(id))) {
+      throw new BadRequestException("Invalid course structure ID.");
+    }
+
+    const course = await this.courseModel.findById(courseId).exec();
+    if (!course) throw new NotFoundException("Course was not found.");
+    const module = course.modules.find((item) => item._id.toString() === input.moduleId);
+    if (!module) throw new NotFoundException("Module was not found.");
+    const topic = module.topics.find((item) => item._id.toString() === input.topicId);
+    if (!topic) throw new NotFoundException("Topic was not found.");
+
+    if (input.kind === "topic") {
+      module.topics = module.topics.filter((item) => item !== topic);
+    } else {
+      const subtopic = (topic.subtopics ?? []).find((item) => item._id.toString() === input.subtopicId);
+      // Older courses store quizzes directly on a topic, exposed as a synthetic subtopic.
+      const legacySubtopic = !subtopic && input.subtopicId === input.topicId && (topic.quizzes ?? []).length > 0;
+      if (!subtopic && !legacySubtopic) throw new NotFoundException("Subtopic was not found.");
+
+      if (input.kind === "subtopic") {
+        if (subtopic) topic.subtopics = topic.subtopics.filter((item) => item !== subtopic);
+        else topic.quizzes = [];
+      } else {
+        const container = subtopic ?? topic;
+        const quiz = (container.quizzes ?? []).find((item) => item._id.toString() === input.quizId);
+        if (!quiz) throw new NotFoundException("Quiz was not found.");
+        container.quizzes = (container.quizzes ?? []).filter((item) => item !== quiz);
+      }
+    }
+
     course.markModified("modules");
     await course.save();
     return this.publicCourse(course);

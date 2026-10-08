@@ -20,8 +20,9 @@ import { StudentAuth } from "@/components/student-auth";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { TestInterface } from "@/components/test-interface";
 import * as api from "@/lib/api";
-import { getTopicBreakdown, markResponses } from "@/lib/marker";
-import type { MarkedQuestion, Question, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
+import { getTopicBreakdown } from "@/lib/marker";
+import { markedAttemptQuestions, submitSavedAttempt } from "@/lib/test-attempt";
+import type { MarkedQuestion, Question, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const studentName = "Practice Student";
 const adminStorageKey = "stem-jupeb-admin-account";
@@ -170,26 +171,6 @@ function toQuestionPayload(question: Question): Omit<Question, "id"> {
   };
 }
 
-function mapBackendMarkedAnswers(
-  response: api.SubmitAttemptResponse,
-  submittedAnswers: Record<string, string>,
-  questions: Question[]
-): MarkedQuestion[] {
-  const answersByQuestion = new Map(response.answers.map((answer) => [answer.questionId, answer]));
-
-  return questions.map((question) => {
-    const backendAnswer = answersByQuestion.get(question.id);
-
-    return {
-      ...question,
-      userAnswer: backendAnswer?.answer ?? submittedAnswers[question.id] ?? "",
-      awarded: backendAnswer?.awarded ?? 0,
-      correct: backendAnswer?.correct ?? false,
-      aiFeedback: backendAnswer?.aiFeedback ?? "No response was submitted for this question.",
-    };
-  });
-}
-
 function toStudentAttempt(attempt: api.ApiAttempt, questionCount: number, answered: number, student: string): StudentAttempt {
   return {
     id: attempt.id,
@@ -197,8 +178,8 @@ function toStudentAttempt(attempt: api.ApiAttempt, questionCount: number, answer
     status: attempt.status,
     startedAt: attempt.startedAt,
     submittedAt: attempt.submittedAt,
-    answered,
-    questionCount,
+    answered: attempt.answeredCount ?? answered,
+    questionCount: attempt.questionCount || questionCount,
     score: attempt.score,
     totalMarks: attempt.totalMarks,
     percent: attempt.percent,
@@ -227,9 +208,13 @@ function toStudentFeedback(feedback: api.ApiFeedback): StudentFeedback {
 export default function Home() {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>("landing");
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [adminQuestions, setAdminQuestions] = useState<Question[]>([]);
+  const [attemptQuestions, setAttemptQuestions] = useState<QuizQuestion[]>([]);
   const [courses, setCourses] = useState<api.CourseContent[]>([]);
-  const [backendQuestionsLoaded, setBackendQuestionsLoaded] = useState(false);
+  const [testError, setTestError] = useState("");
+  const testRequestBusyRef = useRef(false);
+  const testRequestVersionRef = useRef(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [marked, setMarked] = useState<MarkedQuestion[]>([]);
@@ -382,7 +367,6 @@ export default function Home() {
       .then(([backendQuestions, backendCourses]) => {
         if (!ignore) {
           setQuestions(backendQuestions);
-          setBackendQuestionsLoaded(true);
           setCourses(backendCourses);
         }
       })
@@ -393,6 +377,19 @@ export default function Home() {
     return () => {
       ignore = true;
     };
+  }, [adminAccount?.accessToken, adminUnlocked]);
+
+  useEffect(() => {
+    if (!adminUnlocked || !adminAccount?.accessToken) {
+      return;
+    }
+    let ignore = false;
+    api.getAdminQuestions(adminAccount.accessToken).then((loaded) => {
+      if (!ignore) setAdminQuestions(loaded);
+    }).catch(() => {
+      if (!ignore) setAdminQuestions([]);
+    });
+    return () => { ignore = true; };
   }, [adminAccount?.accessToken, adminUnlocked]);
 
   useEffect(() => {
@@ -462,39 +459,11 @@ export default function Home() {
     .flatMap((topic) => topic.subtopics)
     .find((subtopic) => subtopic.id === selectedSubtopicId);
   const selectedQuiz = (selectedSubtopic?.quizzes ?? []).find((quiz) => quiz.id === selectedQuizId);
-  const selectedCourseSubject = selectedCourse?.subject;
-  const selectedSubtopicTitle = selectedSubtopic?.title;
-  const getQuizQuestions = useCallback((quizId: string) => {
-      if (quizId) {
-        const quizQuestions = questions.filter((question) => question.quizId === quizId);
-        if (quizQuestions.length) return quizQuestions;
-      }
-
-      if (selectedSubtopicId) {
-        const subtopicQuestions = questions.filter((question) => question.subtopicId === selectedSubtopicId);
-        if (subtopicQuestions.length) return subtopicQuestions;
-      }
-
-      if (selectedSubtopicTitle) {
-        const titleQuestions = questions.filter((question) => question.topic === selectedSubtopicTitle);
-        if (titleQuestions.length) return titleQuestions;
-      }
-
-      if (quizId && selectedCourseSubject) {
-        const unassignedCourseQuestions = questions.filter(
-          (question) =>
-            !question.quizId &&
-            !question.subtopicId &&
-            !question.moduleId &&
-            !question.courseId &&
-            (question.subject ?? "").toLowerCase() === selectedCourseSubject.toLowerCase()
-        );
-        if (unassignedCourseQuestions.length) return unassignedCourseQuestions;
-      }
-
-      return selectedSubtopicTitle ? [] : questions;
-  }, [questions, selectedCourseSubject, selectedSubtopicId, selectedSubtopicTitle]);
-  const activeQuestions = useMemo(() => getQuizQuestions(selectedQuizId), [getQuizQuestions, selectedQuizId]);
+  const getQuizQuestions = useCallback((quizId: string) => questions.filter((question) => question.quizId === quizId), [questions]);
+  const activeQuestions = useMemo(() =>
+    currentAttemptId && ["test", "marking", "results", "details"].includes(screen)
+      ? attemptQuestions : getQuizQuestions(selectedQuizId),
+  [attemptQuestions, currentAttemptId, getQuizQuestions, screen, selectedQuizId]);
   const answeredCount = Object.values(answers).filter(Boolean).length;
   const totalMarks = useMemo(() => activeQuestions.reduce((sum, question) => sum + question.marks, 0), [activeQuestions]);
   const score = marked.reduce((sum, question) => sum + question.awarded, 0);
@@ -513,6 +482,7 @@ export default function Home() {
       throw new Error("Use a student account to take tests.");
     }
 
+    resetTest();
     saveStudentSession(nextSession);
     setScreen("studentDashboard");
     return nextSession;
@@ -524,91 +494,73 @@ export default function Home() {
       throw new Error("Use a student account to take tests.");
     }
 
+    resetTest();
     saveStudentSession(nextSession);
     setScreen("studentDashboard");
     return nextSession;
   };
 
-  const startMarking = () => {
+  const startMarking = async () => {
+    if (testRequestBusyRef.current) return;
+    if (!currentAttemptId || !studentSession?.accessToken) {
+      setTestError("Sign in and start a test before submitting your answers.");
+      return;
+    }
+    testRequestBusyRef.current = true;
+    const requestVersion = ++testRequestVersionRef.current;
+    setTestError("");
     setScreen("marking");
-    window.setTimeout(() => {
-      void (async () => {
-        const answered = Object.values(answers).filter(Boolean).length;
-        let markedResponses = markResponses(answers, activeQuestions);
-        let completedAttempt: StudentAttempt | null = null;
-
-        if (backendQuestionsLoaded && currentAttemptId && studentSession?.accessToken) {
-          try {
-            const submittedAttempt = await api.submitAttempt(currentAttemptId, answers, studentSession.accessToken);
-            markedResponses = mapBackendMarkedAnswers(submittedAttempt, answers, activeQuestions);
-            completedAttempt = toStudentAttempt(submittedAttempt.attempt, activeQuestions.length, answered, activeStudentName);
-            setAiSummary(submittedAttempt.attempt.aiSummary ?? "");
-          } catch {
-            completedAttempt = null;
-          }
-        }
-
-        const finalScore = markedResponses.reduce((sum, question) => sum + question.awarded, 0);
-        const finalPercent = totalMarks ? Math.round((finalScore / totalMarks) * 100) : 0;
-
-        setMarked(markedResponses);
-        setAttempts((current) =>
-          current.map((attempt) =>
-            attempt.id === currentAttemptId
-              ? completedAttempt ?? {
-                  ...attempt,
-                  status: "completed",
-                  submittedAt: new Date().toISOString(),
-                  answered,
-                  score: finalScore,
-                  totalMarks,
-                  percent: finalPercent,
-                }
-              : attempt
-          )
-        );
-        setSelectedDetail(0);
-        setScreen("results");
-      })();
-    }, 1100);
+    try {
+      const submitted = await submitSavedAttempt(currentAttemptId, answers, studentSession.accessToken);
+      if (requestVersion !== testRequestVersionRef.current) return;
+      const markedResponses = markedAttemptQuestions(submitted);
+      const completed = toStudentAttempt(submitted.attempt, submitted.questions.length, answeredCount, activeStudentName);
+      setMarked(markedResponses);
+      setAiSummary(submitted.attempt.aiSummary ?? "");
+      setAttempts((current) => current.map((attempt) => attempt.id === currentAttemptId ? completed : attempt));
+      setSelectedDetail(0);
+      setScreen("results");
+    } catch (error) {
+      if (requestVersion !== testRequestVersionRef.current) return;
+      setTestError(`${error instanceof Error ? error.message : "Submission failed."} Your answers are still here. Please retry your submission.`);
+      setScreen("test");
+    } finally { if (requestVersion === testRequestVersionRef.current) testRequestBusyRef.current = false; }
   };
 
-  const startTest = async (testQuestions: Question[] = activeQuestions) => {
+  const startTest = async (quizId: string = selectedQuizId) => {
+    if (testRequestBusyRef.current) return;
     if (!studentSession?.accessToken) {
       setScreen("student");
       return;
     }
-
-    let nextAttempt: StudentAttempt = {
-      id: `attempt-${Date.now()}`,
-      student: activeStudentName,
-      status: "active",
-      startedAt: new Date().toISOString(),
-      answered: 0,
-      questionCount: testQuestions.length,
-      totalMarks: testQuestions.reduce((sum, question) => sum + question.marks, 0),
-    };
-
-    if (backendQuestionsLoaded) {
-      try {
-        const backendAttempt = await api.startAttempt(studentSession.accessToken);
-        nextAttempt = toStudentAttempt(backendAttempt, testQuestions.length, 0, activeStudentName);
-      } catch {
-        setBackendQuestionsLoaded(false);
-      }
-    }
-
-    setCurrentAttemptId(nextAttempt.id);
-    setAnswers({});
-    setMarked([]);
-    setAiSummary("");
-    setSelectedDetail(0);
-    setAttempts((current) => [nextAttempt, ...current]);
-    setCurrentQuestion(0);
-    setScreen("test");
+    testRequestBusyRef.current = true;
+    const requestVersion = ++testRequestVersionRef.current;
+    setTestError("");
+    try {
+      const started = await api.startAttempt(quizId, studentSession.accessToken);
+      if (requestVersion !== testRequestVersionRef.current) return;
+      const nextAttempt = toStudentAttempt(started.attempt, started.questions.length, 0, activeStudentName);
+      setCurrentAttemptId(nextAttempt.id);
+      setAttemptQuestions(started.questions);
+      setAnswers({});
+      setMarked([]);
+      setAiSummary("");
+      setSelectedDetail(0);
+      setAttempts((current) => [nextAttempt, ...current]);
+      setCurrentQuestion(0);
+      setScreen("test");
+    } catch (error) {
+      if (requestVersion !== testRequestVersionRef.current) return;
+      setTestError(error instanceof Error ? error.message : "Could not start this test. Please try again.");
+      setScreen("overview");
+    } finally { if (requestVersion === testRequestVersionRef.current) testRequestBusyRef.current = false; }
   };
 
   const resetTest = () => {
+    testRequestVersionRef.current += 1;
+    testRequestBusyRef.current = false;
+    setTestError("");
+    setAttemptQuestions([]);
     setAnswers({});
     setMarked([]);
     setAiSummary("");
@@ -639,8 +591,7 @@ export default function Home() {
     }
 
     await api.createQuestion(toQuestionPayload(question), adminAccount.accessToken);
-    setQuestions(await api.getQuestions());
-    setBackendQuestionsLoaded(true);
+    setAdminQuestions(await api.getAdminQuestions(adminAccount.accessToken));
   };
 
   const importQuestions = async (incomingQuestions: Question[]) => {
@@ -652,8 +603,7 @@ export default function Home() {
       incomingQuestions.map((question) => toQuestionPayload(question)),
       adminAccount.accessToken
     );
-    setQuestions(await api.getQuestions());
-    setBackendQuestionsLoaded(true);
+    setAdminQuestions(await api.getAdminQuestions(adminAccount.accessToken));
     setAnswers({});
     setMarked([]);
     setCurrentQuestion(0);
@@ -694,6 +644,14 @@ export default function Home() {
 
     await api.deleteCourse(courseId, adminAccount.accessToken);
     setCourses(await api.getAdminCourses(adminAccount.accessToken));
+  };
+
+  const deleteStructure = async (courseId: string, input: api.StructureDelete) => {
+    if (!adminAccount?.accessToken) {
+      throw new Error("Sign in with a backend admin account before deleting course content.");
+    }
+    const updated = await api.deleteCourseStructure(courseId, input, adminAccount.accessToken);
+    setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
   };
 
   const addModule = async (
@@ -826,7 +784,7 @@ export default function Home() {
   const selectQuiz = (quiz: api.CourseQuiz) => {
     setSelectedQuizId(quiz.id);
     setQuizPickerOpen(false);
-    void startTest(getQuizQuestions(quiz.id));
+    void startTest(quiz.id);
   };
 
   const continueWithGoogle = async (role: "admin" | "student") => {
@@ -847,12 +805,14 @@ export default function Home() {
   };
 
   const signOutStudent = () => {
+    resetTest();
     setStudentSession(null);
     setScreen("landing");
     window.localStorage.removeItem(studentStorageKey);
   };
 
   const clearAdminSession = () => {
+    setAdminQuestions([]);
     setAdminAccount(null);
     setAdminUnlocked(false);
     setAdminAuthError("");
@@ -882,6 +842,14 @@ export default function Home() {
           onStudentSignOut={signOutStudent}
           onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
         />
+      )}
+
+      {testError && ["topics", "overview", "test"].includes(screen) && (
+        <div role="alert" className="mx-auto my-4 flex max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+          <p>{testError}</p>
+          {screen === "test" && <button className="min-h-10 rounded-md border border-rose-300 px-4 font-bold hover:bg-rose-100" type="button" onClick={() => void startMarking()}>Retry submission</button>}
+          {screen === "overview" && selectedQuizId && <button className="min-h-10 rounded-md border border-rose-300 px-4 font-bold hover:bg-rose-100" type="button" onClick={() => void startTest()}>Retry starting test</button>}
+        </div>
       )}
 
       {screen === "landing" && (
@@ -918,7 +886,7 @@ export default function Home() {
           totalMarks={totalMarks}
           title={selectedQuiz?.title ?? selectedSubtopic?.title ?? "Quiz overview"}
           subtitle={selectedSubtopic ? `${selectedCourse?.title ?? "Course"} · ${selectedModule?.title ?? "Topic"} · ${selectedSubtopic.title}` : "Review the selected quiz before starting."}
-          onStart={startTest}
+          onStart={() => void startTest()}
           onBack={() => setScreen("topics")}
         />
       )}
@@ -1026,12 +994,13 @@ export default function Home() {
             adminName={adminAccount.name}
             adminRole={adminAccount.role}
             courses={courses}
-            questions={questions}
+            questions={adminQuestions}
             attempts={attempts}
             feedback={feedback}
             onCreateCourse={createCourse}
             onUpdateCourse={updateCourse}
             onDeleteCourse={deleteCourse}
+            onDeleteStructure={deleteStructure}
             onAddModule={addModule}
             onAddTopic={addTopic}
             onAddSubtopic={addSubtopic}

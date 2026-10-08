@@ -40,41 +40,17 @@ export class UsersService {
     });
   }
 
-  async createOrAttachPasswordUser(input: {
+  async createPasswordUser(input: {
     fullName: string;
     email: string;
     username?: string;
     passwordHash: string;
     role: UserRole;
   }) {
-    const email = input.email.toLowerCase();
-    const username = this.normalizeUsername(input.username);
-    const existing = await this.findByEmail(email);
-
-    if (existing) {
-      if (existing.passwordHash) {
-        throw new ConflictException("Email is already registered.");
-      }
-
-      if (username) {
-        const usernameOwner = await this.findByUsername(username);
-        if (usernameOwner && usernameOwner.id !== existing.id) {
-          throw new ConflictException("Username is already taken.");
-        }
-        existing.username = username;
-      }
-
-      existing.fullName = input.fullName || existing.fullName;
-      existing.passwordHash = input.passwordHash;
-      existing.role = input.role === "admin" ? "admin" : existing.role;
-      existing.authProvider = "password";
-      return existing.save();
-    }
-
     return this.create({
       fullName: input.fullName,
-      email,
-      username,
+      email: input.email,
+      username: input.username,
       passwordHash: input.passwordHash,
       authProvider: "password",
       role: input.role,

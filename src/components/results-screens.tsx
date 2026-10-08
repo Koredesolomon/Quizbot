@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { MarkedQuestion, Question, TopicBreakdown } from "@/types/platform";
+import type { MarkedQuestion, QuizQuestion, TopicBreakdown } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
 
@@ -36,7 +36,7 @@ export function Results({
   percent: number;
   score: number;
   answeredCount: number;
-  questions: Question[];
+  questions: QuizQuestion[];
   totalMarks: number;
   aiSummary?: string;
   onFeedback: (message: string, rating: number) => void;

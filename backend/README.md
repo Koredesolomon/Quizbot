@@ -48,15 +48,24 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/quiz-bot
 - `GET /auth/google/admin`
 - `GET /auth/google/admin/callback`
 - `GET /questions`
+- `GET /questions/admin` admin only, includes answer keys and grading metadata
 - `POST /questions` admin only
 - `POST /questions/import` admin only
 - `PATCH /questions/:id` admin only (edit a manual or imported question)
-- `POST /attempts/start`
+- `POST /attempts/start` with `{ "quizId": "QUIZ_OBJECT_ID" }`
 - `POST /attempts/:id/submit`
+- `GET /attempts/:id/result` owner only, completed results only
 - `POST /feedback`
 - `GET /admin/analytics` admin only
 
 Questions, users, attempts, answers, and feedback are persisted in MongoDB.
+New attempt answers are embedded with their scores in the attempt document for atomic persistence.
+Public questions omit answer keys, explanations, rubrics, common mistakes, and keywords. Admin question management
+must use `/questions/admin` with an admin token.
+Quiz starts require a published quiz with explicitly assigned questions and store a private question snapshot.
+Grading includes every question in that snapshot, with zero for missing answers. Completed attempts cannot be
+resubmitted; `/attempts/:id/result` retrieves a saved result without grading again. Legacy active attempts without a
+snapshot must be restarted. Deploy the frontend and backend API changes together.
 Password login accepts either the account email address or username.
 Student course registration is stored on the user profile and controls which courses appear on the student dashboard.
 

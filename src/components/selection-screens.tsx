@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Sparkles, X } from "lucide-react";
 import type { CourseContent, CourseModule, CourseQuiz, CourseSubtopic } from "@/lib/api";
-import type { Question } from "@/types/platform";
+import type { QuizQuestion } from "@/types/platform";
 import { BackButton, Metric, Panel, PrimaryButton } from "./ui";
 
 export function HowItWorks({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
@@ -256,7 +256,7 @@ export function Overview({
   onStart,
   onBack,
 }: {
-  questions: Question[];
+  questions: QuizQuestion[];
   totalMarks: number;
   title?: string;
   subtitle?: string;

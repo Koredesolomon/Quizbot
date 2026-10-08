@@ -49,6 +49,7 @@ export class AiMarkerService {
 
     try {
       const result = await fetch("https://api.openai.com/v1/responses", {
+        signal: AbortSignal.timeout(120_000),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -138,6 +139,7 @@ export class AiMarkerService {
 
     try {
       const result = await fetch("https://api.openai.com/v1/responses", {
+        signal: AbortSignal.timeout(120_000),
         method: "POST",
         headers: {
           "Content-Type": "application/json",

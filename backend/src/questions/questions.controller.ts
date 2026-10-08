@@ -16,6 +16,13 @@ export class QuestionsController {
     return this.questions.list();
   }
 
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  listForAdmin() {
+    return this.questions.listForAdmin();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")

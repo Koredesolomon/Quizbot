@@ -47,6 +47,8 @@ export type MarkedQuestion = Question & {
   aiFeedback: string;
 };
 
+export type QuizQuestion = Omit<Question, "answer" | "explanation" | "rubricPoints" | "commonMistakes" | "keywords">;
+
 export type TopicBreakdown = {
   topic: string;
   scored: number;

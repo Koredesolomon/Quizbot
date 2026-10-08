@@ -5,7 +5,7 @@ import type { JwtUser } from "../common/jwt-user.type";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { AttemptsService } from "./attempts.service";
-import { SubmitAttemptDto } from "./dto";
+import { StartAttemptDto, SubmitAttemptDto } from "./dto";
 
 @Controller("attempts")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -14,8 +14,8 @@ export class AttemptsController {
 
   @Post("start")
   @Roles("student", "admin")
-  start(@CurrentUser() user: JwtUser) {
-    return this.attempts.start(user.sub);
+  start(@Body() body: StartAttemptDto, @CurrentUser() user: JwtUser) {
+    return this.attempts.start(user.sub, body.quizId);
   }
 
   @Post(":id/submit")
@@ -28,5 +28,11 @@ export class AttemptsController {
   @Roles("student", "admin")
   mine(@CurrentUser() user: JwtUser) {
     return this.attempts.myAttempts(user.sub);
+  }
+
+  @Get(":id/result")
+  @Roles("student", "admin")
+  result(@Param("id") id: string, @CurrentUser() user: JwtUser) {
+    return this.attempts.result(id, user.sub);
   }
 }

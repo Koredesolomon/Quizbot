@@ -2,11 +2,11 @@
 
 import { MessageCircle, Sparkles, X } from "lucide-react";
 import { useState } from "react";
-import type { MarkedQuestion, Question, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
+import type { MarkedQuestion, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 type AiAssistantProps = {
   screen: Screen;
-  questions: Question[];
+  questions: QuizQuestion[];
   answers: Record<string, string>;
   marked: MarkedQuestion[];
   attempts: StudentAttempt[];

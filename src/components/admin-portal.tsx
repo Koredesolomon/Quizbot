@@ -51,8 +51,8 @@ function toAdminAttempt(attempt: api.ApiAttempt, questionCount: number): Student
     status: attempt.status,
     startedAt: attempt.startedAt,
     submittedAt: attempt.submittedAt,
-    answered: attempt.status === "completed" ? questionCount : 0,
-    questionCount,
+    answered: attempt.answeredCount ?? (attempt.status === "completed" ? questionCount : 0),
+    questionCount: attempt.questionCount || questionCount,
     score: attempt.score,
     totalMarks: attempt.totalMarks,
     percent: attempt.percent,
@@ -126,10 +126,11 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   }, []);
 
   useEffect(() => {
+    if (!adminAccount?.accessToken) return;
     let ignore = false;
 
     api
-      .getQuestions()
+      .getAdminQuestions(adminAccount.accessToken)
       .then((backendQuestions) => {
         if (ignore) return;
         setQuestions(backendQuestions);
@@ -145,7 +146,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
     return () => {
       ignore = true;
     };
-  }, [loadRevision]);
+  }, [adminAccount?.accessToken, loadRevision]);
 
   useEffect(() => {
     if (!adminAccount?.accessToken) return;
@@ -190,6 +191,9 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   }, [adminAccount?.accessToken, questions.length, loadRevision]);
 
   const clearAdminSession = () => {
+    setQuestions([]);
+    setQuestionsLoaded(false);
+    setQuestionsLoadError("");
     setAdminAccount(null);
     setAdminAuthError("");
     setCourses([]);
@@ -329,6 +333,12 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       onEditStructure={async (courseId, input) => {
         try {
           const updated = await api.editCourseStructure(courseId, input, adminAccount.accessToken ?? "");
+          setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
+        } catch (error) { throw handleAdminRequestError(error); }
+      }}
+      onDeleteStructure={async (courseId, input) => {
+        try {
+          const updated = await api.deleteCourseStructure(courseId, input, adminAccount.accessToken ?? "");
           setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
         } catch (error) { throw handleAdminRequestError(error); }
       }}

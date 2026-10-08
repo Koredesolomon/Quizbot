@@ -47,6 +47,11 @@ an admin explicitly changes the assignment from the **Question Bank** editor. Th
 standalone questions, optional quiz assignment, search, topic/type filters, and an Excel template download.
 Save and import errors are shown before reporting success.
 
+In the admin course builder, each topic, subtopic, and quiz has a **Delete** action with a confirmation prompt.
+Deleting a topic also removes its subtopics and quizzes; deleting a subtopic removes its quizzes.
+Questions remain in the **Question Bank**, where admins can reassign them to another quiz. Deletion requires an admin
+session, and the course structure updates only after the backend saves successfully.
+
 Question uploads can include AI engine metadata:
 
 ```json
@@ -71,6 +76,21 @@ Students must register or sign in before starting any test. When questions are l
 answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
 Password sign-in accepts either the account email address or username.
 Courses do not appear on a student dashboard by default; the student must register an available course first.
+
+Password signup creates a new account and rejects an email that is already registered, including Google accounts.
+Google users can continue with Google or use **Forgot password** to set a password through their verified mailbox.
+
+Public question responses contain prompts and choices only; answer keys and grading metadata are available through
+the protected admin question endpoint and a student's own completed attempt. Starting a test requires a published quiz
+with explicitly assigned questions. Each attempt stores its question content and full mark total at the start.
+Unanswered questions earn zero marks, and submissions reject duplicate questions, questions outside the attempt, and
+attempts that have already been completed.
+
+Submission failures keep the student's answers in the current browser session and show a retry action. A retry can
+recover an already saved result if the original response was lost. New marked answers and scores are stored together
+in the attempt document. Active attempts created before this change lack a trustworthy question snapshot and must be
+restarted; existing completed attempt history is retained. Rebuild and restart both the frontend and backend together
+when deploying this API change.
 
 ## Welcome Emails
 
