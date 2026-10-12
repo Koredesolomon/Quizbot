@@ -178,7 +178,7 @@ export function TestInterface({
                 <p className="text-sm font-bold text-emerald-700">Explain your answer.</p>
                 <WordAnswerBox
                   questionId={`${question.id}-explanation`}
-                  placeholder="Explain your choice (supports LaTeX)"
+                  placeholder="Explain your choice"
                   value={currentAnswer.explanation}
                   onChange={(value) => onAnswer(question.id, joinChoiceAnswer(currentAnswer.choice, value))}
                 />
@@ -280,7 +280,7 @@ function SubmitConfirmModal({
 function WordAnswerBox({
   questionId,
   value,
-  placeholder = "Write your answer (supports LaTeX)",
+  placeholder = "Write your answer",
   onChange,
 }: {
   questionId: string;

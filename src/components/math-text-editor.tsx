@@ -110,7 +110,7 @@ export function MathTextEditor({ value, onChange, label, placeholder, required =
     editorProps: {
       attributes: {
         id, role: "textbox", "aria-label": label, "aria-multiline": "true",
-        "aria-required": String(required), "aria-describedby": `${id}-help`,
+        "aria-required": String(required),
         "data-placeholder": placeholder, class: "rich-text-input",
       },
       handlePaste: (_view, event) => {
@@ -297,7 +297,6 @@ export function MathTextEditor({ value, onChange, label, placeholder, required =
       </section>}
       <EditorContent editor={editor} />
       {!editor && <div className="min-h-44 px-4 py-4 text-base text-slate-400">{placeholder}</div>}
-      <p id={`${id}-help`} className="px-4 pb-3 text-xs font-normal text-slate-500">Use the Equation tool, or type $...$ to insert math. Click an equation to edit it.</p>
       {children}
     </div>
   );

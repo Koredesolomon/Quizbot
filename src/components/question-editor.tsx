@@ -198,7 +198,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
         </div>
         <section className="grid gap-1.5" aria-label="Question editor">
           <h4 className="text-sm font-bold">Question</h4>
-          <MathTextEditor key={editorVersion} required disabled={busy} label="Question" value={form.prompt} onChange={(value) => change("prompt", value)} placeholder="Write your question (supports LaTeX)" />
+          <MathTextEditor key={editorVersion} required disabled={busy} label="Question" value={form.prompt} onChange={(value) => change("prompt", value)} placeholder="Write your question" />
         </section>
         <section className="space-y-2" aria-label="Image / Diagram">
           <div className="flex items-center justify-between gap-3">
