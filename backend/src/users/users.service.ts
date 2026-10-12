@@ -132,7 +132,7 @@ export class UsersService {
           passwordResetTokenHash: tokenHash,
           passwordResetExpiresAt: expiresAt,
         },
-        { new: true }
+        { returnDocument: "after" }
       )
       .exec();
   }
@@ -158,7 +158,7 @@ export class UsersService {
             passwordResetExpiresAt: "",
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       )
       .exec();
   }
@@ -186,7 +186,7 @@ export class UsersService {
             registeredCourses: normalizedCourse,
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       )
       .exec();
   }

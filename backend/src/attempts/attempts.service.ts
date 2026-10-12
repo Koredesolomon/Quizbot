@@ -73,7 +73,7 @@ export class AttemptsService {
         { submissionToken: { $exists: false } },
         { submissionStartedAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) } },
       ],
-    }, { $set: { submissionToken, submissionStartedAt: new Date() } }, { new: true }).exec();
+    }, { $set: { submissionToken, submissionStartedAt: new Date() } }, { returnDocument: "after" }).exec();
     if (!claimed) throw new ConflictException("This attempt is already being submitted or has been completed.");
 
     try {
@@ -113,7 +113,7 @@ export class AttemptsService {
           gradedAnswers: markedAnswers.map((answer) => this.persistedAnswer(answer)),
         },
         $unset: { submissionToken: 1, submissionStartedAt: 1 },
-      }, { new: true, runValidators: true }).select("+questionSnapshots +gradedAnswers").exec();
+      }, { returnDocument: "after", runValidators: true }).select("+questionSnapshots +gradedAnswers").exec();
       if (!completed) throw new ConflictException("The submission changed. Please retry to retrieve your result.");
       return this.publicResult(completed);
     } catch (error) {

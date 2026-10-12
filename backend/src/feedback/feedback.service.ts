@@ -32,7 +32,7 @@ export class FeedbackService {
 
   async markReviewed(id: string) {
     const feedback = await this.feedbackModel
-      .findByIdAndUpdate(id, { status: "reviewed" }, { new: true })
+      .findByIdAndUpdate(id, { status: "reviewed" }, { returnDocument: "after" })
       .populate("studentId", "fullName email")
       .exec();
     if (!feedback) throw new NotFoundException("Feedback not found.");
