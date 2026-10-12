@@ -45,3 +45,9 @@ export function questionInput(question: QuestionInput): QuestionInput {
     keywords: question.keywords,
   };
 }
+
+/** Questions not linked to any existing course (never assigned, or their course was deleted). */
+export function unassignedQuestions<T extends Pick<Question, "courseId">>(questions: T[], courses: CourseContent[]) {
+  const courseIds = new Set(courses.map((course) => course.id));
+  return questions.filter((question) => !question.courseId || !courseIds.has(question.courseId));
+}

@@ -1,6 +1,7 @@
 import type { Question, QuestionType } from "@/types/platform";
 import {
   asksForExplanation,
+  defaultMarks,
   formatAnswerLetters,
   optionLetter,
   parseQuestionType,
@@ -229,9 +230,12 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
   if (type === "objective") finalAnswer = needsAnswer ? "" : choices[resolved![0]];
   if (type === "multiple") finalAnswer = needsAnswer ? "" : formatAnswerLetters(resolved!);
 
+  // Choice questions that ask "Explain your answer" (or are marked so in a spreadsheet) also get an answer box.
+  const answerBox = type !== "theory" && (asksForExplanation.test(prompt) || /^(?:yes|y|true|1|x)$/i.test(raw.answerBox?.trim() ?? ""));
   const marksValue = Number(raw.marks);
+  const marks = Number.isInteger(marksValue) && marksValue >= 1 ? marksValue : defaultMarks(type, answerBox);
   if (raw.marks?.trim() && !(Number.isInteger(marksValue) && marksValue >= 1)) {
-    warnings.push(`Marks "${raw.marks}" is not a whole number, so 1 mark was used.`);
+    warnings.push(`Marks "${raw.marks}" is not a whole number, so the default of ${marks} mark${marks === 1 ? "" : "s"} was used.`);
   }
 
   return {
@@ -245,11 +249,10 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
       prompt,
       imageUrl: imageUrl || undefined,
       options: type === "theory" ? undefined : choices,
-      // Choice questions that ask "Explain your answer" (or are marked so in a spreadsheet) also get an answer box.
-      answerBox: type !== "theory" && (asksForExplanation.test(prompt) || /^(?:yes|y|true|1|x)$/i.test(raw.answerBox?.trim() ?? "")) ? true : undefined,
+      answerBox: answerBox ? true : undefined,
       answer: finalAnswer,
       explanation,
-      marks: Number.isInteger(marksValue) && marksValue >= 1 ? marksValue : 1,
+      marks,
       difficulty: difficulty(raw.difficulty),
       learningObjective: raw.learningObjective || undefined,
       rubricPoints: rubric,

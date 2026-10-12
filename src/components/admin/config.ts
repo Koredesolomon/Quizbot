@@ -80,14 +80,8 @@ export const emptyQuizForm = {
   passingPercent: 50,
 };
 
-export type QuestionBankView = "exams" | "subjects" | "bank";
-export type ExamOption = {
-  id: string;
-  title: string;
-  description: string;
-  subjects: number;
-  accent: "green" | "blue" | "purple" | "orange";
-};
+/** courses: course cards · course: one course grouped by quiz · quiz: one quiz · unassigned: questions in no course */
+export type QuestionBankView = "courses" | "course" | "quiz" | "unassigned";
 export type SubjectOption = {
   id: string;
   title: string;
@@ -95,12 +89,6 @@ export type SubjectOption = {
   accent: "green" | "blue" | "purple" | "orange" | "rose";
 };
 
-export const examOptions: ExamOption[] = [
-  { id: "ssce", title: "SSCE", description: "Senior School Certificate Examination", subjects: 4, accent: "green" },
-  { id: "utme", title: "UTME", description: "Unified Tertiary Matriculation Examination", subjects: 4, accent: "blue" },
-  { id: "jupeb", title: "JUPEB", description: "Joint Universities Preliminary Examinations Board", subjects: 3, accent: "purple" },
-  { id: "ijmb", title: "IJMB", description: "Interim Joint Matriculation Board", subjects: 3, accent: "orange" },
-];
 export const subjectCatalog: SubjectOption[] = [
   { id: "Mathematics", title: "Mathematics", icon: Calculator, accent: "green" },
   { id: "English Language", title: "English Language", icon: BookOpen, accent: "rose" },

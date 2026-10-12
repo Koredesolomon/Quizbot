@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Eye, Pencil, Plus, Upload } from "lucide-react";
+import { ArrowRight, Eye, Pencil, Plus, Upload } from "lucide-react";
 import type { CourseContent } from "@/lib/api";
 import { describeAnswer, isChoiceType, questionTypeLabels, questionTypeShortLabels } from "@/lib/question-answers";
 import { parseQuestionImportFile, questionImportAccept, questionImportFormats, type QuestionImportResult } from "@/lib/question-import";
-import { questionInput, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
+import { questionInput, quizQuestionContexts, unassignedQuestions, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
 import type { Question } from "@/types/platform";
 import { ImportFormatGuide } from "./import-format-guide";
 import { ImportReview } from "./import-review";
@@ -13,9 +13,15 @@ import { ImagePreview, QuestionEditor } from "./question-editor";
 import { MathContent } from "./math-content";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
+/** Which questions to manage: a whole course (grouped by quiz) or questions in no course. */
+export type QuestionScope =
+  | { kind: "course"; course: CourseContent; onOpenQuiz: (quiz: QuizQuestionContext) => void }
+  | { kind: "unassigned" };
+
 type Props = {
   subject: string;
   context?: QuizQuestionContext;
+  scope?: QuestionScope;
   questions: Question[];
   courses: CourseContent[];
   onCreate: (input: QuestionInput) => Promise<void>;
@@ -23,7 +29,7 @@ type Props = {
   onImport: (questions: QuestionInput[]) => Promise<void>;
 };
 
-export function QuestionManager({ subject, context, questions, courses, onCreate, onUpdate, onImport }: Props) {
+export function QuestionManager({ subject, context, scope, questions, courses, onCreate, onUpdate, onImport }: Props) {
   const [editor, setEditor] = useState<Question | "new" | null>(null);
   const [preview, setPreview] = useState<Question | null>(null);
   const [search, setSearch] = useState("");
@@ -34,9 +40,15 @@ export function QuestionManager({ subject, context, questions, courses, onCreate
   const [notice, setNotice] = useState("");
   const [review, setReview] = useState<{ fileName: string; result: QuestionImportResult } | null>(null);
   const uploadBusyRef = useRef(false);
-  const scopedQuestions = questions.filter((question) => context
-    ? question.quizId === context.quizId
-    : (question.subject ?? "Physics") === subject);
+  const scopedQuestions = context
+    ? questions.filter((question) => question.quizId === context.quizId)
+    : scope?.kind === "course"
+      ? questions.filter((question) => question.courseId === scope.course.id)
+      : scope?.kind === "unassigned"
+        ? unassignedQuestions(questions, courses)
+        : questions.filter((question) => (question.subject ?? "Physics") === subject);
+  const courseQuizzes = scope?.kind === "course" ? quizQuestionContexts([scope.course]) : [];
+  const canUpload = scope?.kind !== "course";
   const topics = Array.from(new Set(scopedQuestions.map((question) => question.topic))).sort();
   const filtered = scopedQuestions.filter((question) =>
     (!type || question.type === type) && (!topic || question.topic === topic) &&
@@ -79,8 +91,22 @@ export function QuestionManager({ subject, context, questions, courses, onCreate
     } finally { uploadBusyRef.current = false; setUploading(false); }
   };
 
+  const questionTable = (items: Question[], showLink: boolean) => <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+    <thead className="border-b border-[#d5e2f0] text-xs text-[#5e7086]"><tr>{["Question", "Topic", "Type", "Marks", ...(showLink ? ["Linked To"] : []), "Actions"].map((label) => <th key={label} className="px-3 py-3">{label}</th>)}</tr></thead>
+    <tbody>{items.map((question) => <tr key={question.id} className="border-b border-[#e8f0fa] last:border-0">
+      <td className="min-w-56 max-w-xl px-3 py-4"><span className="line-clamp-3">{question.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, "[picture]")}</span></td>
+      <td className="px-3 py-4">{question.topic}</td><td className="px-3 py-4">{questionTypeShortLabels[question.type]}{question.answerBox ? " + box" : ""}</td><td className="px-3 py-4">{question.marks}</td>
+      {showLink && <td className="px-3 py-4">{question.quizId ? "Quiz" : question.subtopicId ? "Subtopic" : question.courseId ? "Course" : "Question bank"}</td>}
+      <td className="px-3 py-4"><div className="flex gap-3 whitespace-nowrap">
+        <button type="button" disabled={uploading} className="inline-flex min-h-9 items-center gap-1 text-[#06479b] hover:underline disabled:opacity-50" aria-label={`Preview question: ${question.prompt}`} onClick={() => setPreview(question)}><Eye size={15} /> Preview</button>
+        <button type="button" disabled={uploading} className="inline-flex min-h-9 items-center gap-1 font-bold text-[#06479b] hover:underline disabled:opacity-50" aria-label={`Edit question: ${question.prompt}`} onClick={() => { setError(""); setNotice(""); setEditor(question); }}><Pencil size={15} /> Edit</button>
+      </div></td>
+    </tr>)}</tbody>
+  </table></div>;
+
   if (editor) return <QuestionEditor key={editor === "new" ? "new" : editor.id}
-    question={editor === "new" ? undefined : editor} subject={subject} context={context} courses={courses}
+    question={editor === "new" ? undefined : editor} subject={editor === "new" ? subject : editor.subject ?? subject} context={context} courses={courses}
+    defaultQuizId={courseQuizzes[0]?.quizId}
     onCancel={() => setEditor(null)} onSave={async (input) => {
       if (editor === "new") await onCreate(input); else await onUpdate(editor.id, input);
       setNotice(editor === "new" ? "Question saved." : "Question updated.");
@@ -110,36 +136,40 @@ export function QuestionManager({ subject, context, questions, courses, onCreate
 
   return <section className="space-y-4 rounded-lg border border-[#d5e2f0] bg-white p-5" aria-busy={uploading}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h3 className="text-xl font-black">{context ? "Quiz Questions" : `${subject} Question Bank`}</h3>
-        <p className="mt-1 text-sm text-[#5e7086]">{scopedQuestions.length} questions{context ? ` · ${context.label}` : ""}</p></div>
+      <div><h3 className="text-xl font-black">{context ? "Quiz Questions" : scope?.kind === "course" ? "Course Questions" : scope?.kind === "unassigned" ? "Unassigned Questions" : `${subject} Question Bank`}</h3>
+        <p className="mt-1 text-sm text-[#5e7086]">{scopedQuestions.length} questions{context ? ` · ${context.label}` : scope?.kind === "course" ? ` in ${courseQuizzes.length} quiz${courseQuizzes.length === 1 ? "" : "zes"}` : ""}</p></div>
       <div className="flex flex-wrap gap-2">
         <PrimaryButton type="button" disabled={uploading} onClick={() => { setError(""); setNotice(""); setEditor("new"); }}><Plus size={16} /> Add Question</PrimaryButton>
-        <label className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-[#d5e2f0] px-4 text-sm font-bold text-[#06479b] ${uploading ? "opacity-50" : "cursor-pointer hover:bg-blue-50"}`}>
+        {canUpload && <label className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-[#d5e2f0] px-4 text-sm font-bold text-[#06479b] ${uploading ? "opacity-50" : "cursor-pointer hover:bg-blue-50"}`}>
           <Upload size={16} />{uploading ? "Reading file…" : "Bulk Upload"}
           <input className="sr-only" type="file" disabled={uploading} aria-label="Bulk upload questions" accept={questionImportAccept}
             onChange={(event) => { const file = event.target.files?.[0] ?? null; event.currentTarget.value = ""; void importFile(file); }} />
-        </label>
+        </label>}
       </div>
     </div>
     {error && <p role="alert" className="text-sm font-bold text-rose-700">{error}</p>}
     {notice && <p role="status" className="text-sm font-bold text-emerald-700">{notice}</p>}
-    <ImportFormatGuide key={error ? "guide-open" : "guide"} subject={subject} topic={context?.topic} defaultOpen={Boolean(error)} />
+    {canUpload
+      ? <ImportFormatGuide key={error ? "guide-open" : "guide"} subject={subject} topic={context?.topic} defaultOpen={Boolean(error)} />
+      : <p className="text-sm text-[#5e7086]">To bulk upload into this course, use <strong>Open quiz</strong> on the quiz you want to fill.</p>}
     <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
       <label className="grid gap-1 text-xs font-bold">Search Questions<input className="min-h-10 rounded-md border border-[#d5e2f0] px-3 text-sm" type="search" placeholder="Question, topic or keyword" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <label className="grid gap-1 text-xs font-bold">Topic<select className="min-h-10 max-w-full rounded-md border border-[#d5e2f0] px-3 text-sm" value={topic} onChange={(event) => setTopic(event.target.value)}><option value="">All Topics</option>{topics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}</select></label>
       <label className="grid gap-1 text-xs font-bold">Type<select className="min-h-10 rounded-md border border-[#d5e2f0] px-3 text-sm" value={type} onChange={(event) => setType(event.target.value)}><option value="">All Types</option>{(["objective", "multiple", "theory"] as const).map((value) => <option key={value} value={value}>{questionTypeLabels[value]}</option>)}</select></label>
     </div>
-    {filtered.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-      <thead className="border-b border-[#d5e2f0] text-xs text-[#5e7086]"><tr>{["Question", "Topic", "Type", "Marks", "Linked To", "Actions"].map((label) => <th key={label} className="px-3 py-3">{label}</th>)}</tr></thead>
-      <tbody>{filtered.map((question) => <tr key={question.id} className="border-b border-[#e8f0fa] last:border-0">
-        <td className="min-w-56 max-w-xl px-3 py-4"><span className="line-clamp-3">{question.prompt}</span></td>
-        <td className="px-3 py-4">{question.topic}</td><td className="px-3 py-4">{questionTypeShortLabels[question.type]}{question.answerBox ? " + box" : ""}</td><td className="px-3 py-4">{question.marks}</td>
-        <td className="px-3 py-4">{question.quizId ? "Quiz" : question.subtopicId ? "Subtopic" : question.courseId ? "Course" : "Question bank"}</td>
-        <td className="px-3 py-4"><div className="flex gap-3 whitespace-nowrap">
-          <button type="button" disabled={uploading} className="inline-flex min-h-9 items-center gap-1 text-[#06479b] hover:underline disabled:opacity-50" aria-label={`Preview question: ${question.prompt}`} onClick={() => setPreview(question)}><Eye size={15} /> Preview</button>
-          <button type="button" disabled={uploading} className="inline-flex min-h-9 items-center gap-1 font-bold text-[#06479b] hover:underline disabled:opacity-50" aria-label={`Edit question: ${question.prompt}`} onClick={() => { setError(""); setNotice(""); setEditor(question); }}><Pencil size={15} /> Edit</button>
-        </div></td>
-      </tr>)}</tbody>
-    </table></div> : <p className="py-8 text-center text-sm text-[#5e7086]">{scopedQuestions.length ? "No questions match your filters." : `No questions yet. Add a question manually or upload a ${questionImportFormats} file.`}</p>}
+    {scope?.kind === "course" ? <div className="space-y-4">
+      {[...courseQuizzes.map((quiz) => ({ key: quiz.quizId!, quiz, label: quiz.label.split(" / ").slice(1).join(" › "), items: filtered.filter((question) => question.quizId === quiz.quizId) })),
+        { key: "none", quiz: undefined, label: "In this course, not in a quiz", items: filtered.filter((question) => !courseQuizzes.some((quiz) => quiz.quizId === question.quizId)) }]
+        .filter((group) => group.quiz || group.items.length)
+        .map((group) => <section key={group.key} className="rounded-lg border border-[#d5e2f0]" aria-label={group.label}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8f0fa] bg-[#f8fbff] px-4 py-3">
+            <div className="min-w-0"><h4 className="font-black text-[#10243f]">{group.label}</h4>
+              <p className="text-xs font-bold text-[#5e7086]">{group.items.length} question{group.items.length === 1 ? "" : "s"}{search || type || topic ? " match your filters" : ""}</p></div>
+            {group.quiz && <SecondaryButton className="min-h-9 gap-2 px-3 text-xs" type="button" disabled={uploading} onClick={() => scope.onOpenQuiz(group.quiz!)}>Open quiz <ArrowRight size={14} /></SecondaryButton>}
+          </div>
+          {group.items.length ? questionTable(group.items, false) : <p className="px-4 py-5 text-sm text-[#5e7086]">{scopedQuestions.length && (search || type || topic) ? "No questions match your filters." : "No questions yet. Open the quiz to add or upload questions."}</p>}
+        </section>)}
+      {!courseQuizzes.length && <p className="py-8 text-center text-sm text-[#5e7086]">This course has no quizzes yet. Add a quiz under Courses, then add its questions.</p>}
+    </div> : filtered.length ? questionTable(filtered, true) : <p className="py-8 text-center text-sm text-[#5e7086]">{scopedQuestions.length ? "No questions match your filters." : `No questions yet. Add a question manually or upload a ${questionImportFormats} file.`}</p>}
   </section>;
 }

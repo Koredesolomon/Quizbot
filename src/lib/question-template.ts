@@ -1,4 +1,4 @@
-import { asksForExplanation } from "@/lib/question-answers";
+import { asksForExplanation, defaultMarks } from "@/lib/question-answers";
 
 // Sample papers offered to admins as upload templates. The on-screen guide, the Word template and the
 // Excel template are all generated from `templateSections`, so they always show the same questions.
@@ -72,7 +72,6 @@ export const templateSections: TemplateSection[] = [
         text: "Which of the following measurements is the most precise? Explain your answer.",
         options: ["3 cm", "2.6 cm", "2.67 cm", "2.671 cm"],
         answer: ["D"],
-        marks: 2,
         explanation: "It has the most decimal places, so it is the most detailed reading.",
       },
     ],
@@ -86,7 +85,6 @@ export const templateSections: TemplateSection[] = [
         text: "Which of these are vector quantities? Give a reason for your answer.",
         options: ["Speed", "Velocity", "Force", "Mass"],
         answer: ["B, C"],
-        marks: 2,
         explanation: "Velocity and force have both magnitude and direction.",
       },
     ],
@@ -105,7 +103,6 @@ export const templateSections: TemplateSection[] = [
         text: "The micrometer screw gauge below measures the diameter of a wire. What is the reading? Show your working.",
         image: "micrometer",
         answer: ["6.50 mm + 0.43 mm = 6.93 mm"],
-        marks: 2,
         markingPoints: ["Reads the sleeve scale correctly (6.50 mm).", "Adds the thimble reading (0.43 mm) to get 6.93 mm."],
       },
     ],
@@ -119,7 +116,7 @@ export const templateTips = [
   "Put each option on its own line as A., B., C. … (all on one line also works).",
   "Label every answer with \"Answer:\". MCQ questions list every correct letter: Answer: A, C.",
   "Add \"Explain your answer\" (or \"Give a reason\") to an objective/MCQ question to give students an answer box under the options. Put the model reasoning on an \"Explanation:\" line.",
-  "Marks: write [4 marks] after the question, otherwise each question is worth 1 mark.",
+  "Marks: objective and MCQ questions are worth 1 mark, theory 2, and objective/MCQ with an explanation box 3. Write [4 marks] after a question to change it.",
   "Optional: Explanation: …, marking points as \"1 mark: …\", and EASY / MODERATE / HARD headings.",
   "Use Word's Insert → Equation for formulas (not MathType), and save as .docx.",
 ];
@@ -279,7 +276,8 @@ export async function buildExcelTemplate(subject: string, images: TemplateImageD
       rows.push([
         section.type, subject, topic, question.text.replace("{equation}", question.equation ? `$${question.equation.latex}$` : ""), "",
         ...[0, 1, 2, 3].map((index) => options[index] ?? ""),
-        question.answer.join("\n"), question.explanation ?? "", question.marks ?? 1, templateDifficulty.toLowerCase(),
+        question.answer.join("\n"), question.explanation ?? "",
+        question.marks ?? defaultMarks(section.type === "mcq" ? "multiple" : section.type, asksForExplanation.test(question.text)), templateDifficulty.toLowerCase(),
         asksForExplanation.test(question.text) && section.type !== "theory" ? "yes" : "", (question.markingPoints ?? []).join("; "),
       ]);
     }

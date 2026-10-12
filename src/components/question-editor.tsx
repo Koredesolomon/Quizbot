@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, UploadCloud, Trash2 } from "lucide-react";
 import type { CourseContent } from "@/lib/api";
-import { formatAnswerLetters, isChoiceType, optionLetter, questionTypeLabels, resolveAnswerIndices } from "@/lib/question-answers";
+import { defaultMarks, formatAnswerLetters, isChoiceType, optionLetter, questionTypeLabels, resolveAnswerIndices } from "@/lib/question-answers";
 import { questionInput, quizQuestionContexts, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
 import type { Question } from "@/types/platform";
 import { MathContent } from "./math-content";
@@ -31,7 +31,7 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     // Correct option indices for MCQ (multiple answers) questions.
     correct: question?.type === "multiple" ? resolveAnswerIndices(answer, options) ?? [] : [] as number[],
     explanation: question?.explanation ?? "",
-    marks: String(question?.marks ?? 2),
+    marks: String(question?.marks ?? defaultMarks(question?.type ?? "objective")),
     difficulty: question?.difficulty ?? "medium" as NonNullable<Question["difficulty"]>,
     learningObjective: question?.learningObjective ?? "",
     rubricPoints: question?.rubricPoints?.join("\n") ?? "",
@@ -40,17 +40,23 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
   };
 }
 
-export function QuestionEditor({ question, subject, context, courses, onSave, onCancel }: {
+export function QuestionEditor({ question, subject, context, courses, defaultQuizId, onSave, onCancel }: {
   question?: Question;
+  /** Quiz preselected for a new question when it is not added from inside a quiz. */
+  defaultQuizId?: string;
   subject: string;
   context?: QuizQuestionContext;
   courses: CourseContent[];
   onSave: (input: QuestionInput) => Promise<void>;
   onCancel: () => void;
 }) {
+  const quizChoices = quizQuestionContexts(courses);
+  const defaultChoice = !question && !context ? quizChoices.find((choice) => choice.quizId === defaultQuizId) : undefined;
   const [editorVersion, setEditorVersion] = useState(0);
-  const [form, setForm] = useState(() => initialForm(question, subject, context));
-  const [targetQuizId, setTargetQuizId] = useState(question ? "keep" : context?.quizId ?? "");
+  const [form, setForm] = useState(() => initialForm(question, subject, context ?? defaultChoice));
+  // New questions take the default marks for their type until the admin types their own.
+  const [marksTouched, setMarksTouched] = useState(Boolean(question));
+  const [targetQuizId, setTargetQuizId] = useState(question ? "keep" : context?.quizId ?? defaultChoice?.quizId ?? "");
   const [saving, setSaving] = useState(false);
   const [readingImage, setReadingImage] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +68,6 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
   const imageDragDepthRef = useRef(0);
   const imageReadBusyRef = useRef(false);
   const busyRef = useRef(false);
-  const quizChoices = quizQuestionContexts(courses);
   const target = context ?? quizChoices.find((choice) => choice.quizId === targetQuizId);
   const busy = saving || readingImage;
   const change = <K extends keyof typeof form>(key: K, value: typeof form[K]) => setForm((current) => ({ ...current, [key]: value }));
@@ -178,12 +183,15 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
         </label>}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-bold">Question Type
-            <select className={control} value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as Question["type"], answer: "", correct: [] }))}>
+            <select className={control} value={form.type} onChange={(event) => {
+              const type = event.target.value as Question["type"];
+              setForm((current) => ({ ...current, type, answer: "", correct: [], marks: marksTouched ? current.marks : String(defaultMarks(type, current.answerBox)) }));
+            }}>
               {(["objective", "multiple", "theory"] as const).map((type) => <option key={type} value={type}>{questionTypeLabels[type]}</option>)}
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-bold">Topic<input required className={control} value={form.topic} onChange={(event) => change("topic", event.target.value)} /></label>
-          <label className="grid gap-1.5 text-sm font-bold">Marks<input required type="number" min="1" step="1" className={control} value={form.marks} onChange={(event) => change("marks", event.target.value)} /></label>
+          <label className="grid gap-1.5 text-sm font-bold">Marks<input required type="number" min="1" step="1" className={control} value={form.marks} onChange={(event) => { setMarksTouched(true); change("marks", event.target.value); }} /></label>
           <label className="grid gap-1.5 text-sm font-bold">Difficulty<select className={control} value={form.difficulty} onChange={(event) => change("difficulty", event.target.value as typeof form.difficulty)}>
             <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
           </select></label>
@@ -256,9 +264,12 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
             </label>)}
           </fieldset>}
           <label className="flex min-h-10 items-start gap-3 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 py-2.5 text-sm">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#06479b]" checked={form.answerBox} onChange={(event) => change("answerBox", event.target.checked)} />
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#06479b]" checked={form.answerBox} onChange={(event) => {
+              const answerBox = event.target.checked;
+              setForm((current) => ({ ...current, answerBox, marks: marksTouched ? current.marks : String(defaultMarks(current.type, answerBox)) }));
+            }} />
             <span><strong>Also show an answer box</strong> so students explain their choice.
-              <span className="block text-xs text-[#5e7086]">With 2+ marks, the option earns half the marks and the AI marks the explanation for the rest. Put the model reasoning in Explanation below.</span></span>
+              <span className="block text-xs text-[#5e7086]">Worth 3 marks by default: 2 for the option and 1 for the AI-marked explanation. Put the model reasoning in Explanation below.</span></span>
           </label>
         </> : <label className="grid gap-1.5 text-sm font-bold">Model Answer<textarea required className={`${control} min-h-24`} value={form.answer} onChange={(event) => change("answer", event.target.value)} /></label>}
         <label className="grid gap-1.5 text-sm font-bold">{isChoiceType(form.type) && form.answerBox ? "Model explanation (used to mark the student's explanation)" : "Explanation / Feedback (optional)"}<textarea className={`${control} min-h-24`} value={form.explanation} onChange={(event) => change("explanation", event.target.value)} /></label>

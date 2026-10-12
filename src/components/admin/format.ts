@@ -1,6 +1,6 @@
 import type * as api from "@/lib/api";
 import type { StudentFeedback } from "@/types/platform";
-import { subjectCatalog, type AdminSection, type ExamOption, type QuestionBankView, type SubjectOption } from "./config";
+import type { AdminSection, QuestionBankView } from "./config";
 
 export function courseOutlineCounts(course: api.CourseContent) {
   const modules = course.modules ?? [];
@@ -23,52 +23,18 @@ export function courseOutlineCounts(course: api.CourseContent) {
   return { modules: modules.length, topics, subtopics, quizzes };
 }
 
-export function accentClasses(accent: ExamOption["accent"] | SubjectOption["accent"]) {
-  return {
-    green: {
-      card: "border-emerald-200 bg-gradient-to-br from-white to-emerald-50",
-      icon: "bg-[#087c22] text-white",
-      soft: "bg-[#edf8ef] text-[#087c22]",
-    },
-    blue: {
-      card: "border-[#b8d8ff] bg-gradient-to-br from-white to-[#edf5ff]",
-      icon: "bg-[#06479b] text-white",
-      soft: "bg-[#edf5ff] text-[#06479b]",
-    },
-    purple: {
-      card: "border-violet-200 bg-gradient-to-br from-white to-violet-50",
-      icon: "bg-violet-700 text-white",
-      soft: "bg-violet-50 text-violet-700",
-    },
-    orange: {
-      card: "border-orange-200 bg-gradient-to-br from-white to-orange-50",
-      icon: "bg-orange-500 text-white",
-      soft: "bg-orange-50 text-orange-700",
-    },
-    rose: {
-      card: "border-rose-200 bg-gradient-to-br from-white to-rose-50",
-      icon: "bg-rose-500 text-white",
-      soft: "bg-rose-50 text-rose-700",
-    },
-  }[accent];
-}
-
-export function estimatedExamQuestions(exam: ExamOption, questionCountsBySubject: Map<string, number>) {
-  const actual = subjectCatalog.reduce((sum, subject) => sum + (questionCountsBySubject.get(subject.id) ?? 0), 0);
-  const fallback = { ssce: 1420, utme: 980, jupeb: 640, ijmb: 520 }[exam.id] ?? 0;
-  return actual || fallback;
-}
-
-export function getQuestionPageTitle(view: QuestionBankView, exam: ExamOption, subject: SubjectOption) {
-  if (view === "subjects") return exam.title;
-  if (view === "bank") return subject.title;
+export function getQuestionPageTitle(view: QuestionBankView, course?: { title: string }, quizLabel?: string) {
+  if (view === "course" && course) return course.title;
+  if (view === "quiz" && quizLabel) return quizLabel.split(" / ").pop() ?? "Quiz";
+  if (view === "unassigned") return "Unassigned";
   return "Question Bank";
 }
 
-export function getQuestionPageSubtitle(view: QuestionBankView, exam: ExamOption, subject: SubjectOption) {
-  if (view === "subjects") return "Choose a subject under the selected exam.";
-  if (view === "bank") return `View, search, and manage questions for ${exam.title} - ${subject.title}.`;
-  return "Select an examination to manage questions.";
+export function getQuestionPageSubtitle(view: QuestionBankView, course?: { code: string; subject: string }, quizLabel?: string) {
+  if (view === "course" && course) return `${course.code} · ${course.subject} — every question in this course, grouped by module, topic, subtopic and quiz.`;
+  if (view === "quiz" && quizLabel) return quizLabel;
+  if (view === "unassigned") return "Questions that are not in any course. Edit a question to assign it to a quiz.";
+  return "Questions grouped by the course they belong to.";
 }
 
 export function pageTitle(section: AdminSection) {

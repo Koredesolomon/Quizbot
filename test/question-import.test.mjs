@@ -231,7 +231,7 @@ test('Excel uploads keep pictures anchored to question and option cells and expl
   assert.equal(questions[0].answer, questions[0].options[1]);
   assert.equal(questions[0].marks, 2);
   assert.equal(questions[1].answer, 'A, C');
-  assert.equal(questions[2].marks, 1);
+  assert.equal(questions[2].marks, 2); // invalid "five" falls back to the theory default
   assert.deepEqual(skipped, [{ location: 'Row 6', message: 'The answer "E" does not match any option (A–B).' }]);
   assert.ok(warnings.some((issue) => issue.location === 'Row 4' && /EMF/.test(issue.message)));
   assert.ok(warnings.some((issue) => issue.location === 'Row 5' && /five/.test(issue.message)));
@@ -271,12 +271,13 @@ test('the downloadable Word and Excel templates import cleanly with every questi
   assert.ok(word.questions[2].options.every((option) => /^!\[\]\(data:image\/png/.test(option)));
   assert.match(word.questions[3].prompt, /\$E_k ?= ?\\frac\{1\}\{2\}mv\^2\$/);
   assert.match(word.questions[8].imageUrl, /^data:image\/png/);
-  assert.deepEqual(word.questions.map((question) => question.marks), [1, 1, 1, 1, 2, 1, 2, 4, 2]);
+  assert.deepEqual(word.questions.map((question) => question.marks), [1, 1, 1, 1, 3, 1, 3, 4, 2]);
 
   const excelFile = await template.buildExcelTemplate('Physics', images);
   const contentTypes = await (await JSZip.loadAsync(excelFile)).file('[Content_Types].xml').async('string');
   assert.equal(contentTypes.match(/Extension="png"/g).length, 1, 'Excel rejects duplicate content-type declarations');
   const excel = await parseQuestionImportFile(new File([excelFile], 'template.xlsx'));
+  assert.deepEqual(excel.questions.map((question) => question.marks), [1, 1, 1, 1, 3, 1, 3, 4, 2]);
   assert.deepEqual([excel.skipped, excel.needsAnswer, excel.warnings], [[], [], []]);
   assert.deepEqual(summarise(excel.questions), expected);
   assert.match(excel.questions[1].imageUrl, /^data:image\/png/);

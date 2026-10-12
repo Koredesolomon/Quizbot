@@ -34,10 +34,8 @@ import {
   emptyQuizForm,
   emptySubtopicForm,
   emptyTopicForm,
-  examOptions,
   savedCourseBuilderSelection,
   sectionPaths,
-  subjectCatalog,
   type AdminSection,
   type CourseBuilderStep,
   type QuestionBankView,
@@ -139,9 +137,9 @@ export function AdminDashboard({
   const [selectedTopicId, setSelectedTopicId] = useState(initialCourseSelection.topicId);
   const [selectedSubtopicId, setSelectedSubtopicId] = useState(initialCourseSelection.subtopicId);
   const [managedQuiz, setManagedQuiz] = useState<QuizQuestionContext | null>(null);
-  const [questionBankView, setQuestionBankView] = useState<QuestionBankView>("exams");
-  const [selectedExamId, setSelectedExamId] = useState(examOptions[0].id);
-  const [selectedSubjectId, setSelectedSubjectId] = useState("Physics");
+  const [questionBankView, setQuestionBankView] = useState<QuestionBankView>("courses");
+  const [bankCourseId, setBankCourseId] = useState("");
+  const [bankQuiz, setBankQuiz] = useState<QuizQuestionContext | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -175,16 +173,9 @@ export function AdminDashboard({
     });
     return Array.from(groups.entries()).map(([topic, value]) => ({ topic, ...value }));
   }, [questions]);
-  const questionCountsBySubject = useMemo(() => {
-    const groups = new Map<string, number>();
-    questions.forEach((question) => groups.set(question.subject ?? "Physics", (groups.get(question.subject ?? "Physics") ?? 0) + 1));
-    return groups;
-  }, [questions]);
-  const selectedExam = (examOptions ?? []).find((exam) => exam.id === selectedExamId) ?? examOptions[0];
-  const selectedSubject = (subjectCatalog ?? []).find((subject) => subject.id === selectedSubjectId) ?? subjectCatalog[2];
-  const selectedSubjectQuestions = questions.filter((question) => (question.subject ?? "Physics") === selectedSubject.id);
-  const questionPageTitle = getQuestionPageTitle(questionBankView, selectedExam, selectedSubject);
-  const questionPageSubtitle = getQuestionPageSubtitle(questionBankView, selectedExam, selectedSubject);
+  const bankCourse = courses.find((course) => course.id === bankCourseId);
+  const questionPageTitle = getQuestionPageTitle(questionBankView, bankCourse, bankQuiz?.label);
+  const questionPageSubtitle = getQuestionPageSubtitle(questionBankView, bankCourse, bankQuiz?.label);
 
   const openSection = (target: AdminSection) => {
     setIsProfileOpen(false);
@@ -210,14 +201,15 @@ export function AdminDashboard({
     );
   }, [selectedCourseId, selectedModuleId, selectedSubtopicId, selectedTopicId]);
 
-  const chooseExam = (examId: string) => {
-    setSelectedExamId(examId);
-    setQuestionBankView("subjects");
+  const openBankCourse = (courseId: string) => {
+    setBankCourseId(courseId);
+    setBankQuiz(null);
+    setQuestionBankView("course");
   };
 
-  const chooseSubject = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    setQuestionBankView("bank");
+  const openBankQuiz = (quiz: QuizQuestionContext) => {
+    setBankQuiz(quiz);
+    setQuestionBankView("quiz");
   };
 
   const manageQuiz = (moduleId: string, topicId: string, subtopicId: string, quizId: string) => {
@@ -632,25 +624,22 @@ export function AdminDashboard({
           </header>
 
           <main className="space-y-5 px-4 py-5 sm:px-6">
-            {!(section === "questions" && questionBankView === "exams") && (
-              <PageHeading
-                title={section === "questions" ? questionPageTitle : pageTitle(section)}
-                subtitle={section === "questions" ? questionPageSubtitle : pageSubtitle(section, firstName(adminName))}
-                action={
-                  section === "questions" ? (
-                    <QuestionBankActions
-                      view={questionBankView}
-                      onBack={() => {
-                        if (questionBankView === "subjects") setQuestionBankView("exams");
-                        if (questionBankView === "bank") setQuestionBankView("subjects");
-                      }}
-                    />
-                  ) : (
-                    <DatePill />
-                  )
-                }
-              />
-            )}
+            <PageHeading
+              title={section === "questions" ? questionPageTitle : pageTitle(section)}
+              subtitle={section === "questions" ? questionPageSubtitle : pageSubtitle(section, firstName(adminName))}
+              action={
+                section === "questions" ? (
+                  <QuestionBankActions
+                    view={questionBankView}
+                    onBack={() => {
+                      setQuestionBankView(questionBankView === "quiz" && bankCourse ? "course" : "courses");
+                    }}
+                  />
+                ) : (
+                  <DatePill />
+                )
+              }
+            />
 
             {message && <p className="rounded-lg border border-[#b8d8ff] bg-[#edf5ff] px-4 py-3 text-sm font-bold text-[#06479b]">{message}</p>}
 
@@ -746,15 +735,13 @@ export function AdminDashboard({
             {section === "questions" && (
               <QuestionBankFlow
                 view={questionBankView}
-                exams={examOptions}
-                subjects={subjectCatalog}
-                selectedExam={selectedExam}
-                selectedSubject={selectedSubject}
-                questions={selectedSubjectQuestions}
-                questionCountsBySubject={questionCountsBySubject}
                 courses={courses}
-                onChooseExam={chooseExam}
-                onChooseSubject={chooseSubject}
+                questions={questions}
+                selectedCourse={bankCourse}
+                selectedQuiz={bankQuiz ?? undefined}
+                onOpenCourse={openBankCourse}
+                onOpenUnassigned={() => setQuestionBankView("unassigned")}
+                onOpenQuiz={openBankQuiz}
                 onCreateQuestion={onAddQuestion}
                 onUpdateQuestion={onUpdateQuestion}
                 onImportQuestions={onImportQuestions}

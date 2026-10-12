@@ -126,3 +126,12 @@ export function joinChoiceAnswer(choice: string, explanation: string) {
 
 /** Questions that ask students to explain or justify their choice get an answer box under the options. */
 export const asksForExplanation = /\b(?:explain\s+(?:your|the)\s+(?:answer|choice)|explain\s+why|give\s+(?:a|your|the)?\s*reasons?|justify\s+your\s+(?:answer|choice)|state\s+(?:a|the|your)\s+reason|show\s+(?:your|all)\s+working)\b/i;
+
+/**
+ * Marks a question carries when none are given: objective and MCQ 1, theory 2, and objective/MCQ with an
+ * explanation box 3 (2 for the option, 1 for the explanation).
+ */
+export function defaultMarks(type: QuestionType, answerBox = false) {
+  if (type === "theory") return 2;
+  return answerBox ? 3 : 1;
+}
