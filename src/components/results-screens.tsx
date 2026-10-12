@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { describeAnswer } from "@/lib/question-answers";
 import type { MarkedQuestion, QuizQuestion, TopicBreakdown } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
@@ -181,10 +182,10 @@ export function Details({
         <div className="mt-5 font-bold text-slate-900">
           <MathContent>{question.prompt}</MathContent>
         </div>
-        <ResultBlock label="Your Answer" text={question.userAnswer || "No answer submitted."} />
-        <ResultBlock label="Model Answer" text={question.answer} />
+        <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
+        <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />
         <ResultBlock label="AI Feedback" text={question.aiFeedback} />
-        <ResultBlock label="Explanation" text={question.explanation} />
+        {question.explanation && <ResultBlock label="Explanation" text={question.explanation} />}
 
         <div className="stagger-list mt-6 grid gap-3 sm:grid-cols-3">
           {topicBreakdown.map((topic) => (

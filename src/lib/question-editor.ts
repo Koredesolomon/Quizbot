@@ -34,6 +34,7 @@ export function questionInput(question: QuestionInput): QuestionInput {
     prompt: question.prompt,
     imageUrl: question.imageUrl,
     options: question.options,
+    answerBox: question.answerBox,
     answer: question.answer,
     explanation: question.explanation,
     marks: question.marks,

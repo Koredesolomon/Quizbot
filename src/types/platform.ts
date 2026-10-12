@@ -12,10 +12,10 @@ export type Screen =
   | "studentRegister"
   | "studentDashboard"
   | "passwordReset"
-  | "admin"
   | "comingSoon";
 
-export type QuestionType = "objective" | "theory";
+/** objective: one correct option · multiple: MCQ with one or more correct options · theory: written answer */
+export type QuestionType = "objective" | "multiple" | "theory";
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 
 export type Question = {
@@ -30,6 +30,8 @@ export type Question = {
   prompt: string;
   imageUrl?: string;
   options?: string[];
+  /** Objective/MCQ only: also show an answer box for the student to explain their choice. */
+  answerBox?: boolean;
   answer: string;
   explanation: string;
   marks: number;

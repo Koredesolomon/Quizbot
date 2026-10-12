@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AdminLogin,
-  type AdminAccount,
-} from "@/components/admin-dashboard";
+import { AdminLogin, type AdminAccount } from "@/components/admin/admin-login";
 import { AdminDashboard, type AdminSection, type CourseBuilderStep } from "@/components/admin-dashboard-shell";
 import { PasswordReset } from "@/components/password-reset";
 import * as api from "@/lib/api";
 import { questionInput } from "@/lib/question-editor";
+import { hostQuestionImages } from "@/lib/question-images";
 import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const adminStorageKey = "stem-jupeb-admin-account";
@@ -294,6 +292,8 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
     );
   }
 
+  const uploadImage = (image: Blob) => api.uploadQuestionImage(image, adminAccount.accessToken ?? "");
+
   return (
     <AdminDashboard
       adminName={adminAccount.name}
@@ -383,7 +383,8 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       }}
       onAddQuestion={async (question) => {
         try {
-          const saved = await api.createQuestion(questionInput(question), adminAccount.accessToken ?? "");
+          const [hosted] = await hostQuestionImages([questionInput(question)], uploadImage);
+          const saved = await api.createQuestion(hosted, adminAccount.accessToken ?? "");
           setQuestions((current) => [...current, saved]);
         } catch (error) {
           throw handleAdminRequestError(error);
@@ -391,7 +392,8 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       }}
       onUpdateQuestion={async (id, question) => {
         try {
-          const saved = await api.updateQuestion(id, questionInput(question), adminAccount.accessToken ?? "");
+          const [hosted] = await hostQuestionImages([questionInput(question)], uploadImage);
+          const saved = await api.updateQuestion(id, hosted, adminAccount.accessToken ?? "");
           setQuestions((current) => current.map((item) => item.id === id ? saved : item));
         } catch (error) {
           throw handleAdminRequestError(error);
@@ -399,10 +401,8 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       }}
       onImportQuestions={async (incomingQuestions) => {
         try {
-          const saved = await api.importQuestions(
-            incomingQuestions.map((question) => questionInput(question)),
-            adminAccount.accessToken ?? ""
-          );
+          const hosted = await hostQuestionImages(incomingQuestions.map((question) => questionInput(question)), uploadImage);
+          const saved = await api.importQuestions(hosted, adminAccount.accessToken ?? "");
           setQuestions((current) => [...current, ...saved]);
         } catch (error) {
           throw handleAdminRequestError(error);

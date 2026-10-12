@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { resolveAnswerIndices, selectedOptionIndices, splitChoiceAnswer } from "../questions/answer-key";
 import { QuestionsService } from "../questions/questions.service";
 import type { QuestionDocument } from "../questions/question.schema";
 import type { AnswerDocument } from "./answer.schema";
@@ -160,22 +161,92 @@ export class AttemptsService {
       return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.");
     }
 
-    if (question.type === "objective") {
-      const correct = this.objectiveAnswersMatch(response, question.answer, question.options ?? []);
-      return this.answerRecord(
-        attemptId,
-        question,
-        response,
-        correct ? question.marks : 0,
-        correct,
-        correct ? "Correct response." : "Incorrect response. Review the model answer."
-      );
+    if (question.type === "objective" || question.type === "multiple") {
+      const review = question.answerBox
+        ? await this.choiceWithExplanationReview(question, answer)
+        : this.choiceReview(question, response, question.marks);
+      return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback);
     }
 
     const fallback = this.keywordReview(question, response);
     const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
 
     return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback);
+  }
+
+  /**
+   * Full marks only for exactly the correct set. Otherwise partial credit for each correct option
+   * chosen, minus one for each incorrect option chosen, so ticking every box earns nothing.
+   */
+  private choiceReview(question: QuestionDocument, choice: string, marks: number) {
+    if (!choice) return { awarded: 0, correct: false, aiFeedback: "No option was chosen." };
+    if (question.type === "multiple") return this.multipleAnswerReview(question, choice, marks);
+    const correct = this.objectiveAnswersMatch(choice, question.answer, question.options ?? []);
+    return { awarded: correct ? marks : 0, correct, aiFeedback: correct ? "Correct response." : "Incorrect response. Review the model answer." };
+  }
+
+  /**
+   * Options plus a written explanation. The option earns half the marks (rounded up) and the AI marks the
+   * explanation for the rest; on 1-mark questions the option decides the mark and the explanation gets feedback only.
+   */
+  private async choiceWithExplanationReview(question: QuestionDocument, answer: string) {
+    const { choice, explanation } = splitChoiceAnswer(answer);
+    const optionMarks = question.marks === 1 ? 1 : Math.ceil(question.marks / 2);
+    const explanationMarks = question.marks - optionMarks;
+    const option = this.choiceReview(question, choice, optionMarks);
+
+    let written = { awarded: 0, correct: false, aiFeedback: "No explanation was written." };
+    if (explanation) {
+      const reviewQuestion = this.explanationQuestion(question, Math.max(1, explanationMarks));
+      written = await this.aiMarker.reviewTheoryAnswer(reviewQuestion, explanation, this.keywordReview(reviewQuestion, explanation));
+    }
+    const writtenAwarded = Math.min(explanationMarks, Math.max(0, written.awarded));
+
+    return {
+      awarded: option.awarded + writtenAwarded,
+      correct: option.correct && (explanationMarks === 0 || writtenAwarded === explanationMarks),
+      aiFeedback: `Option: ${option.aiFeedback} Explanation${explanationMarks ? ` (${writtenAwarded}/${explanationMarks} marks)` : ""}: ${written.aiFeedback}`,
+    };
+  }
+
+  /** The question as the AI marker should see it when marking only the written explanation. */
+  private explanationQuestion(question: QuestionDocument, marks: number) {
+    const options = question.options ?? [];
+    const correctOptions = (resolveAnswerIndices(question.answer, options) ?? [])
+      .map((index) => `${String.fromCharCode(65 + index)}. ${options[index]}`).join("; ");
+    const modelAnswer = [`Correct option: ${correctOptions || question.answer}.`, question.explanation].filter(Boolean).join(" ");
+    const keywords = question.keywords?.length
+      ? question.keywords
+      : Array.from(new Set((question.explanation ?? "").toLowerCase().match(/[a-z]{5,}/g) ?? [])).slice(0, 8);
+    return {
+      ...question.toObject(),
+      prompt: `${question.prompt}\n\nOptions: ${options.map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`).join("; ")}\nMark only the student's written explanation of their choice.`,
+      answer: modelAnswer,
+      keywords,
+      marks,
+    } as QuestionDocument;
+  }
+
+  private multipleAnswerReview(question: QuestionDocument, response: string, marks = question.marks) {
+    const options = question.options ?? [];
+    const expected = new Set(resolveAnswerIndices(question.answer, options) ?? []);
+    const selected = selectedOptionIndices(response, options);
+    const hits = selected.filter((index) => expected.has(index)).length;
+    const misses = selected.length - hits;
+    const correct = expected.size > 0 && hits === expected.size && misses === 0;
+    const awarded = correct
+      ? marks
+      : Math.max(0, Math.floor(((hits - misses) / Math.max(1, expected.size)) * marks));
+
+    return {
+      awarded,
+      correct,
+      aiFeedback: correct
+        ? "Correct response."
+        : awarded > 0
+          ? `Partially correct: you chose ${hits} of ${expected.size} correct options${misses ? ` and ${misses} incorrect option${misses === 1 ? "" : "s"}` : ""}.`
+          : "Incorrect response. Review the model answer.",
+    };
   }
 
   private objectiveAnswersMatch(response: string, modelAnswer: string, options: string[]) {

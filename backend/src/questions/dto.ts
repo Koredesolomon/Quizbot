@@ -1,10 +1,10 @@
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { PartialType } from "@nestjs/mapped-types";
 
 export class CreateQuestionDto {
-  @IsIn(["objective", "theory"])
-  type: "objective" | "theory";
+  @IsIn(["objective", "multiple", "theory"])
+  type: "objective" | "multiple" | "theory";
 
   @IsOptional()
   @IsString()
@@ -43,13 +43,17 @@ export class CreateQuestionDto {
   @IsString({ each: true })
   options?: string[];
 
+  @IsOptional()
+  @IsBoolean()
+  answerBox?: boolean;
+
   @IsString()
   @IsNotEmpty()
   answer: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  explanation: string;
+  explanation?: string;
 
   @IsInt()
   @Min(1)

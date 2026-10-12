@@ -6,6 +6,7 @@ import {
   parseAnswerValue,
   serializeAnswerValue,
 } from "@/lib/answer-attachments";
+import { joinChoiceAnswer, optionLetter, parseSelectedLetters, splitChoiceAnswer, toggleSelectedLetter } from "@/lib/question-answers";
 import type { QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { MathTextEditor } from "./math-text-editor";
@@ -29,6 +30,8 @@ export function TestInterface({
   onSubmit: () => void;
 }) {
   const question = questions[currentQuestion];
+  // Choice questions with an answer box keep the chosen option and the written explanation together.
+  const currentAnswer = splitChoiceAnswer(question ? answers[question.id] ?? "" : "");
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const answeredCount = questions.filter((item) => Boolean(answers[item.id]?.trim())).length;
   const unansweredCount = questions.length - answeredCount;
@@ -113,21 +116,48 @@ export function TestInterface({
               </span>
             </div>
 
-            {question.type === "objective" ? (
+            {question.type === "multiple" ? (
+              <fieldset className="mt-6 space-y-3">
+                <legend className="mb-3 text-sm font-bold text-emerald-700">Select all that apply.</legend>
+                {question.options?.map((option, index) => {
+                  const checked = parseSelectedLetters(currentAnswer.choice, question.options?.length ?? 0).includes(index);
+                  return (
+                    <label
+                      className={`interactive-lift flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 hover:border-emerald-200 ${
+                        checked ? "selected-pop" : ""
+                      }`}
+                      key={`${index}-${option}`}
+                    >
+                      <input
+                        checked={checked}
+                        className="h-4 w-4 accent-emerald-500"
+                        name={`question-${question.id}-${index}`}
+                        type="checkbox"
+                        onChange={() => onAnswer(question.id, joinChoiceAnswer(toggleSelectedLetter(currentAnswer.choice, index, question.options?.length ?? 0), currentAnswer.explanation))}
+                      />
+                      <span className="font-semibold text-slate-500">{optionLetter(index)}.</span>
+                      <strong className="font-bold text-slate-900">
+                        <MathContent>{option}</MathContent>
+                      </strong>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ) : question.type === "objective" ? (
               <div className="mt-6 space-y-3">
                 {question.options?.map((option, index) => (
                   <label
                     className={`interactive-lift flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 hover:border-emerald-200 ${
-                      answers[question.id] === option ? "selected-pop" : ""
+                      currentAnswer.choice === option ? "selected-pop" : ""
                     }`}
                     key={option}
                   >
                     <input
-                      checked={answers[question.id] === option}
+                      checked={currentAnswer.choice === option}
                       className="h-4 w-4 accent-emerald-500"
                       name={`question-${question.id}`}
                       type="radio"
-                      onChange={() => onAnswer(question.id, option)}
+                      onChange={() => onAnswer(question.id, joinChoiceAnswer(option, currentAnswer.explanation))}
                     />
                     <span className="font-semibold text-slate-500">{String.fromCharCode(65 + index)}.</span>
                     <strong className="font-bold text-slate-900">
@@ -142,6 +172,17 @@ export function TestInterface({
                 value={answers[question.id] ?? ""}
                 onChange={(value) => onAnswer(question.id, value)}
               />
+            )}
+            {question.type !== "theory" && question.answerBox && (
+              <div className="mt-6">
+                <p className="text-sm font-bold text-emerald-700">Explain your answer.</p>
+                <WordAnswerBox
+                  questionId={`${question.id}-explanation`}
+                  placeholder="Explain your choice (supports LaTeX)"
+                  value={currentAnswer.explanation}
+                  onChange={(value) => onAnswer(question.id, joinChoiceAnswer(currentAnswer.choice, value))}
+                />
+              </div>
             )}
 
             <div className="mt-8 flex flex-wrap justify-between gap-3">
@@ -239,10 +280,12 @@ function SubmitConfirmModal({
 function WordAnswerBox({
   questionId,
   value,
+  placeholder = "Write your answer (supports LaTeX)",
   onChange,
 }: {
   questionId: string;
   value: string;
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -298,7 +341,7 @@ function WordAnswerBox({
         label={`Answer for question ${questionId}`}
         value={answer.text}
         onChange={updateAnswer}
-        placeholder="Write your answer (supports LaTeX)"
+        placeholder={placeholder}
         imageNote
       >
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">

@@ -1,13 +1,14 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 
-export type QuestionType = "objective" | "theory";
+/** objective: one correct option · multiple: MCQ with one or more correct options · theory: written answer */
+export type QuestionType = "objective" | "multiple" | "theory";
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionDocument = HydratedDocument<Question>;
 
 @Schema({ timestamps: true })
 export class Question {
-  @Prop({ enum: ["objective", "theory"], required: true })
+  @Prop({ enum: ["objective", "multiple", "theory"], required: true })
   type: QuestionType;
 
   @Prop({ default: "Physics", trim: true })
@@ -37,10 +38,14 @@ export class Question {
   @Prop({ type: [String], default: undefined })
   options?: string[];
 
+  /** Objective/MCQ only: students also explain their choice in an answer box. */
+  @Prop()
+  answerBox?: boolean;
+
   @Prop({ required: true, trim: true })
   answer: string;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ default: "", trim: true })
   explanation: string;
 
   @Prop({ required: true, min: 1 })

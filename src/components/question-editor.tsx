@@ -3,12 +3,14 @@
 import { useRef, useState } from "react";
 import { ImagePlus, UploadCloud, Trash2 } from "lucide-react";
 import type { CourseContent } from "@/lib/api";
+import { formatAnswerLetters, isChoiceType, optionLetter, questionTypeLabels, resolveAnswerIndices } from "@/lib/question-answers";
 import { questionInput, quizQuestionContexts, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
 import type { Question } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { MathTextEditor } from "./math-text-editor";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
+const maxOptions = 8;
 const control = "w-full rounded-md border border-[#d5e2f0] bg-white px-3 py-2.5 text-sm font-medium text-[#10243f] outline-none focus:border-[#06479b] focus:ring-2 focus:ring-blue-100";
 
 function initialForm(question?: Question, subject = "Physics", context?: QuizQuestionContext) {
@@ -24,7 +26,10 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     prompt: question?.prompt ?? "",
     imageUrl: question?.imageUrl ?? "",
     options,
-    answer: question?.type === "theory" ? answer : selectedAnswer,
+    answerBox: Boolean(question?.answerBox),
+    answer: question?.type === "theory" || question?.type === "multiple" ? answer : selectedAnswer,
+    // Correct option indices for MCQ (multiple answers) questions.
+    correct: question?.type === "multiple" ? resolveAnswerIndices(answer, options) ?? [] : [] as number[],
     explanation: question?.explanation ?? "",
     marks: String(question?.marks ?? 2),
     difficulty: question?.difficulty ?? "medium" as NonNullable<Question["difficulty"]>,
@@ -67,8 +72,10 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
     if (busyRef.current || imageReadBusyRef.current) return;
     setError("");
     setNotice("");
-    if (![form.topic, form.prompt, form.answer, form.explanation].every((value) => value.trim())) {
-      setError("Complete the topic, question, answer, and explanation.");
+    const choice = isChoiceType(form.type);
+    const answer = form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer.trim();
+    if (![form.topic, form.prompt, answer].every((value) => value.trim())) {
+      setError(form.type === "multiple" ? "Complete the topic and question, and tick at least one correct answer." : "Complete the topic, question, and answer.");
       return;
     }
     const marks = Number(form.marks);
@@ -77,7 +84,7 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
       return;
     }
     const options = form.options.map((option) => option.trim());
-    if (form.type === "objective" && (options.length < 2 || options.some((option) => !option))) {
+    if (choice && (options.length < 2 || options.some((option) => !option))) {
       setError("Enter at least two options. Fill or remove any blank options.");
       return;
     }
@@ -100,8 +107,9 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
         topic: form.topic.trim(),
         prompt: form.prompt.trim(),
         imageUrl: form.imageUrl.trim(),
-        options: form.type === "objective" ? options : [],
-        answer: form.answer.trim(),
+        options: choice ? options : [],
+        answerBox: choice && form.answerBox ? true : undefined,
+        answer,
         explanation: form.explanation.trim(),
         marks,
         difficulty: form.difficulty,
@@ -170,8 +178,8 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
         </label>}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-bold">Question Type
-            <select className={control} value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as Question["type"], answer: "" }))}>
-              <option value="objective">Multiple Choice</option><option value="theory">Theory</option>
+            <select className={control} value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as Question["type"], answer: "", correct: [] }))}>
+              {(["objective", "multiple", "theory"] as const).map((type) => <option key={type} value={type}>{questionTypeLabels[type]}</option>)}
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-bold">Topic<input required className={control} value={form.topic} onChange={(event) => change("topic", event.target.value)} /></label>
@@ -219,24 +227,41 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
           </div>
           {imageError && <p role="alert" className="text-sm font-bold text-rose-700">{imageError}</p>}
         </section>
-        {form.type === "objective" ? <>
+        {isChoiceType(form.type) ? <>
           <div className="grid gap-3 sm:grid-cols-2">{form.options.map((option, index) => <div key={index} className="flex items-end gap-2">
-            <label className="grid flex-1 gap-1.5 text-sm font-bold">Option {String.fromCharCode(65 + index)}<input required className={control} value={option}
+            <label className="grid flex-1 gap-1.5 text-sm font-bold">Option {optionLetter(index)}<input required className={control} value={option}
               onChange={(event) => {
                 const value = event.target.value;
                 setForm((current) => ({ ...current, options: current.options.map((item, i) => i === index ? value : item), answer: current.answer === option ? value : current.answer }));
               }} /></label>
-            {form.options.length > 2 && <button type="button" className="min-h-10 px-2 text-xs font-bold text-rose-700" aria-label={`Remove option ${String.fromCharCode(65 + index)}`}
-              onClick={() => setForm((current) => ({ ...current, options: current.options.filter((_, i) => i !== index), answer: current.answer === option ? "" : current.answer }))}>Remove</button>}
+            {form.options.length > 2 && <button type="button" className="min-h-10 px-2 text-xs font-bold text-rose-700" aria-label={`Remove option ${optionLetter(index)}`}
+              onClick={() => setForm((current) => ({
+                ...current,
+                options: current.options.filter((_, i) => i !== index),
+                answer: current.answer === option ? "" : current.answer,
+                correct: current.correct.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)),
+              }))}>Remove</button>}
           </div>)}</div>
-          {form.options.length < 5 && <SecondaryButton className="justify-self-start" type="button" onClick={() => change("options", [...form.options, ""])}>Add option</SecondaryButton>}
-          <label className="grid gap-1.5 text-sm font-bold">Correct Answer<select required className={control} value={form.answer} onChange={(event) => change("answer", event.target.value)}>
+          {form.options.length < maxOptions && <SecondaryButton className="justify-self-start" type="button" onClick={() => change("options", [...form.options, ""])}>Add option</SecondaryButton>}
+          {form.type === "objective" ? <label className="grid gap-1.5 text-sm font-bold">Correct Answer<select required className={control} value={form.answer} onChange={(event) => change("answer", event.target.value)}>
             <option value="">Select the correct option</option>
             {form.answer && !form.options.includes(form.answer) && <option value={form.answer}>Current answer: {form.answer} — select an option</option>}
-            {form.options.map((option, index) => option.trim() && <option key={index} value={option}>{String.fromCharCode(65 + index)}: {option}</option>)}
-          </select></label>
+            {form.options.map((option, index) => option.trim() && <option key={index} value={option}>{optionLetter(index)}: {option}</option>)}
+          </select></label> : <fieldset className="grid gap-2">
+            <legend className="mb-1 text-sm font-bold">Correct Answers <span className="font-normal text-[#5e7086]">(tick every correct option)</span></legend>
+            {form.options.map((option, index) => <label key={index} className="flex min-h-10 items-center gap-3 rounded-md border border-[#d5e2f0] px-3 text-sm has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50">
+              <input type="checkbox" className="h-4 w-4 accent-emerald-600" checked={form.correct.includes(index)}
+                onChange={() => change("correct", form.correct.includes(index) ? form.correct.filter((i) => i !== index) : [...form.correct, index].sort((a, b) => a - b))} />
+              <span className="font-bold">{optionLetter(index)}.</span><span className="min-w-0 truncate">{option || "(empty option)"}</span>
+            </label>)}
+          </fieldset>}
+          <label className="flex min-h-10 items-start gap-3 rounded-md border border-[#d5e2f0] bg-[#f8fbff] px-3 py-2.5 text-sm">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#06479b]" checked={form.answerBox} onChange={(event) => change("answerBox", event.target.checked)} />
+            <span><strong>Also show an answer box</strong> so students explain their choice.
+              <span className="block text-xs text-[#5e7086]">With 2+ marks, the option earns half the marks and the AI marks the explanation for the rest. Put the model reasoning in Explanation below.</span></span>
+          </label>
         </> : <label className="grid gap-1.5 text-sm font-bold">Model Answer<textarea required className={`${control} min-h-24`} value={form.answer} onChange={(event) => change("answer", event.target.value)} /></label>}
-        <label className="grid gap-1.5 text-sm font-bold">Explanation / Feedback<textarea required className={`${control} min-h-24`} value={form.explanation} onChange={(event) => change("explanation", event.target.value)} /></label>
+        <label className="grid gap-1.5 text-sm font-bold">{isChoiceType(form.type) && form.answerBox ? "Model explanation (used to mark the student's explanation)" : "Explanation / Feedback (optional)"}<textarea className={`${control} min-h-24`} value={form.explanation} onChange={(event) => change("explanation", event.target.value)} /></label>
         <label className="grid gap-1.5 text-sm font-bold">Learning Objective (optional)<input className={control} value={form.learningObjective} onChange={(event) => change("learningObjective", event.target.value)} /></label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-bold">Rubric Points (one per line)<textarea className={`${control} min-h-24`} value={form.rubricPoints} onChange={(event) => change("rubricPoints", event.target.value)} /></label>
@@ -247,8 +272,9 @@ export function QuestionEditor({ question, subject, context, courses, onSave, on
       <details className="rounded-md border border-[#d5e2f0] p-3"><summary className="cursor-pointer text-sm font-bold">Preview question and answer</summary>
         <div className="mt-3 space-y-3"><MathContent>{form.prompt || "Question preview"}</MathContent>
           {form.imageUrl && <ImagePreview src={form.imageUrl} />}
-          {form.type === "objective" && <ol className="list-inside list-[upper-alpha]">{form.options.map((option, index) => <li key={index}><MathContent>{option}</MathContent></li>)}</ol>}
-          <p className="text-xs font-bold">{form.type === "theory" ? "Model answer" : "Correct answer"}</p><MathContent>{form.answer}</MathContent>
+          {isChoiceType(form.type) && <ol className="list-inside list-[upper-alpha]">{form.options.map((option, index) => <li key={index}><MathContent>{option}</MathContent></li>)}</ol>}
+          <p className="text-xs font-bold">{form.type === "theory" ? "Model answer" : form.type === "multiple" ? "Correct answers" : "Correct answer"}</p>
+          <MathContent>{form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer}</MathContent>
           <p className="text-xs font-bold">Explanation</p><MathContent>{form.explanation}</MathContent>
         </div>
       </details>

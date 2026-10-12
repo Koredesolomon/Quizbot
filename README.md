@@ -52,6 +52,22 @@ Deleting a topic also removes its subtopics and quizzes; deleting a subtopic rem
 Questions remain in the **Question Bank**, where admins can reassign them to another quiz. Deletion requires an admin
 session, and the course structure updates only after the backend saves successfully.
 
+**Bulk Upload** accepts Word (`.docx`), Excel (`.xlsx`, `.xls`) and CSV files, and shows a review of every question
+before anything is saved. Rows or questions that cannot be imported are listed with the reason.
+
+- **Question types:** `objective` (one correct option, radio buttons), `mcq` / `multiple` (one or more correct options,
+  checkboxes, answer such as `A, C`) and `theory` (written answer box). Without a type, it is detected from the options and answer.
+- **Word papers:** number questions (`1.` or Word's numbered list), letter options (`A.`, `(a)`, a lettered list, or on one
+  line), then add `Answer:` and optionally `Explanation:`, `Marks:` or `[4 marks]`. A heading such as `SECTION B: THEORY`
+  sets the type for the questions below it, and an `Answer Key` section at the end (`1. B  2. A, C`) is also read. Word
+  equations become LaTeX. MathType objects and EMF/WMF pictures cannot be read and are reported.
+- **Spreadsheets:** use the downloadable template columns. Pictures placed over (or in) a question or option cell are
+  attached to that question or option.
+- **Pictures** are uploaded to `backend/uploads/question-images/` when questions are saved.
+
+MCQ questions award full marks for exactly the correct options; otherwise each correct pick earns its share and each
+wrong pick cancels one, so ticking every option scores zero.
+
 Question uploads can include AI engine metadata:
 
 ```json

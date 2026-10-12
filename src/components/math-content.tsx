@@ -25,7 +25,13 @@ function renderMathText(value: string) {
     const expanded = html.replace(/\u0000(\d+)\u0000/g, (_, index: string) => protectedHtml[Number(index)] ?? "");
     return `\u0000${protectedHtml.push(expanded) - 1}\u0000`;
   };
-  const withCode = value.replace(/`([^`\n]+)`/g, (_, text: string) => protect(`<code class="rounded bg-slate-200 px-1 font-mono">${escapeHtml(text)}</code>`));
+  // Pictures inside question or option text (from bulk imports), protected before math detection
+  // so URLs are never mistaken for equations. SVG data URLs are excluded because they can run scripts.
+  const withImages = value.replace(
+    /!\[([^\]\n]*)\]\(((?:https?:\/\/|\/uploads\/)[^\s)"'<>]+|data:image\/(?:png|jpeg|gif|webp|bmp);base64,[A-Za-z0-9+/=]+)\)/g,
+    (_, alt: string, src: string) => protect(`<img class="my-2 block max-h-64 max-w-full rounded object-contain" src="${escapeHtml(src)}" alt="${escapeHtml(alt || "Diagram")}" loading="lazy" />`)
+  );
+  const withCode = withImages.replace(/`([^`\n]+)`/g, (_, text: string) => protect(`<code class="rounded bg-slate-200 px-1 font-mono">${escapeHtml(text)}</code>`));
   const formatted = parseMathSegments(withCode)
     .map((segment) => {
       if (segment.type === "text") return renderTextWithAutoMath(segment.value, protect);

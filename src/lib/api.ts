@@ -402,6 +402,17 @@ export function updateQuestion(questionId: string, question: Partial<Omit<Questi
   });
 }
 
+export function uploadQuestionImage(image: Blob, token: string) {
+  const formData = new FormData();
+  formData.append("image", image, "question-image");
+
+  return apiRequest<{ url: string }>("/questions/images", {
+    method: "POST",
+    token,
+    body: formData,
+  });
+}
+
 export function importQuestions(questions: Omit<Question, "id">[], token: string) {
   return apiRequest<Question[]>("/questions/import", {
     method: "POST",

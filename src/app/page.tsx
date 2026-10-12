@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AdminDashboard, AdminLogin, type AdminAccount } from "@/components/admin-dashboard";
+import type { AdminAccount } from "@/components/admin/admin-login";
 import { TlchubAiAssistant } from "@/components/ai-assistant";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
@@ -22,7 +22,7 @@ import { TestInterface } from "@/components/test-interface";
 import * as api from "@/lib/api";
 import { getTopicBreakdown } from "@/lib/marker";
 import { markedAttemptQuestions, submitSavedAttempt } from "@/lib/test-attempt";
-import type { MarkedQuestion, Question, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
+import type { MarkedQuestion, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const studentName = "Practice Student";
 const adminStorageKey = "stem-jupeb-admin-account";
@@ -43,14 +43,12 @@ const screens = new Set<Screen>([
   "studentRegister",
   "studentDashboard",
   "passwordReset",
-  "admin",
   "comingSoon",
 ]);
 
 type GoogleCallback =
-  | { role: "admin"; account: AdminAccount; error?: never }
   | { role: "student"; session: api.AuthResponse; error?: never }
-  | { role: "admin" | "student"; error: string }
+  | { role: "student"; error: string }
   | null;
 
 type PasswordResetCallback = { token: string; email: string } | null;
@@ -72,27 +70,13 @@ function getGoogleCallback(): GoogleCallback {
   if (typeof window === "undefined" || !window.location.hash.includes("authGoogle=1")) return null;
 
   const params = new URLSearchParams(window.location.hash.slice(1));
-  const role = params.get("role") === "admin" ? "admin" : "student";
+  const role = "student";
   const error = params.get("error");
   if (error) return { role, error };
 
   const accessToken = params.get("accessToken") ?? "";
   const email = params.get("email") ?? "";
-  const fullName = params.get("name") ?? (role === "admin" ? "Google Admin" : "Google Student");
-
-  if (role === "admin") {
-    return {
-      role,
-      account: {
-        name: fullName,
-        email,
-        role: "Academic Admin",
-        accessCode: "",
-        accessToken,
-        authProvider: "google",
-      },
-    };
-  }
+  const fullName = params.get("name") ?? "Google Student";
 
   return {
     role,
@@ -113,24 +97,12 @@ function getGoogleCallback(): GoogleCallback {
   };
 }
 
-function getGoogleAdminCallback(): GoogleCallback {
-  if (typeof window === "undefined" || !window.location.hash.includes("adminGoogle=1")) return null;
+// Admin Google sign-in is handled by /admin; forward any admin callback that lands here.
+function isAdminGoogleCallbackHash() {
+  if (typeof window === "undefined") return false;
 
-  const params = new URLSearchParams(window.location.hash.slice(1));
-  const error = params.get("error");
-  if (error) return { role: "admin", error };
-
-  return {
-    role: "admin",
-    account: {
-      name: params.get("name") ?? "Google Admin",
-      email: params.get("email") ?? "",
-      role: "Academic Admin",
-      accessCode: "",
-      accessToken: params.get("accessToken") ?? undefined,
-      authProvider: "google",
-    },
-  };
+  const hash = window.location.hash;
+  return hash.includes("adminGoogle=1") || (hash.includes("authGoogle=1") && hash.includes("role=admin"));
 }
 
 function isAdminChannelHash() {
@@ -146,29 +118,6 @@ function isScreen(value: unknown): value is Screen {
 
 function currentBrowserPath() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-function toQuestionPayload(question: Question): Omit<Question, "id"> {
-  return {
-    type: question.type,
-    subject: question.subject,
-    topic: question.topic,
-    prompt: question.prompt,
-    imageUrl: question.imageUrl,
-    courseId: question.courseId,
-    moduleId: question.moduleId,
-    subtopicId: question.subtopicId,
-    quizId: question.quizId,
-    options: question.options,
-    answer: question.answer,
-    explanation: question.explanation,
-    marks: question.marks,
-    difficulty: question.difficulty,
-    learningObjective: question.learningObjective,
-    rubricPoints: question.rubricPoints,
-    commonMistakes: question.commonMistakes,
-    keywords: question.keywords,
-  };
 }
 
 function toStudentAttempt(attempt: api.ApiAttempt, questionCount: number, answered: number, student: string): StudentAttempt {
@@ -209,7 +158,6 @@ export default function Home() {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>("landing");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [adminQuestions, setAdminQuestions] = useState<Question[]>([]);
   const [attemptQuestions, setAttemptQuestions] = useState<QuizQuestion[]>([]);
   const [courses, setCourses] = useState<api.CourseContent[]>([]);
   const [testError, setTestError] = useState("");
@@ -226,7 +174,6 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [themeLoaded, setThemeLoaded] = useState(false);
   const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
-  const [adminAuthError, setAdminAuthError] = useState("");
   const [studentSession, setStudentSession] = useState<api.AuthResponse | null>(null);
   const [studentAuthError, setStudentAuthError] = useState("");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -297,27 +244,18 @@ export default function Home() {
         return;
       }
 
-      const shouldOpenAdminChannel = isAdminChannelHash();
-
-      const googleCallback = getGoogleCallback() ?? getGoogleAdminCallback();
-      if (googleCallback?.error) {
-        if (googleCallback.role === "admin") {
-          setAdminAuthError(googleCallback.error);
-          setScreen("admin");
-        } else {
-          setStudentAuthError(googleCallback.error);
-          setScreen("student");
-        }
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      if (isAdminGoogleCallbackHash()) {
+        window.location.replace(`/admin${window.location.hash}`);
+        return;
       }
 
-      if (googleCallback && "account" in googleCallback) {
-        setAdminAccount(googleCallback.account);
-        setAdminUnlocked(true);
-        setScreen("admin");
-        window.localStorage.setItem(adminStorageKey, JSON.stringify(googleCallback.account));
+      const shouldOpenAdminChannel = isAdminChannelHash();
+
+      const googleCallback = getGoogleCallback();
+      if (googleCallback?.error) {
+        setStudentAuthError(googleCallback.error);
+        setScreen("student");
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        return;
       }
 
       if (googleCallback && "session" in googleCallback) {
@@ -377,19 +315,6 @@ export default function Home() {
     return () => {
       ignore = true;
     };
-  }, [adminAccount?.accessToken, adminUnlocked]);
-
-  useEffect(() => {
-    if (!adminUnlocked || !adminAccount?.accessToken) {
-      return;
-    }
-    let ignore = false;
-    api.getAdminQuestions(adminAccount.accessToken).then((loaded) => {
-      if (!ignore) setAdminQuestions(loaded);
-    }).catch(() => {
-      if (!ignore) setAdminQuestions([]);
-    });
-    return () => { ignore = true; };
   }, [adminAccount?.accessToken, adminUnlocked]);
 
   useEffect(() => {
@@ -585,121 +510,6 @@ export default function Home() {
     });
   };
 
-  const addQuestion = async (question: Question) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving questions.");
-    }
-
-    await api.createQuestion(toQuestionPayload(question), adminAccount.accessToken);
-    setAdminQuestions(await api.getAdminQuestions(adminAccount.accessToken));
-  };
-
-  const importQuestions = async (incomingQuestions: Question[]) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before importing questions.");
-    }
-
-    await api.importQuestions(
-      incomingQuestions.map((question) => toQuestionPayload(question)),
-      adminAccount.accessToken
-    );
-    setAdminQuestions(await api.getAdminQuestions(adminAccount.accessToken));
-    setAnswers({});
-    setMarked([]);
-    setCurrentQuestion(0);
-  };
-
-  const createCourse = async (input: {
-    title: string;
-    code: string;
-    subject: string;
-    description?: string;
-    status?: "draft" | "published";
-  }) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving courses.");
-    }
-
-    await api.createCourse(input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-  };
-
-  const updateCourse = async (
-    courseId: string,
-    input: { title?: string; code?: string; subject?: string; description?: string; status?: "draft" | "published" }
-  ) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before editing courses.");
-    }
-
-    const updatedCourse = await api.updateCourse(courseId, input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-    return updatedCourse;
-  };
-
-  const deleteCourse = async (courseId: string) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before deleting courses.");
-    }
-
-    await api.deleteCourse(courseId, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-  };
-
-  const deleteStructure = async (courseId: string, input: api.StructureDelete) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before deleting course content.");
-    }
-    const updated = await api.deleteCourseStructure(courseId, input, adminAccount.accessToken);
-    setCourses((current) => current.map((course) => course.id === courseId ? updated : course));
-  };
-
-  const addModule = async (
-    courseId: string,
-    input: { title: string; description?: string }
-  ) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving modules.");
-    }
-
-    await api.addModule(courseId, input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-  };
-
-  const addTopic = async (courseId: string, moduleId: string, input: { title: string; description?: string }) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving topics.");
-    }
-
-    await api.addTopic(courseId, moduleId, input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-  };
-
-  const addSubtopic = async (courseId: string, moduleId: string, topicId: string, input: { title: string; description?: string }) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving subtopics.");
-    }
-
-    await api.addSubtopic(courseId, moduleId, topicId, input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-  };
-
-  const addQuiz = async (
-    courseId: string,
-    moduleId: string,
-    topicId: string,
-    subtopicId: string,
-    input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
-  ) => {
-    if (!adminAccount?.accessToken) {
-      throw new Error("Sign in with a backend admin account before saving quizzes.");
-    }
-
-    const updatedCourse = await api.addQuiz(courseId, moduleId, topicId, subtopicId, input, adminAccount.accessToken);
-    setCourses(await api.getAdminCourses(adminAccount.accessToken));
-    return updatedCourse;
-  };
-
   const submitFeedback = (message: string, rating: number) => {
     if (studentSession?.accessToken) {
       void api.submitFeedback({ message, rating }, studentSession.accessToken).catch(() => undefined);
@@ -787,14 +597,10 @@ export default function Home() {
     void startTest(quiz.id);
   };
 
-  const continueWithGoogle = async (role: "admin" | "student") => {
-    if (role === "admin") {
-      setAdminAuthError("");
-    } else {
-      setStudentAuthError("");
-    }
+  const continueWithGoogle = async () => {
+    setStudentAuthError("");
 
-    const googleUrl = `${apiBaseUrl}/auth/google/${role}`;
+    const googleUrl = `${apiBaseUrl}/auth/google/student`;
 
     router.push(googleUrl);
   };
@@ -811,14 +617,6 @@ export default function Home() {
     window.localStorage.removeItem(studentStorageKey);
   };
 
-  const clearAdminSession = () => {
-    setAdminQuestions([]);
-    setAdminAccount(null);
-    setAdminUnlocked(false);
-    setAdminAuthError("");
-    window.localStorage.removeItem(adminStorageKey);
-  };
-
   const openPasswordReset = (email = "") => {
     setPasswordResetToken("");
     setPasswordResetEmail(email);
@@ -833,16 +631,14 @@ export default function Home() {
         isDark ? "theme-dark bg-slate-950 text-slate-100" : "theme-light bg-slate-50 text-slate-950"
       }`}
     >
-      {screen !== "admin" && (
-        <Header
-          theme={theme}
-          studentName={studentSession?.user.fullName}
-          studentAvatarUrl={studentSession?.user.avatarUrl}
-          onNavigate={setScreen}
-          onStudentSignOut={signOutStudent}
-          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-        />
-      )}
+      <Header
+        theme={theme}
+        studentName={studentSession?.user.fullName}
+        studentAvatarUrl={studentSession?.user.avatarUrl}
+        onNavigate={setScreen}
+        onStudentSignOut={signOutStudent}
+        onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+      />
 
       {testError && ["topics", "overview", "test"].includes(screen) && (
         <div role="alert" className="mx-auto my-4 flex max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
@@ -926,7 +722,7 @@ export default function Home() {
           initialMode={screen === "studentRegister" ? "register" : "login"}
           onLogin={loginStudent}
           onRegister={registerStudent}
-          onGoogleLogin={() => void continueWithGoogle("student")}
+          onGoogleLogin={() => void continueWithGoogle()}
           onForgotPassword={openPasswordReset}
           onBack={() => setScreen(studentSession ? "studentDashboard" : "landing")}
         />
@@ -988,76 +784,10 @@ export default function Home() {
 	          onClose={() => setQuizPickerOpen(false)}
 	        />
 	      )}
-	      {screen === "admin" && (
-        adminAccount && adminUnlocked && adminAccount.accessToken ? (
-          <AdminDashboard
-            adminName={adminAccount.name}
-            adminRole={adminAccount.role}
-            courses={courses}
-            questions={adminQuestions}
-            attempts={attempts}
-            feedback={feedback}
-            onCreateCourse={createCourse}
-            onUpdateCourse={updateCourse}
-            onDeleteCourse={deleteCourse}
-            onDeleteStructure={deleteStructure}
-            onAddModule={addModule}
-            onAddTopic={addTopic}
-            onAddSubtopic={addSubtopic}
-            onAddQuiz={addQuiz}
-            onAddQuestion={addQuestion}
-            onImportQuestions={importQuestions}
-            onReviewFeedback={(id) => {
-              if (adminAccount.accessToken) {
-                void api.markFeedbackReviewed(id, adminAccount.accessToken).catch(() => undefined);
-              }
-
-              setFeedback((current) =>
-                current.map((item) => (item.id === id ? { ...item, status: "reviewed" } : item))
-              );
-            }}
-            onSignOut={clearAdminSession}
-            onBack={() => setScreen("landing")}
-          />
-        ) : (
-          <AdminLogin
-            adminEmail={adminAccount?.email ?? ""}
-            authError={adminAuthError}
-            onUnlock={(identifier, accessCode) => {
-              setAdminAuthError("");
-
-              return api.login({ identifier, password: accessCode }).then((response) => {
-                if (response.user.role !== "admin") return false;
-
-                const nextAccount: AdminAccount = {
-                  accessCode: "",
-                  role: "Academic Admin",
-                  ...adminAccount,
-                  name: response.user.fullName,
-                  email: response.user.email,
-                  accessToken: response.accessToken,
-                  authProvider: response.user.authProvider,
-                };
-
-                setAdminAccount(nextAccount);
-                setAdminUnlocked(true);
-                window.localStorage.setItem(adminStorageKey, JSON.stringify(nextAccount));
-                return true;
-              });
-            }}
-            onGoogleLogin={() => void continueWithGoogle("admin")}
-            onForgotPassword={openPasswordReset}
-            onBack={() => {
-              clearAdminSession();
-              setScreen("landing");
-            }}
-          />
-        )
-      )}
       {screen === "comingSoon" && (
         <ComingSoon onBack={() => setScreen(comingSoonBackScreen)} />
       )}
-      {screen !== "admin" && <Footer theme={theme} />}
+      <Footer theme={theme} />
       <TlchubAiAssistant
         screen={screen}
         questions={questions}
@@ -1068,7 +798,7 @@ export default function Home() {
         currentQuestion={currentQuestion}
         studentName={studentSession?.user.fullName}
         adminName={adminAccount?.name}
-        isAdmin={screen === "admin" && adminUnlocked}
+        isAdmin={false}
         isStudentSignedIn={Boolean(studentSession)}
         aiSummary={aiSummary}
       />

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { CreateQuestionDto, UpdateQuestionDto } from "./dto";
+import { resolveAnswerIndices, resolveOptionIndex } from "./answer-key";
 import { Question, QuestionDocument } from "./question.schema";
 
 @Injectable()
@@ -53,8 +54,8 @@ export class QuestionsService {
     this.validateQuestion(updated);
 
     question.set(input);
-    if (updated.type === "theory") question.options = undefined;
-    if (updated.type === "objective") question.keywords = undefined;
+    if (updated.type === "theory") { question.options = undefined; question.answerBox = undefined; }
+    if (updated.type !== "theory") question.keywords = undefined;
     await question.save();
     return this.publicQuestion(question);
   }
@@ -73,10 +74,13 @@ export class QuestionsService {
   }
 
   private validateQuestion(input: CreateQuestionDto) {
-    if (input.type !== "objective" && input.type !== "theory") {
+    if (input.type !== "objective" && input.type !== "multiple" && input.type !== "theory") {
       throw new BadRequestException("Select a valid question type.");
     }
-    for (const field of ["topic", "prompt", "answer", "explanation"] as const) {
+    if (input.explanation !== undefined && typeof input.explanation !== "string") {
+      throw new BadRequestException("Enter a valid explanation.");
+    }
+    for (const field of ["topic", "prompt", "answer"] as const) {
       if (typeof input[field] !== "string" || !input[field].trim()) {
         throw new BadRequestException(`Enter a valid ${field}.`);
       }
@@ -84,15 +88,18 @@ export class QuestionsService {
     if (!Number.isInteger(input.marks) || input.marks < 1) {
       throw new BadRequestException("Marks must be a positive whole number.");
     }
-    if (input.type === "objective") {
+    if (input.type === "objective" || input.type === "multiple") {
+      const label = input.type === "objective" ? "Objective" : "MCQ";
       if (!input.options || input.options.length < 2 || input.options.some((option) => !option.trim())) {
-        throw new BadRequestException("Objective questions need at least two non-empty options.");
+        throw new BadRequestException(`${label} questions need at least two non-empty options.`);
       }
-      const answer = input.answer.trim();
-      const letter = answer.match(/^(?:option\s*)?([A-E])[).:-]?$/i);
-      const isOption = input.options.some((option) => option.trim().toLowerCase() === answer.toLowerCase());
-      if (!isOption && !(letter && input.options[letter[1].toUpperCase().charCodeAt(0) - 65])) {
-        throw new BadRequestException("Select a correct answer from the question options.");
+      const valid = input.type === "objective"
+        ? resolveOptionIndex(input.answer, input.options) >= 0
+        : Boolean(resolveAnswerIndices(input.answer, input.options));
+      if (!valid) {
+        throw new BadRequestException(input.type === "objective"
+          ? "Select a correct answer from the question options."
+          : "Select the correct answers from the question options.");
       }
     }
   }
@@ -110,6 +117,7 @@ export class QuestionsService {
       prompt: question.prompt,
       imageUrl: question.imageUrl,
       options: question.options,
+      answerBox: question.type !== "theory" && question.answerBox ? true : undefined,
       marks: question.marks,
       difficulty: question.difficulty,
       learningObjective: question.learningObjective,
