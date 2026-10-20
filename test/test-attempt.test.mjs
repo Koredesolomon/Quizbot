@@ -116,3 +116,20 @@ test('incomplete or active responses cannot render as completed results', () => 
   active.attempt.status = 'active';
   assert.throws(() => markedAttemptQuestions(active), /saved completed result/);
 });
+
+test('a submission still being marked is polled until the saved result is ready', async (context) => {
+  let polls = 0;
+  const calls = mockFetch(context, (call) => {
+    if (call.path.endsWith('/submit')) return json({ attempt: { id: 'attempt', status: 'grading' }, answers: [], questions: [] });
+    return json(++polls < 3 ? { attempt: { id: 'attempt', status: 'grading' }, answers: [], questions: [] } : result());
+  });
+  const saved = await submitSavedAttempt('attempt', { first: 'Right' }, 'token', { intervalMs: 1 });
+  assert.equal(saved.attempt.status, 'completed');
+  assert.equal(calls.filter((call) => call.path.endsWith('/result')).length, 3);
+  assert.equal(calls.filter((call) => call.path.endsWith('/submit')).length, 1);
+});
+
+test('polling gives up with a helpful message when marking never finishes', async (context) => {
+  mockFetch(context, () => json({ attempt: { id: 'attempt', status: 'grading' }, answers: [], questions: [] }));
+  await assert.rejects(submitSavedAttempt('attempt', {}, 'token', { intervalMs: 1, timeoutMs: 20 }), /taking longer than expected/);
+});

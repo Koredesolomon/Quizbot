@@ -1,17 +1,40 @@
 import * as api from "./api";
 import type { MarkedQuestion } from "@/types/platform";
 
-export async function submitSavedAttempt(attemptId: string, answers: Record<string, string>, token: string) {
+export type PollOptions = { intervalMs?: number; timeoutMs?: number };
+
+export async function submitSavedAttempt(attemptId: string, answers: Record<string, string>, token: string, poll: PollOptions = {}) {
+  let response: api.SubmitAttemptResponse;
   try {
-    return await api.submitAttempt(attemptId, answers, token);
+    response = await api.submitAttempt(attemptId, answers, token);
   } catch (error) {
     // A saved result can outlive a lost HTTP response. Recover it without grading again.
     try {
-      return await api.getAttemptResult(attemptId, token);
+      response = await api.getAttemptResult(attemptId, token);
     } catch {
       throw error;
     }
   }
+
+  return response.attempt.status === "grading" ? waitForResult(attemptId, token, poll) : response;
+}
+
+/** Marking on a slow server finishes in the background; poll until the saved result is ready. */
+async function waitForResult(attemptId: string, token: string, { intervalMs = 3000, timeoutMs = 35 * 60 * 1000 }: PollOptions) {
+  const deadline = Date.now() + timeoutMs;
+  let failures = 0;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    try {
+      const result = await api.getAttemptResult(attemptId, token);
+      if (result.attempt.status !== "grading") return result;
+      failures = 0;
+    } catch (error) {
+      // Tolerate a dropped connection, but not a result that has stopped being available.
+      if (++failures >= 5) throw error;
+    }
+  }
+  throw new Error("Marking is taking longer than expected. Your answers are saved; open the attempt again in a few minutes.");
 }
 
 export function markedAttemptQuestions(response: api.SubmitAttemptResponse): MarkedQuestion[] {
@@ -22,6 +45,6 @@ export function markedAttemptQuestions(response: api.SubmitAttemptResponse): Mar
   return response.questions.map((question) => {
     const marked = answers.get(question.id);
     if (!marked) throw new Error("The saved result is incomplete. Please retry your submission.");
-    return { ...question, userAnswer: marked.answer, awarded: marked.awarded, correct: marked.correct, aiFeedback: marked.aiFeedback };
+    return { ...question, userAnswer: marked.answer, awarded: marked.awarded, correct: marked.correct, aiFeedback: marked.aiFeedback, feedbackSource: marked.feedbackSource };
   });
 }

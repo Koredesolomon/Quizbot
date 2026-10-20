@@ -6,7 +6,7 @@ import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton,
 
 export function Marking() {
   return (
-    <Panel title="AI is reviewing your answers..." subtitle="This may take a few seconds.">
+    <Panel title="AI is reviewing your answers..." subtitle="This can take a minute or two for written answers.">
       <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-sky-50 bg-[#082b63] text-4xl font-black text-white shadow-2xl shadow-sky-100">
         AI
       </div>
@@ -28,6 +28,7 @@ export function Results({
   questions,
   totalMarks,
   aiSummary,
+  aiSummarySource,
   onFeedback,
   onBack,
   onDetails,
@@ -40,6 +41,7 @@ export function Results({
   questions: QuizQuestion[];
   totalMarks: number;
   aiSummary?: string;
+  aiSummarySource?: "ai" | "auto";
   onFeedback: (message: string, rating: number) => void;
   onBack: () => void;
   onDetails: () => void;
@@ -71,7 +73,7 @@ export function Results({
         <Metric label="Unanswered" value={String(unanswered)} />
       </div>
       <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-        <strong className="block font-black text-emerald-700">AI Review</strong>
+        <strong className="block font-black text-emerald-700">{aiSummarySource === "ai" ? "AI Review" : "Summary"}</strong>
         <div className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-emerald-800">
           {aiSummary ||
             (percent >= 70
@@ -184,7 +186,7 @@ export function Details({
         </div>
         <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
         <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />
-        <ResultBlock label="AI Feedback" text={question.aiFeedback} />
+        <ResultBlock label={feedbackLabel(question.feedbackSource)} text={question.aiFeedback} />
         {question.explanation && <ResultBlock label="Explanation" text={question.explanation} />}
 
         <div className="stagger-list mt-6 grid gap-3 sm:grid-cols-3">
@@ -209,4 +211,10 @@ export function ComingSoon({ onBack }: { onBack: () => void }) {
       </div>
     </Panel>
   );
+}
+
+function feedbackLabel(source: MarkedQuestion["feedbackSource"]) {
+  if (source === "ai") return "AI Feedback";
+  if (source === "keyword") return "Auto-marked by keywords";
+  return "Feedback";
 }

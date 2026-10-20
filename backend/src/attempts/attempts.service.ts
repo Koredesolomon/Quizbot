@@ -8,8 +8,14 @@ import type { AnswerDocument } from "./answer.schema";
 import { randomUUID } from "node:crypto";
 import { ContentService } from "../content/content.service";
 import { Attempt, AttemptDocument } from "./attempt.schema";
-import { AiMarkerService } from "./ai-marker.service";
+import { AiMarkerService, type AnswerReview, type FeedbackSource } from "./ai-marker.service";
 import { SubmitAnswerDto } from "./dto";
+import { checkFinalAnswer } from "../grading/final-answer";
+
+/** A submission holds its lock this long; slow local models can take many minutes to mark a test. */
+const SUBMISSION_LOCK_MS = 30 * 60 * 1000;
+/** How long submit waits for marking before answering "grading" and letting the client poll. */
+const DEFAULT_GRADING_WAIT_MS = 15_000;
 
 type PopulatedStudent = {
   _id: Types.ObjectId;
@@ -71,18 +77,35 @@ export class AttemptsService {
       _id: attempt._id, studentId: attempt.studentId, status: "active",
       $or: [
         { submissionToken: { $exists: false } },
-        { submissionStartedAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) } },
+        { submissionStartedAt: { $lt: new Date(Date.now() - SUBMISSION_LOCK_MS) } },
       ],
     }, { $set: { submissionToken, submissionStartedAt: new Date() } }, { returnDocument: "after" }).exec();
     if (!claimed) throw new ConflictException("This attempt is already being submitted or has been completed.");
 
+    const grading = this.grade(attempt, snapshots, submitted, submissionToken);
+    const waitMs = Number(process.env.GRADING_WAIT_MS ?? DEFAULT_GRADING_WAIT_MS);
+    let timer: NodeJS.Timeout | undefined;
+    const slow = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), waitMs); });
+    try {
+      const finished = await Promise.race([grading, slow]);
+      if (finished) return finished;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Marking is still running (a slow model, or many written answers). The client polls the result endpoint.
+    grading.catch((error) => this.logger.error(`Background marking failed: ${error instanceof Error ? error.message : String(error)}`));
+    return this.gradingResponse(claimed);
+  }
+
+  private async grade(attempt: AttemptDocument, snapshots: QuestionDocument[], submitted: Map<string, string>, submissionToken: string) {
     try {
       const markedAnswers = await Promise.all(snapshots.map((question) =>
         this.markAnswer(attempt.id, question, submitted.get(question._id.toString()) ?? "")));
       const score = markedAnswers.reduce((sum, answer) => sum + answer.awarded, 0);
       const totalMarks = snapshots.reduce((sum, question) => sum + question.marks, 0);
       const percent = Math.round((score / totalMarks) * 100);
-      const aiSummary = await this.aiMarker.reviewCompletedTest(
+      const summaryReview = await this.aiMarker.reviewCompletedTest(
         {
           score, totalMarks, percent,
           answers: markedAnswers.map((answer) => ({
@@ -108,7 +131,8 @@ export class AttemptsService {
         _id: attempt._id, studentId: attempt.studentId, status: "active", submissionToken,
       }, {
         $set: {
-          status: "completed", submittedAt: new Date(), score, totalMarks, percent, aiSummary,
+          status: "completed", submittedAt: new Date(), score, totalMarks, percent,
+          aiSummary: summaryReview.text, aiSummarySource: summaryReview.source,
           answeredCount: markedAnswers.filter((answer) => answer.answer.length > 0).length,
           gradedAnswers: markedAnswers.map((answer) => this.persistedAnswer(answer)),
         },
@@ -122,7 +146,7 @@ export class AttemptsService {
           $unset: { submissionToken: 1, submissionStartedAt: 1 },
         }).exec();
       } catch {
-        this.logger.warn("Could not release a failed submission. Its lock will expire after ten minutes.");
+        this.logger.warn("Could not release a failed submission. Its lock will expire after thirty minutes.");
       }
       throw error;
     }
@@ -130,10 +154,20 @@ export class AttemptsService {
 
   async result(attemptId: string, studentId: string) {
     const attempt = await this.findOwnedAttempt(attemptId, studentId);
+    if (this.isGrading(attempt)) return this.gradingResponse(attempt);
     if (attempt.status !== "completed" || !attempt.gradedAnswers || !attempt.questionSnapshots?.length) {
       throw new ConflictException("A completed result is not available yet.");
     }
     return this.publicResult(attempt);
+  }
+
+  private isGrading(attempt: AttemptDocument) {
+    return attempt.status === "active" && Boolean(attempt.submissionStartedAt)
+      && Date.now() - attempt.submissionStartedAt!.getTime() < SUBMISSION_LOCK_MS;
+  }
+
+  private gradingResponse(attempt: AttemptDocument) {
+    return { attempt: { ...this.publicAttempt(attempt), status: "grading" as const }, answers: [], questions: [] };
   }
 
   async myAttempts(studentId: string) {
@@ -148,7 +182,7 @@ export class AttemptsService {
 
   private async findOwnedAttempt(attemptId: string, studentId: string) {
     if (!Types.ObjectId.isValid(attemptId)) throw new BadRequestException("Invalid attempt ID.");
-    const attempt = await this.attemptModel.findById(attemptId).select("+questionSnapshots +gradedAnswers").exec();
+    const attempt = await this.attemptModel.findById(attemptId).select("+questionSnapshots +gradedAnswers +submissionStartedAt").exec();
     if (!attempt) throw new NotFoundException("Attempt not found.");
     if (attempt.studentId.toString() !== studentId) throw new ForbiddenException("You cannot submit this attempt.");
     return attempt;
@@ -158,27 +192,36 @@ export class AttemptsService {
     const response = answer.trim();
 
     if (!response) {
-      return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.");
+      return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.", "auto");
     }
 
     if (question.type === "objective" || question.type === "multiple") {
       const review = question.answerBox
         ? await this.choiceWithExplanationReview(question, answer)
         : this.choiceReview(question, response, question.marks);
-      return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback);
+      return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
+    }
+
+    const verdict = checkFinalAnswer(question.answerType, response, question.answer);
+    if (verdict) {
+      // Code decides right or wrong; the AI only explains. Without AI the stored worked solution is shown.
+      const solution = question.referenceSolution || question.explanation;
+      const fixed = `${verdict.correct ? "Correct final answer." : `Incorrect final answer. Expected: ${verdict.expected}.`}${solution ? ` Worked solution: ${solution}` : ""}`;
+      const explained = await this.aiMarker.explainVerdict(question, response, verdict.correct, fixed);
+      return this.answerRecord(attemptId, question, response, verdict.correct ? question.marks : 0, verdict.correct, explained.aiFeedback, explained.source);
     }
 
     const fallback = this.keywordReview(question, response);
     const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
 
-    return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback);
+    return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
   }
 
   /**
    * Full marks only for exactly the correct set. Otherwise partial credit for each correct option
    * chosen, minus one for each incorrect option chosen, so ticking every box earns nothing.
    */
-  private choiceReview(question: QuestionDocument, choice: string, marks: number) {
+  private choiceReview(question: QuestionDocument, choice: string, marks: number): AnswerReview {
     if (!choice) return { awarded: 0, correct: false, aiFeedback: "No option was chosen." };
     if (question.type === "multiple") return this.multipleAnswerReview(question, choice, marks);
     const correct = this.objectiveAnswersMatch(choice, question.answer, question.options ?? []);
@@ -195,7 +238,7 @@ export class AttemptsService {
     const explanationMarks = question.marks - optionMarks;
     const option = this.choiceReview(question, choice, optionMarks);
 
-    let written = { awarded: 0, correct: false, aiFeedback: "No explanation was written." };
+    let written: AnswerReview = { awarded: 0, correct: false, aiFeedback: "No explanation was written." };
     if (explanation) {
       const reviewQuestion = this.explanationQuestion(question, Math.max(1, explanationMarks));
       written = await this.aiMarker.reviewTheoryAnswer(reviewQuestion, explanation, this.keywordReview(reviewQuestion, explanation));
@@ -205,6 +248,7 @@ export class AttemptsService {
     return {
       awarded: option.awarded + writtenAwarded,
       correct: option.correct && (explanationMarks === 0 || writtenAwarded === explanationMarks),
+      source: explanation ? written.source ?? "auto" : "auto",
       aiFeedback: `Option: ${option.aiFeedback} Explanation${explanationMarks ? ` (${writtenAwarded}/${explanationMarks} marks)` : ""}: ${written.aiFeedback}`,
     };
   }
@@ -329,6 +373,7 @@ export class AttemptsService {
 
     return {
       awarded,
+      source: "keyword" as const,
       correct: awarded >= Math.ceil(question.marks * 0.7),
       aiFeedback:
         awarded === question.marks
@@ -345,7 +390,8 @@ export class AttemptsService {
     answer: string,
     awarded: number,
     correct: boolean,
-    aiFeedback: string
+    aiFeedback: string,
+    feedbackSource: FeedbackSource
   ) {
     return {
       attemptId: new Types.ObjectId(attemptId),
@@ -355,6 +401,7 @@ export class AttemptsService {
       awarded,
       correct,
       aiFeedback,
+      feedbackSource,
     };
   }
 
@@ -377,6 +424,7 @@ export class AttemptsService {
       totalMarks: attempt.totalMarks,
       percent: attempt.percent,
       aiSummary: attempt.aiSummary,
+      aiSummarySource: attempt.aiSummarySource,
       createdAt: attempt.createdAt.toISOString(),
     };
   }
@@ -394,6 +442,7 @@ export class AttemptsService {
       awarded: answer.awarded,
       correct: answer.correct,
       aiFeedback: answer.aiFeedback,
+      feedbackSource: answer.feedbackSource,
       createdAt: answer.createdAt.toISOString(),
     };
   }
@@ -415,6 +464,7 @@ export class AttemptsService {
       awarded: answer.awarded,
       correct: answer.correct,
       aiFeedback: answer.aiFeedback,
+      feedbackSource: answer.feedbackSource,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

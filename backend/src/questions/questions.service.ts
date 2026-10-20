@@ -85,6 +85,9 @@ export class QuestionsService {
         throw new BadRequestException(`Enter a valid ${field}.`);
       }
     }
+    if (input.answerType && input.type !== "theory") {
+      throw new BadRequestException("Only written (theory) questions can have an answer type.");
+    }
     if (!Number.isInteger(input.marks) || input.marks < 1) {
       throw new BadRequestException("Marks must be a positive whole number.");
     }
@@ -129,6 +132,9 @@ export class QuestionsService {
       ...this.publicPrompt(question),
       answer: question.answer,
       explanation: question.explanation,
+      answerType: question.answerType,
+      referenceSolution: question.referenceSolution,
+      solutionStatus: question.solutionStatus,
       rubricPoints: question.rubricPoints,
       commonMistakes: question.commonMistakes,
       keywords: question.keywords,

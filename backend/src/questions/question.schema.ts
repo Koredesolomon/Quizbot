@@ -3,6 +3,9 @@ import { HydratedDocument, Types } from "mongoose";
 
 /** objective: one correct option · multiple: MCQ with one or more correct options · theory: written answer */
 export type QuestionType = "objective" | "multiple" | "theory";
+/** How a written answer's final result is checked in code: a number, an algebraic expression, or free text. */
+export type AnswerType = "numeric" | "expression" | "text";
+export type SolutionStatus = "pending" | "verified" | "needs_review";
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionDocument = HydratedDocument<Question>;
 
@@ -47,6 +50,17 @@ export class Question {
 
   @Prop({ default: "", trim: true })
   explanation: string;
+
+  /** Theory only. numeric and expression answers are checked by code; the AI only explains the verdict. */
+  @Prop({ enum: ["numeric", "expression", "text"] })
+  answerType?: AnswerType;
+
+  /** Worked solution the AI explains against and students see after submitting. */
+  @Prop({ trim: true })
+  referenceSolution?: string;
+
+  @Prop({ enum: ["pending", "verified", "needs_review"] })
+  solutionStatus?: SolutionStatus;
 
   @Prop({ required: true, min: 1 })
   marks: number;

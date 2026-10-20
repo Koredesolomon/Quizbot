@@ -133,6 +133,7 @@ function toStudentAttempt(attempt: api.ApiAttempt, questionCount: number, answer
     totalMarks: attempt.totalMarks,
     percent: attempt.percent,
     aiSummary: attempt.aiSummary,
+    aiSummarySource: attempt.aiSummarySource,
   };
 }
 
@@ -167,6 +168,7 @@ export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [marked, setMarked] = useState<MarkedQuestion[]>([]);
   const [aiSummary, setAiSummary] = useState("");
+  const [aiSummarySource, setAiSummarySource] = useState<"ai" | "auto" | undefined>();
   const [selectedDetail, setSelectedDetail] = useState(0);
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
@@ -442,6 +444,7 @@ export default function Home() {
       const completed = toStudentAttempt(submitted.attempt, submitted.questions.length, answeredCount, activeStudentName);
       setMarked(markedResponses);
       setAiSummary(submitted.attempt.aiSummary ?? "");
+      setAiSummarySource(submitted.attempt.aiSummarySource);
       setAttempts((current) => current.map((attempt) => attempt.id === currentAttemptId ? completed : attempt));
       setSelectedDetail(0);
       setScreen("results");
@@ -761,6 +764,7 @@ export default function Home() {
 	          questions={activeQuestions}
 	          totalMarks={totalMarks}
           aiSummary={aiSummary}
+          aiSummarySource={aiSummarySource}
           onFeedback={submitFeedback}
           onBack={() => setScreen("overview")}
           onDetails={() => setScreen("details")}

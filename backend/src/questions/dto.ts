@@ -55,6 +55,18 @@ export class CreateQuestionDto {
   @IsString()
   explanation?: string;
 
+  @IsOptional()
+  @IsIn(["numeric", "expression", "text"])
+  answerType?: "numeric" | "expression" | "text";
+
+  @IsOptional()
+  @IsString()
+  referenceSolution?: string;
+
+  @IsOptional()
+  @IsIn(["pending", "verified", "needs_review"])
+  solutionStatus?: "pending" | "verified" | "needs_review";
+
   @IsInt()
   @Min(1)
   marks: number;

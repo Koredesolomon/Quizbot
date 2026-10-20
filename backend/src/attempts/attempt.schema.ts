@@ -56,6 +56,9 @@ export class Attempt {
   @Prop()
   aiSummary?: string;
 
+  @Prop({ enum: ["ai", "auto"] })
+  aiSummarySource?: "ai" | "auto";
+
   createdAt: Date;
   updatedAt: Date;
 }

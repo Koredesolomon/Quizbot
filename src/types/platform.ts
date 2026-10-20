@@ -47,6 +47,7 @@ export type MarkedQuestion = Question & {
   awarded: number;
   correct: boolean;
   aiFeedback: string;
+  feedbackSource?: "ai" | "keyword" | "auto";
 };
 
 export type QuizQuestion = Omit<Question, "answer" | "explanation" | "rubricPoints" | "commonMistakes" | "keywords">;
@@ -62,7 +63,7 @@ export type TopicBreakdown = {
 export type StudentAttempt = {
   id: string;
   student: string;
-  status: "active" | "completed";
+  status: "active" | "grading" | "completed";
   startedAt: string;
   submittedAt?: string;
   answered: number;
@@ -71,6 +72,7 @@ export type StudentAttempt = {
   totalMarks: number;
   percent?: number;
   aiSummary?: string;
+  aiSummarySource?: "ai" | "auto";
 };
 
 export type StudentFeedback = {

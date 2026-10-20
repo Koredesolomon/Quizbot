@@ -32,13 +32,14 @@ export type ApiAttempt = {
   courseId?: string;
   questionCount?: number;
   answeredCount?: number;
-  status: "active" | "completed";
+  status: "active" | "grading" | "completed";
   startedAt: string;
   submittedAt?: string;
   score: number;
   totalMarks: number;
   percent: number;
   aiSummary?: string;
+  aiSummarySource?: "ai" | "auto";
   createdAt: string;
 };
 
@@ -50,6 +51,7 @@ export type ApiMarkedAnswer = {
   awarded: number;
   correct: boolean;
   aiFeedback: string;
+  feedbackSource?: "ai" | "keyword" | "auto";
   createdAt: string;
 };
 

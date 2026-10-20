@@ -263,3 +263,29 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## AI marking
+
+Theory answers and the end-of-test summary are marked by an AI provider chosen with `AI_PROVIDER` in `backend/.env`:
+
+- `openai` (default) uses `OPENAI_API_KEY` and `OPENAI_MODEL`. It needs account credit.
+- `ollama` runs a free open-weight model on your own server (default `qwen3:4b`). On the VPS run
+  `sudo bash backend/scripts/setup-ollama-vps.sh` once (adds swap, installs Ollama on localhost only, one request at a
+  time, pulls the model), then set `AI_PROVIDER=ollama` and restart the API.
+
+Every answer records where its feedback came from (`ai`, `keyword` or `auto`) and the results screen labels it, so
+keyword fallback is never shown as AI feedback. Set `AI_REVIEW_REQUIRED=true` to fail a submission instead of falling back.
+
+**Numeric and expression answers.** Set a theory question's `answerType` to `numeric` or `expression`. Code then decides
+right or wrong (1% tolerance, or the rounding of the stored answer, for numbers; random-point equivalence through mathjs
+for expressions) and the AI only explains the verdict. A wrong final answer scores zero. Questions without an
+`answerType` are marked by the AI.
+
+**Worked solutions.** `referenceSolution` and `solutionStatus` (`pending`, `verified`, `needs_review`) are stored per
+question and shown to the AI and to students. After `npm run backend:build`, run
+`node backend/scripts/generate-solutions.mjs --limit 50` to draft them with the local model. A draft is kept only if its
+final answer matches the stored answer.
+
+**Slow models.** Submit waits `GRADING_WAIT_MS` for marking, then answers `grading` and the app polls the result until
+marking finishes in the background. A crashed submission can be retried after its 30 minute lock expires. Identical
+requests are cached in memory.

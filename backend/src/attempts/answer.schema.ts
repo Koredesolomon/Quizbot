@@ -23,6 +23,9 @@ export class Answer {
   @Prop({ required: true })
   aiFeedback: string;
 
+  @Prop({ enum: ["ai", "keyword", "auto"], default: "auto" })
+  feedbackSource: "ai" | "keyword" | "auto";
+
   createdAt: Date;
   updatedAt: Date;
 }

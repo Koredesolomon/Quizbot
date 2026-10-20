@@ -71,7 +71,7 @@ function fixture() {
   let reviewCount = 0;
   const marker = {
     async reviewTheoryAnswer() { throw new Error('AI unavailable'); },
-    async reviewCompletedTest() { reviewCount++; return 'Saved feedback'; },
+    async reviewCompletedTest() { reviewCount++; return { text: 'Saved feedback', source: 'ai' }; },
   };
   const content = { async findPublishedQuiz(id) {
     if (id !== quizId) throw new Error('Published quiz was not found.');
@@ -99,7 +99,7 @@ test('starting a quiz snapshots its questions and total without exposing answers
 test('unanswered questions count as zero in the full quiz total and completed review', async () => {
   const f = fixture();
   let review;
-  f.marker.reviewCompletedTest = async (input) => { review = input; return 'Saved feedback'; };
+  f.marker.reviewCompletedTest = async (input) => { review = input; return { text: 'Saved feedback', source: 'ai' }; };
   const { attempt } = await f.start();
   const result = await f.service.submit(attempt.id, f.studentId, [{ questionId: f.questions[0].id, answer: 'Right' }]);
   assert.equal(result.attempt.score, 2);
@@ -202,12 +202,12 @@ for (const failure of ['AI', 'database']) {
   });
 }
 
-test('a crashed submission can retry after its lease expires', async () => {
+test('a crashed submission can retry after its thirty minute lease expires', async () => {
   const f = fixture();
   const { attempt } = await f.start();
   const stored = f.records.get(attempt.id);
   stored.submissionToken = 'abandoned-worker';
-  stored.submissionStartedAt = new Date(Date.now() - 11 * 60 * 1000);
+  stored.submissionStartedAt = new Date(Date.now() - 31 * 60 * 1000);
   assert.equal((await f.service.submit(attempt.id, f.studentId, [])).attempt.status, 'completed');
 });
 
@@ -250,4 +250,49 @@ test('attempt DTOs require a quiz ID and reject duplicate or malformed question 
   await assert.rejects(pipe.transform({ answers: [{ ...answer, questionId: 'invalid' }] }, body(SubmitAttemptDto)));
   assert.deepEqual(Reflect.getMetadata('__guards__', AttemptsController).map((guard) => guard.name), ['JwtAuthGuard', 'RolesGuard']);
   assert.deepEqual(Reflect.getMetadata('roles', AttemptsController.prototype.result), ['student', 'admin']);
+});
+
+test('slow marking answers "grading" at once and the result endpoint reports it until marking finishes', async (context) => {
+  process.env.GRADING_WAIT_MS = '20';
+  context.after(() => { delete process.env.GRADING_WAIT_MS; });
+  const f = fixture();
+  const { attempt } = await f.start();
+  let release;
+  f.marker.reviewCompletedTest = () => new Promise((resolve) => { release = () => resolve({ text: 'Saved feedback', source: 'ai' }); });
+
+  const submitted = await f.service.submit(attempt.id, f.studentId, [{ questionId: f.questions[0].id, answer: 'Right' }]);
+  assert.equal(submitted.attempt.status, 'grading');
+  assert.deepEqual(submitted.answers, []);
+  assert.equal((await f.service.result(attempt.id, f.studentId)).attempt.status, 'grading');
+  await assert.rejects(f.service.submit(attempt.id, f.studentId, []), /already being submitted/);
+
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const done = await f.service.result(attempt.id, f.studentId);
+  assert.equal(done.attempt.status, 'completed');
+  assert.equal(done.attempt.score, 2);
+  assert.equal(done.attempt.aiSummary, 'Saved feedback');
+  assert.equal(done.attempt.aiSummarySource, 'ai');
+});
+
+test('numeric written answers are marked by code and only explained by the AI', async () => {
+  const f = fixture();
+  let explained;
+  f.marker.explainVerdict = async (_question, _response, correct) => { explained = correct; return { aiFeedback: 'Because F = ma.', source: 'ai' }; };
+  const numeric = new QuestionModel({
+    type: 'theory', quizId: f.quizId, topic: 'Forces', prompt: 'Find F for 2 kg at 9.8 m/s^2', answer: '19.6 N', answerType: 'numeric',
+    explanation: 'F = ma', marks: 4, createdBy: new Types.ObjectId(), createdAt: new Date(),
+  });
+  f.questions.length = 0;
+  f.questions.push(numeric);
+  const { attempt } = await f.start();
+  const right = await f.service.submit(attempt.id, f.studentId, [{ questionId: numeric.id, answer: 'F = 2 x 9.8 = 19.6 N' }]);
+  assert.equal(right.answers[0].awarded, 4);
+  assert.equal(right.answers[0].feedbackSource, 'ai');
+  assert.equal(explained, true);
+
+  const second = await f.start();
+  const wrong = await f.service.submit(second.attempt.id, f.studentId, [{ questionId: numeric.id, answer: 'F = 20.9 N' }]);
+  assert.equal(wrong.answers[0].awarded, 0);
+  assert.equal(explained, false);
 });
