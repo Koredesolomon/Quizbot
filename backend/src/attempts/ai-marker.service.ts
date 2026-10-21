@@ -128,7 +128,7 @@ export class AiMarkerService {
     try {
       const text = await this.complete({
         system:
-          "You are a supportive tutor. The final answer has already been checked and the verdict is fixed: do not question or change it. In two to four sentences explain it, comparing the student's working with the worked solution, and say what to fix if it was wrong. Use only the supplied worked solution; do not invent numbers. " +
+          "You are a supportive tutor. The final answer has already been checked and the verdict is fixed: do not question or change it. In two to four sentences explain it, comparing the student's working with the worked solution, and say what to fix if it was wrong. Use only the numbers in the question and the worked solution and do no arithmetic of your own. Never guess how the student made a mistake: only mention a specific error if their written working shows it; otherwise say what the correct method is and how their answer differs. " +
           INJECTION_GUARD,
         user: {
           question: question.prompt,
