@@ -38,15 +38,6 @@ export type TestReviewInput = {
   }>;
 };
 
-type OpenAiResponse = {
-  output_text?: string;
-  output?: Array<{
-    content?: Array<{
-      text?: string;
-    }>;
-  }>;
-};
-
 type OllamaResponse = {
   message?: { content?: string };
 };
@@ -197,49 +188,21 @@ export class AiMarkerService {
     return this.fallbackOrThrow(fallback, `AI ${context} failed.`);
   }
 
-  /** One structured completion from the configured provider, queued, cached and time-limited. */
+  /** One structured completion from the local Ollama model, queued, cached and time-limited. */
   private async complete(request: { system: string; user: unknown; name: string; schema: JsonSchema }): Promise<string> {
-    const provider = this.provider();
     const model = this.model();
     const userContent = JSON.stringify(request.user);
-    const key = createHash("sha256").update([provider, model, request.name, request.system, userContent].join("\u0000")).digest("hex");
+    const key = createHash("sha256").update([model, request.name, request.system, userContent].join("\u0000")).digest("hex");
 
     const cached = this.cache.get(key);
     if (cached) return cached;
 
-    const text = await this.queued(() =>
-      provider === "ollama" ? this.callOllama(model, request, userContent) : this.callOpenAi(model, request, userContent)
-    );
+    const text = await this.queued(() => this.callOllama(model, request, userContent));
     if (!text) throw new Error("The AI returned an empty response.");
 
     this.cache.set(key, text);
     if (this.cache.size > CACHE_LIMIT) this.cache.delete(this.cache.keys().next().value as string);
     return text;
-  }
-
-  private async callOpenAi(model: string, request: { system: string; name: string; schema: JsonSchema }, userContent: string) {
-    const apiKey = this.config.get<string>("OPENAI_API_KEY");
-    if (!apiKey) throw new Error("OpenAI API key is not configured.");
-
-    const result = await fetch("https://api.openai.com/v1/responses", {
-      signal: AbortSignal.timeout(this.timeoutMs()),
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        input: [
-          { role: "system", content: request.system },
-          { role: "user", content: userContent },
-        ],
-        text: { format: { type: "json_schema", name: request.name, strict: true, schema: request.schema } },
-      }),
-    });
-
-    if (!result.ok) {
-      await this.logFailure("OpenAI", result);
-      throw new Error(`OpenAI ${request.name} failed with status ${result.status}.`);
-    }
-    return this.responseText((await result.json()) as OpenAiResponse);
   }
 
   private async callOllama(model: string, request: { system: string; name: string; schema: JsonSchema }, userContent: string) {
@@ -263,7 +226,7 @@ export class AiMarkerService {
     });
 
     if (!result.ok) {
-      await this.logFailure("Ollama", result);
+      await this.logFailure(result);
       throw new Error(`Ollama ${request.name} failed with status ${result.status}.`);
     }
     return ((await result.json()) as OllamaResponse).message?.content;
@@ -285,7 +248,7 @@ export class AiMarkerService {
   private concurrency() {
     const configured = Number(this.config.get<string>("AI_CONCURRENCY"));
     if (Number.isInteger(configured) && configured > 0) return configured;
-    return this.provider() === "ollama" ? 1 : 4;
+    return 1;
   }
 
   private timeoutMs() {
@@ -302,16 +265,11 @@ export class AiMarkerService {
   }
 
   private isReviewRequired() {
-    return this.config.get<string>("AI_REVIEW_REQUIRED") === "true" || this.config.get<string>("OPENAI_REVIEW_REQUIRED") === "true";
-  }
-
-  private provider() {
-    return this.config.get<string>("AI_PROVIDER")?.trim().toLowerCase() === "ollama" ? "ollama" : "openai";
+    return this.config.get<string>("AI_REVIEW_REQUIRED") === "true";
   }
 
   private model() {
-    if (this.provider() === "ollama") return this.config.get<string>("OLLAMA_MODEL")?.trim() || "qwen3:4b";
-    return this.config.get<string>("OPENAI_MODEL")?.trim() || "gpt-5";
+    return this.config.get<string>("OLLAMA_MODEL")?.trim() || "qwen3:4b-instruct";
   }
 
   private listSection(title: string, items: string[]) {
@@ -321,20 +279,10 @@ export class AiMarkerService {
     return `${title}: ${cleanItems.join("; ")}`;
   }
 
-  private responseText(payload: OpenAiResponse) {
-    if (payload.output_text) return payload.output_text;
-
-    return payload.output
-      ?.flatMap((item) => item.content ?? [])
-      .map((content) => content.text)
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  private async logFailure(provider: string, result: Response) {
+  private async logFailure(result: Response) {
     const body = await result.text().catch(() => "");
     const details = body ? `: ${body.slice(0, 500)}` : "";
-    this.logger.warn(`${provider} request failed with status ${result.status}${details}`);
+    this.logger.warn(`Ollama request failed with status ${result.status}${details}`);
   }
 
   private errorMessage(error: unknown) {

@@ -161,6 +161,8 @@ export default function Home() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [attemptQuestions, setAttemptQuestions] = useState<QuizQuestion[]>([]);
   const [courses, setCourses] = useState<api.CourseContent[]>([]);
+  const [coursesFailed, setCoursesFailed] = useState(false);
+  const [coursesReload, setCoursesReload] = useState(0);
   const [testError, setTestError] = useState("");
   const testRequestBusyRef = useRef(false);
   const testRequestVersionRef = useRef(0);
@@ -303,21 +305,27 @@ export default function Home() {
     const courseRequest = adminUnlocked && adminAccount?.accessToken
       ? api.getAdminCourses(adminAccount.accessToken)
       : api.getCourses();
-    Promise.all([api.getQuestions(), courseRequest])
-      .then(([backendQuestions, backendCourses]) => {
-        if (!ignore) {
-          setQuestions(backendQuestions);
-          setCourses(backendCourses);
-        }
+    // Load independently so a failing questions request cannot hide the published courses.
+    // Content stays empty when the backend is unavailable so demo questions do not leak into real tests.
+    courseRequest
+      .then((backendCourses) => {
+        if (ignore) return;
+        setCourses(backendCourses);
+        setCoursesFailed(false);
       })
       .catch(() => {
-        // Leave content empty when the backend is unavailable so demo questions do not leak into real tests.
+        if (!ignore) setCoursesFailed(true);
       });
+    api.getQuestions()
+      .then((backendQuestions) => {
+        if (!ignore) setQuestions(backendQuestions);
+      })
+      .catch(() => undefined);
 
     return () => {
       ignore = true;
     };
-  }, [adminAccount?.accessToken, adminUnlocked]);
+  }, [adminAccount?.accessToken, adminUnlocked, coursesReload]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !themeLoaded) return;
@@ -663,6 +671,8 @@ export default function Home() {
       {screen === "courses" && (
         <Courses
           courses={courses}
+          loadFailed={coursesFailed}
+          onRetry={() => setCoursesReload((count) => count + 1)}
           registeredCourses={studentSession?.user.registeredCourses ?? []}
           onSelectCourse={openCourse}
           onRegisterCourse={registerAndOpenCourse}

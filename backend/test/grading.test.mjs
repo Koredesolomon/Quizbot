@@ -53,7 +53,7 @@ test('the Ollama provider is called locally with a JSON schema and the reply is 
   const { service, calls } = marker({ AI_PROVIDER: 'ollama' }, () => ollama({ awarded: 3, correct: true, aiFeedback: 'Good method.' }), context);
   const review = await service.reviewTheoryAnswer(question, 'my answer', { awarded: 0, correct: false, aiFeedback: 'fallback', source: 'keyword' });
   assert.equal(calls[0].url, 'http://127.0.0.1:11434/api/chat');
-  assert.equal(calls[0].body.model, 'qwen3:4b');
+  assert.equal(calls[0].body.model, 'qwen3:4b-instruct');
   assert.equal(calls[0].body.think, false);
   assert.equal(calls[0].body.format.required.includes('aiFeedback'), true);
   assert.deepEqual(review, { awarded: 3, correct: true, aiFeedback: 'Good method.', source: 'ai' });

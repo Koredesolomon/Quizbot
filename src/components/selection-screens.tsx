@@ -36,6 +36,8 @@ export function HowItWorks({ onStart, onBack }: { onStart: () => void; onBack: (
 
 export function Courses({
   courses,
+  loadFailed = false,
+  onRetry,
   registeredCourses,
   onSelectCourse,
   onRegisterCourse,
@@ -43,6 +45,8 @@ export function Courses({
   onBack,
 }: {
   courses: CourseContent[];
+  loadFailed?: boolean;
+  onRetry?: () => void;
   registeredCourses: string[];
   onSelectCourse: (courseId: string) => void;
   onRegisterCourse: (course: CourseContent) => void | Promise<void>;
@@ -132,7 +136,19 @@ export function Courses({
               </span>
             </button>
           );
-        }) : (
+        }) : loadFailed ? (
+          <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-7 text-center">
+            <strong className="block text-2xl font-semibold text-[var(--ink)]">We couldn&apos;t load the courses.</strong>
+            <span className="mt-3 block text-sm font-semibold leading-6 text-[var(--ink-muted)]">Check your connection and try again.</span>
+            <button
+              className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--brand-blue-deep)] px-8 text-base font-semibold text-white"
+              type="button"
+              onClick={onRetry}
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
           <button
             className="interactive-lift group grid min-h-48 w-full overflow-hidden rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] text-left shadow-[0_18px_45px_rgba(8,43,99,0.08)] transition hover:border-[var(--brand-blue)] sm:grid-cols-[minmax(190px,0.82fr)_minmax(0,1.5fr)]"
             type="button"

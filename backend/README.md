@@ -139,22 +139,12 @@ If these values are not configured, password admin login still works, but Google
 
 ## AI marking and explanations
 
-Theory answers can be reviewed by OpenAI when an API key is configured:
+Theory answers are reviewed by a local Ollama model (see `OLLAMA_URL` and `OLLAMA_MODEL` in `.env.example`):
 
-```env
-OPENAI_API_KEY="your-openai-api-key"
-OPENAI_MODEL="gpt-5"
-OPENAI_REVIEW_REQUIRED="true"
-```
+Objective answers are still marked deterministically. If the model is unavailable, theory answers fall back to the
+keyword marker and are labelled "Auto-marked by keywords". Set `AI_REVIEW_REQUIRED=true` to return an error instead.
 
-Objective answers are still marked deterministically. Theory answers use the current keyword marker as a fallback, then
-call OpenAI for a rubric-style score and concise feedback when `OPENAI_API_KEY` is present.
-
-Set `OPENAI_REVIEW_REQUIRED=true` when you want real AI only. In that mode, missing or failing OpenAI configuration will
-return an error instead of silently using fallback text.
-
-For production, set these values in the backend process environment on the server that runs the Nest API. The browser
-frontend should only receive `NEXT_PUBLIC_API_URL`; never expose `OPENAI_API_KEY` in frontend environment variables.
+Run `sudo bash scripts/setup-ollama-vps.sh` on the server to install the model. Keep port 11434 closed in the firewall.
 
 ## Welcome emails
 

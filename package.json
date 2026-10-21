@@ -15,8 +15,6 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.71.0",
-    "@copilotkit/runtime": "^1.71.0",
     "@tiptap/extension-mathematics": "^3.31.4",
     "@tiptap/markdown": "^3.31.4",
     "@tiptap/pm": "^3.31.4",

@@ -131,38 +131,13 @@ For reliable inbox delivery, send from an address on your own domain and configu
 
 ## AI Grading
 
-The backend marks objective questions exactly and sends theory answers to OpenAI for rubric-style grading when an API key
-is configured. Completed attempts also receive a student-facing AI review that is shown on the results screen.
-
-Set these on the backend server:
-
-```env
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-5
-OPENAI_REVIEW_REQUIRED=true
-```
-
-Use `OPENAI_REVIEW_REQUIRED=true` when the live site should fail loudly if OpenAI is not configured or unavailable. Use
-`false` during testing if you want the keyword fallback to keep submissions working.
+The backend marks objective questions exactly and sends theory answers to a local AI model (Ollama) for rubric-style
+grading. Completed attempts also receive a student-facing review on the results screen. See **AI marking** below for
+setup.
 
 ## In-App AI Assistant
 
-The app also includes a visible TLCHub Copilot sidebar powered by CopilotKit. It guides students with explanations,
-corrections, topic-based reading suggestions, practice tasks, and interactive hints. During a live test it is instructed
-to help with concepts and progressive hints without revealing final answers. After results are available, it can use the
-marked answers, model answers, and AI feedback to explain corrections.
-
-It can also help admins review quiz content, rubric quality, and topic coverage.
-
-Set these on the Next.js server that renders the frontend:
-
-```env
-OPENAI_API_KEY=your-openai-api-key
-COPILOTKIT_MODEL=openai/gpt-5-mini
-```
-
-The sidebar reads safe app context such as the current screen, quiz progress, recent results, and admin content counts.
-It does not receive stored access tokens or passwords.
+The Hubpilot button opens a "coming soon" panel. It is not connected to any AI service yet.
 
 ## Hostinger VPS Development
 
@@ -266,12 +241,10 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## AI marking
 
-Theory answers and the end-of-test summary are marked by an AI provider chosen with `AI_PROVIDER` in `backend/.env`:
-
-- `openai` (default) uses `OPENAI_API_KEY` and `OPENAI_MODEL`. It needs account credit.
-- `ollama` runs a free open-weight model on your own server (default `qwen3:4b`). On the VPS run
-  `sudo bash backend/scripts/setup-ollama-vps.sh` once (adds swap, installs Ollama on localhost only, one request at a
-  time, pulls the model), then set `AI_PROVIDER=ollama` and restart the API.
+Theory answers and the end-of-test summary are marked by a free open-weight model running on your own server through
+Ollama (default `qwen3:4b-instruct`). On the VPS run `sudo bash backend/scripts/setup-ollama-vps.sh` once (adds swap,
+installs Ollama on localhost only, one request at a time, pulls the model), then restart the API. Settings are in
+`backend/.env.example`.
 
 Every answer records where its feedback came from (`ai`, `keyword` or `auto`) and the results screen labels it, so
 keyword fallback is never shown as AI feedback. Set `AI_REVIEW_REQUIRED=true` to fail a submission instead of falling back.
