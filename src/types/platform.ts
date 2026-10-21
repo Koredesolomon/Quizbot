@@ -52,14 +52,6 @@ export type MarkedQuestion = Question & {
 
 export type QuizQuestion = Omit<Question, "answer" | "explanation" | "rubricPoints" | "commonMistakes" | "keywords">;
 
-export type TopicBreakdown = {
-  topic: string;
-  scored: number;
-  available: number;
-  weak: number;
-  percent: number;
-};
-
 export type StudentAttempt = {
   id: string;
   student: string;

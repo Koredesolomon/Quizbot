@@ -1,6 +1,7 @@
+import { Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
 import { describeAnswer } from "@/lib/question-answers";
-import type { MarkedQuestion, QuizQuestion, TopicBreakdown } from "@/types/platform";
+import type { MarkedQuestion, QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
 
@@ -133,13 +134,11 @@ export function Results({
 export function Details({
   marked,
   selectedDetail,
-  topicBreakdown,
   onSelectDetail,
   onBack,
 }: {
   marked: MarkedQuestion[];
   selectedDetail: number;
-  topicBreakdown: TopicBreakdown[];
   onSelectDetail: (index: number) => void;
   onBack: () => void;
 }) {
@@ -186,17 +185,14 @@ export function Details({
         </div>
         <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
         <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />
-        <ResultBlock label={feedbackLabel(question.feedbackSource)} text={question.aiFeedback} />
+        {question.userAnswer && (
+          <ResultBlock
+            icon={question.feedbackSource === "ai" ? <Sparkles aria-hidden="true" className="text-[var(--brand-green)]" size={14} /> : undefined}
+            label={feedbackLabel(question.feedbackSource)}
+            text={question.aiFeedback}
+          />
+        )}
         {question.explanation && <ResultBlock label="Explanation" text={question.explanation} />}
-
-        <div className="stagger-list mt-6 grid gap-3 sm:grid-cols-3">
-          {topicBreakdown.map((topic) => (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4" key={topic.topic}>
-              <strong className="block text-lg font-black text-sky-700">{topic.percent}%</strong>
-              <small className="mt-1 block text-xs font-bold leading-5 text-slate-500">{topic.topic}</small>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );

@@ -20,7 +20,6 @@ import { StudentAuth } from "@/components/student-auth";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { TestInterface } from "@/components/test-interface";
 import * as api from "@/lib/api";
-import { getTopicBreakdown } from "@/lib/marker";
 import { markedAttemptQuestions, submitSavedAttempt } from "@/lib/test-attempt";
 import type { MarkedQuestion, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
@@ -403,7 +402,6 @@ export default function Home() {
   const totalMarks = useMemo(() => activeQuestions.reduce((sum, question) => sum + question.marks, 0), [activeQuestions]);
   const score = marked.reduce((sum, question) => sum + question.awarded, 0);
   const percent = totalMarks ? Math.round((score / totalMarks) * 100) : 0;
-  const topicBreakdown = useMemo(() => getTopicBreakdown(marked), [marked]);
 
   const saveStudentSession = (nextSession: api.AuthResponse) => {
     setStudentSession(nextSession);
@@ -785,7 +783,6 @@ export default function Home() {
         <Details
           marked={marked}
           selectedDetail={selectedDetail}
-          topicBreakdown={topicBreakdown}
           onSelectDetail={setSelectedDetail}
           onBack={() => setScreen("results")}
         />

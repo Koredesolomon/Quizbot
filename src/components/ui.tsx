@@ -159,13 +159,13 @@ export function StatusBadge({
   );
 }
 
-export function ResultBlock({ label, text }: { label: string; text: string }) {
+export function ResultBlock({ label, text, icon }: { label: string; text: string; icon?: ReactNode }) {
   const answer = parseAnswerValue(text);
   const visibleText = answer.text || (answer.attachments.length ? "Document answer attached." : text);
 
   return (
     <div className="content-rise mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <strong className="block text-xs font-black uppercase text-slate-600">{label}</strong>
+      <strong className="flex items-center gap-1.5 text-xs font-black uppercase text-slate-600">{icon}{label}</strong>
       <div className="mt-2 text-sm font-semibold leading-6 text-slate-900">
         <MathContent>{visibleText}</MathContent>
       </div>
