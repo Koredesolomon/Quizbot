@@ -199,7 +199,11 @@ export class AttemptsService {
       const review = question.answerBox
         ? await this.choiceWithExplanationReview(question, answer)
         : this.choiceReview(question, response, question.marks);
-      return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
+      // The mark stays with code. Wrong or partly right choices also get an AI explanation of why.
+      const explained = !question.answerBox && review.awarded < question.marks
+        ? await this.explainChoice(question, response, review)
+        : undefined;
+      return this.answerRecord(attemptId, question, response, review.awarded, review.correct, explained?.aiFeedback ?? review.aiFeedback, explained ? "ai" : review.source ?? "auto");
     }
 
     const verdict = checkFinalAnswer(question.answerType, response, question.answer);
@@ -215,6 +219,16 @@ export class AttemptsService {
     const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
 
     return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
+  }
+
+  private async explainChoice(question: QuestionDocument, response: string, review: AnswerReview) {
+    if (process.env.AI_EXPLAIN_CHOICES === "false") return undefined;
+    const options = question.options ?? [];
+    const chosen = selectedOptionIndices(response, options).map((index) => `${String.fromCharCode(65 + index)}. ${options[index]}`).join("; ");
+    const verdict = review.awarded > 0 ? "partly correct" : "incorrect";
+    const explained = await this.aiMarker.explainVerdict(question, chosen || response, false, review.aiFeedback, verdict);
+    // Keep the code's factual line first and add the AI's explanation after it.
+    return explained.source === "ai" ? { aiFeedback: `${review.aiFeedback} ${explained.aiFeedback}` } : undefined;
   }
 
   /**

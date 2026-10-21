@@ -33,7 +33,8 @@ async function mark(question, answer, reviewer) {
   const questions = new QuestionsService({ find: () => ({ sort: () => ({ exec: async () => [stored] }) }) });
   const marker = {
     async reviewTheoryAnswer(reviewQuestion, response, fallback) { return reviewer ? reviewer(reviewQuestion, response, fallback) : fallback; },
-    async reviewCompletedTest() { return 'Summary'; },
+    async explainVerdict(_question, _response, _correct, fallback) { return { aiFeedback: fallback, source: 'auto' }; },
+    async reviewCompletedTest() { return { text: 'Summary', source: 'auto' }; },
   };
   const service = new AttemptsService(model, questions, marker, { async findPublishedQuiz() { return { courseId: 'course', quizId }; } });
   const started = await service.start(studentId, quizId);

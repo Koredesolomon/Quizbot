@@ -114,16 +114,18 @@ export class AiMarkerService {
     question: QuestionDocument,
     response: string,
     correct: boolean,
-    fallback: string
+    fallback: string,
+    verdict: string = correct ? "correct" : "incorrect"
   ): Promise<{ aiFeedback: string; source: FeedbackSource }> {
     try {
       const text = await this.complete({
         system:
-          "You are a supportive tutor. The final answer has already been checked and the verdict is fixed: do not question or change it. In two to four sentences explain it, comparing the student's working with the worked solution, and say what to fix if it was wrong. Use only the numbers in the question and the worked solution and do no arithmetic of your own. Never guess how the student made a mistake: only mention a specific error if their written working shows it; otherwise say what the correct method is and how their answer differs. " +
+          "You are a supportive tutor. The final answer has already been checked and the verdict is fixed: do not question or change it. In two to four sentences explain it, comparing the student's working with the worked solution, and say what to fix if it was wrong. Use only the numbers in the question and the worked solution and do no arithmetic of your own. For multiple-choice questions, say which chosen options were wrong and why, using the worked solution. Never guess how the student made a mistake: only mention a specific error if their written working shows it; otherwise say what the correct method is and how their answer differs. " +
           INJECTION_GUARD,
         user: {
           question: question.prompt,
-          verdict: correct ? "correct" : "incorrect",
+          verdict,
+          options: (question.options ?? []).map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`),
           correctFinalAnswer: question.answer,
           workedSolution: question.referenceSolution || question.explanation,
           studentAnswer: response,

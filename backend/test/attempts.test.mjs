@@ -71,6 +71,7 @@ function fixture() {
   let reviewCount = 0;
   const marker = {
     async reviewTheoryAnswer() { throw new Error('AI unavailable'); },
+    async explainVerdict(_question, _response, _correct, fallback) { return { aiFeedback: fallback, source: 'auto' }; },
     async reviewCompletedTest() { reviewCount++; return { text: 'Saved feedback', source: 'ai' }; },
   };
   const content = { async findPublishedQuiz(id) {
@@ -295,4 +296,43 @@ test('numeric written answers are marked by code and only explained by the AI', 
   const wrong = await f.service.submit(second.attempt.id, f.studentId, [{ questionId: numeric.id, answer: 'F = 20.9 N' }]);
   assert.equal(wrong.answers[0].awarded, 0);
   assert.equal(explained, false);
+});
+
+test('wrong or partly right choices get an AI explanation after the code verdict, right ones do not', async () => {
+  const f = fixture();
+  const asked = [];
+  f.marker.explainVerdict = async (_question, response, _correct, fallback, verdict) => {
+    asked.push({ response, verdict });
+    return { aiFeedback: 'Volt is derived.', source: 'ai' };
+  };
+  const { attempt } = await f.start();
+  const result = await f.service.submit(attempt.id, f.studentId, [
+    { questionId: f.questions[0].id, answer: 'Right' },
+    { questionId: f.questions[1].id, answer: 'Wrong' },
+  ]);
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].verdict, 'incorrect');
+  assert.equal(asked[0].response, 'B. Wrong');
+  assert.equal(result.answers[0].feedbackSource, 'auto');
+  assert.equal(result.answers[0].aiFeedback, 'Correct response.');
+  assert.equal(result.answers[1].awarded, 0);
+  assert.equal(result.answers[1].feedbackSource, 'ai');
+  assert.equal(result.answers[1].aiFeedback, 'Incorrect response. Review the model answer. Volt is derived.');
+});
+
+test('choice explanations can be switched off and never change the mark when the AI is down', async (context) => {
+  const f = fixture();
+  let calls = 0;
+  f.marker.explainVerdict = async (_q, _r, _c, fallback) => { calls++; return { aiFeedback: fallback, source: 'auto' }; };
+  const { attempt } = await f.start();
+  const down = await f.service.submit(attempt.id, f.studentId, [{ questionId: f.questions[1].id, answer: 'Wrong' }]);
+  assert.equal(down.answers[1].aiFeedback, 'Incorrect response. Review the model answer.');
+  assert.equal(down.answers[1].feedbackSource, 'auto');
+
+  process.env.AI_EXPLAIN_CHOICES = 'false';
+  context.after(() => { delete process.env.AI_EXPLAIN_CHOICES; });
+  const before = calls;
+  const second = await f.start();
+  await f.service.submit(second.attempt.id, f.studentId, [{ questionId: f.questions[1].id, answer: 'Wrong' }]);
+  assert.equal(calls, before);
 });
