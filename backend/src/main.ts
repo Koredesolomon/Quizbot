@@ -16,7 +16,11 @@ async function bootstrap() {
   app.useStaticAssets(uploadsRoot, { prefix: "/uploads/" });
 
   app.enableCors({
-    origin: config.get<string>("FRONTEND_ORIGIN") ?? "http://localhost:3000",
+    // FRONTEND_ORIGIN may list several origins, separated by commas.
+    origin: (config.get<string>("FRONTEND_ORIGIN") ?? "http://localhost:3000,http://127.0.0.1:3000")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
     credentials: true,
   });
   app.useGlobalPipes(

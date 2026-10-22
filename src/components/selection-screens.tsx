@@ -226,21 +226,25 @@ export function Topics({
                 <span className="hidden h-4 w-36 rounded-full bg-[#f1eee8] sm:block" />
               </button>
               {open && (
-                <div className="grid gap-y-9 divide-[var(--line)] px-6 py-6 md:grid-cols-2 md:divide-x xl:grid-cols-3">
+                <div className={`grid gap-y-9 divide-[var(--line)] px-4 py-6 sm:px-6 ${module.topics.length > 1 ? "md:grid-cols-2 md:divide-x xl:grid-cols-3" : ""}`}>
                   {module.topics.length ? module.topics.map((topic, topicIndex) => (
-                    <div className="px-4 text-left text-[var(--ink)]" key={topic.id}>
+                    <div className="px-2 text-left text-[var(--ink)] sm:px-4" key={topic.id}>
                       <strong className="block text-base font-semibold">
                         {moduleIndex + 1}.{topicIndex + 1} - <span className="font-medium">{topic.title}</span>
                       </strong>
-                      <div className="mt-4 grid gap-3">
+                      <div className={`mt-4 grid gap-3 ${module.topics.length > 1 ? "" : "sm:grid-cols-2"}`}>
                         {topic.subtopics.length ? topic.subtopics.map((subtopic, subtopicIndex) => (
                           <button
-                            className="min-h-12 rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-left text-sm font-semibold transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green)]"
+                            className="group flex min-h-16 items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 text-left text-sm font-semibold leading-snug transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green)]"
                             key={subtopic.id}
                             type="button"
                             onClick={() => onSelectSubtopic(module, subtopic)}
                           >
-                            {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1} - {subtopic.title}
+                            <span className="shrink-0 rounded-md bg-[var(--surface)] px-2 py-1 text-xs font-bold tabular-nums text-[var(--ink-muted)] ring-1 ring-[var(--line)] transition group-hover:text-[var(--brand-green)]">
+                              {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1}
+                            </span>
+                            <span className="min-w-0 flex-1">{subtopic.title}</span>
+                            <ChevronRight aria-hidden="true" className="shrink-0 text-[var(--ink-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand-green)]" size={18} />
                           </button>
                         )) : (
                           <span className="block h-4 w-36 rounded-full bg-[#f1eee8]" />
