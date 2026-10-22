@@ -87,7 +87,7 @@ export function CourseStructure(props: Props) {
   );
   return (
     <div className="grid gap-4" aria-busy={busy}>
-      <p className="text-sm text-[#5e7086]">Click a title to edit it. Use the arrow beside it to expand or collapse the section. Drag a module handle or use Move Up / Down to change the order.</p>
+      <p className="text-sm text-[#5e7086]">Click a title, including a quiz title, to edit it. Use the arrow beside it to expand or collapse the section. Drag a module handle or use Move Up / Down to change the order.</p>
       {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-rose-700">{error}</p>}
       <span role="status" className="text-sm text-[#5e7086]">{busy ? "Saving changes…" : notice}</span>
       {props.modules.map((module, index) => (
@@ -116,7 +116,7 @@ export function CourseStructure(props: Props) {
                           <details open className="group/section">
                             <summary className="flex cursor-pointer list-none items-center gap-4 py-3 text-lg font-normal text-[#123f63] [&::-webkit-details-marker]:hidden" onClick={() => { props.onSelectModule(module.id); props.onSelectTopic(topic.id); props.onSelectSubtopic(subtopic.id); }}><ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} className="shrink-0 text-[#8d95a5] transition-transform [[open]>summary>&]:rotate-90" />{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, title: subtopic.title, description: subtopic.description ?? "" })} ({subtopic.quizzes.length} quizzes)</summary>
                             {subtopic.description && <p className="mt-2 text-sm text-[#737b8d]">{subtopic.description}</p>}
-                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{quiz.title}</strong> · {quiz.timeLimitMinutes} min{quiz.description && <p>{quiz.description}</p>}</div><div className="flex flex-wrap items-center gap-3"><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button>{deleteButton({ kind: "quiz", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id }, quiz.title)}</div></li>)}</ul>
+                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id, title: quiz.title, description: quiz.description ?? "" })}</strong>{quiz.description && <p>{quiz.description}</p>}</div><div className="flex flex-wrap items-center gap-3"><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button>{deleteButton({ kind: "quiz", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id }, quiz.title)}</div></li>)}</ul>
                             {!subtopic.quizzes.length && <p className="mt-2 text-sm text-[#737b8d]">No quizzes yet.</p>}
                           </details>
                           <div className="ml-4 flex flex-wrap items-center gap-3">
@@ -144,7 +144,7 @@ export function CourseStructure(props: Props) {
       </div>
       {edit && <div className="fixed inset-0 z-50 grid place-items-center bg-[#071a38]/45 p-4">
         <form role="dialog" aria-modal="true" aria-labelledby="structure-edit-title" className="grid w-full max-w-xl gap-4 rounded-xl bg-white p-6" onSubmit={(event) => { event.preventDefault(); if (!edit.title.trim()) return; void run(async () => { await props.onEdit(edit); setEdit(null); }); }}>
-          <h3 id="structure-edit-title" className="text-xl font-black">Edit {edit.subtopicId ? "subtopic" : edit.topicId ? "topic" : "module"}</h3>
+          <h3 id="structure-edit-title" className="text-xl font-black">Edit {edit.quizId ? "quiz" : edit.subtopicId ? "subtopic" : edit.topicId ? "topic" : "module"}</h3>
           <label className="grid gap-2">Title<input autoFocus required value={edit.title} disabled={busy} onChange={(event) => setEdit({ ...edit, title: event.target.value })} className="rounded border p-3" /></label>
           <label className="grid gap-2">Description<textarea value={edit.description} disabled={busy} onChange={(event) => setEdit({ ...edit, description: event.target.value })} className="min-h-32 rounded border p-3" /></label>
           {error && <p role="alert" className="text-rose-700">{error}</p>}

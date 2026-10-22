@@ -116,7 +116,7 @@ export function AdminDashboard({
     moduleId: string,
     topicId: string,
     subtopicId: string,
-    input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number }
+    input: { title: string; description?: string; passingPercent: number }
   ) => api.CourseContent | void | Promise<api.CourseContent | void>;
   onAddQuestion: (question: QuestionInput) => Promise<void>;
   onUpdateQuestion: (id: string, question: QuestionInput) => Promise<void>;
@@ -243,8 +243,6 @@ export function AdminDashboard({
     const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
       title: quizForm.title.trim(),
       description: quizForm.description.trim() || undefined,
-      timeLimitMinutes: Math.max(1, Number(quizForm.timeLimitMinutes) || 1),
-      attemptsAllowed: Math.max(1, Number(quizForm.attemptsAllowed) || 1),
       passingPercent: Math.min(100, Math.max(0, Number(quizForm.passingPercent) || 0)),
     });
     const created = updatedCourse && quizQuestionContexts([updatedCourse]).find((quiz) =>
@@ -812,10 +810,8 @@ export function AdminDashboard({
                 </Panel>
                 <Panel title="Quiz Defaults">
                   <SettingToggle label="Show correct answers after submission" enabled />
-                  <SettingToggle label="Allow multiple attempts" enabled />
                   <SettingToggle label="Randomize questions" enabled />
                   <SettingToggle label="Randomize options" enabled={false} />
-                  <Field label="Default time limit (minutes)" type="number" value="60" onChange={() => undefined} />
                 </Panel>
               </div>
             )}

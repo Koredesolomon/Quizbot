@@ -87,14 +87,6 @@ export class CreateQuizDto {
   description?: string;
 
   @IsInt()
-  @Min(1)
-  timeLimitMinutes: number;
-
-  @IsInt()
-  @Min(1)
-  attemptsAllowed: number;
-
-  @IsInt()
   @Min(0)
   @Max(100)
   passingPercent: number;
@@ -111,6 +103,10 @@ export class EditStructureDto extends CreateModuleDto {
   @IsOptional()
   @IsMongoId()
   subtopicId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  quizId?: string;
 }
 
 export class ReorderModulesDto {

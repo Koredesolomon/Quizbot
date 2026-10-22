@@ -68,7 +68,7 @@ test('blank titles and subtopics outside the selected topic are rejected', async
 });
 
 function quiz(title = 'Quiz') {
-  return { _id: new Types.ObjectId(), title, timeLimitMinutes: 10, attemptsAllowed: 1, passingPercent: 50 };
+  return { _id: new Types.ObjectId(), title, passingPercent: 50 };
 }
 
 test('deleting a topic removes its descendants and preserves sibling topics and modules', async () => {
@@ -162,4 +162,36 @@ test('all structure deletion endpoints require authentication and an admin role'
     assert.deepEqual(Reflect.getMetadata('roles', handler), ['admin']);
     assert.deepEqual(Reflect.getMetadata('__guards__', handler), [JwtAuthGuard, RolesGuard]);
   }
+});
+
+test('a quiz can be renamed in place, in a subtopic or directly under a topic', async () => {
+  const f = fixture();
+  const target = quiz('Old title');
+  const legacy = quiz('Legacy quiz');
+  f.subtopic.quizzes.push(target, quiz('Other quiz'));
+  f.topic.quizzes = [legacy];
+  const ids = { moduleId: f.first._id.toString(), topicId: f.topic._id.toString() };
+
+  const renamed = await f.service.editStructure(f.course.id, {
+    ...ids, subtopicId: f.subtopic._id.toString(), quizId: target._id.toString(), title: '  New title ', description: 'About it',
+  });
+  const quizzes = renamed.modules[0].topics[0].subtopics[0].quizzes;
+  assert.deepEqual(quizzes.map((item) => item.title), ['New title', 'Other quiz']);
+  assert.equal(quizzes[0].description, 'About it');
+  assert.equal(quizzes[0].id, target._id.toString());
+  assert.equal(Object.hasOwn(quizzes[0], 'timeLimitMinutes'), false);
+
+  await f.service.editStructure(f.course.id, { ...ids, subtopicId: f.topic._id.toString(), quizId: legacy._id.toString(), title: 'Legacy renamed' });
+  assert.equal(legacy.title, 'Legacy renamed');
+  assert.equal(f.saves(), 2);
+});
+
+test('renaming a quiz needs a subtopic and an existing quiz', async () => {
+  const f = fixture();
+  const ids = { moduleId: f.first._id.toString(), topicId: f.topic._id.toString() };
+  await assert.rejects(f.service.editStructure(f.course.id, { ...ids, quizId: new Types.ObjectId().toString(), title: 'X' }), /requires a subtopic/);
+  await assert.rejects(f.service.editStructure(f.course.id, {
+    ...ids, subtopicId: f.subtopic._id.toString(), quizId: new Types.ObjectId().toString(), title: 'X',
+  }), /Quiz was not found/);
+  assert.equal(f.saves(), 0);
 });

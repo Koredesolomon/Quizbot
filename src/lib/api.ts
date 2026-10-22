@@ -92,8 +92,6 @@ export type CourseQuiz = {
   id: string;
   title: string;
   description?: string;
-  timeLimitMinutes: number;
-  attemptsAllowed: number;
   passingPercent: number;
 };
 
@@ -378,7 +376,7 @@ export function addQuiz(
   moduleId: string,
   topicId: string,
   subtopicId: string,
-  input: { title: string; description?: string; timeLimitMinutes: number; attemptsAllowed: number; passingPercent: number },
+  input: { title: string; description?: string; passingPercent: number },
   token: string
 ) {
   return apiRequest<CourseContent>(`/content/courses/${courseId}/modules/${moduleId}/topics/${topicId}/subtopics/${subtopicId}/quizzes`, {
@@ -476,7 +474,7 @@ export function markFeedbackReviewed(id: string, token: string) {
   });
 }
 
-export type StructureEdit = { moduleId: string; topicId?: string; subtopicId?: string; title: string; description: string };
+export type StructureEdit = { moduleId: string; topicId?: string; subtopicId?: string; quizId?: string; title: string; description: string };
 
 export type StructureDelete = { moduleId: string; topicId: string } & (
   | { kind: "topic" }

@@ -75,8 +75,6 @@ export const emptySubtopicForm = {
 export const emptyQuizForm = {
   title: "",
   description: "",
-  timeLimitMinutes: 10,
-  attemptsAllowed: 1,
   passingPercent: 50,
 };
 

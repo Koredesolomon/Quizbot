@@ -348,7 +348,6 @@ export function QuizPickerModal({
               <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--brand-blue-deep)] text-sm font-black text-white">{index + 1}</span>
               <span className="min-w-0 flex-1">
                 <strong className="block text-lg font-black">{quiz.title}</strong>
-                <small className="mt-1 block text-sm font-semibold text-[var(--ink-muted)]">{quiz.timeLimitMinutes} min · {quiz.attemptsAllowed} attempt(s)</small>
               </span>
             </button>
           )) : (

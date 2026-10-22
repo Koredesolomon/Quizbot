@@ -82,6 +82,7 @@ export class ContentService {
   async editStructure(courseId: string, input: EditStructureDto) {
     if (!input.title.trim()) throw new BadRequestException("Enter a title.");
     if (input.subtopicId && !input.topicId) throw new BadRequestException("A subtopic requires a topic.");
+    if (input.quizId && !input.subtopicId) throw new BadRequestException("A quiz requires a subtopic.");
     const course = await this.courseModel.findById(courseId).exec();
     if (!course) throw new NotFoundException("Course was not found.");
     const module = course.modules.find((item) => item._id.toString() === input.moduleId);
@@ -91,10 +92,17 @@ export class ContentService {
       const topic = module.topics.find((entry) => entry._id.toString() === input.topicId);
       if (!topic) throw new NotFoundException("Topic was not found.");
       item = topic;
+      let quizzes = topic.quizzes;
       if (input.subtopicId && input.subtopicId !== input.topicId) {
         const subtopic = topic.subtopics.find((entry) => entry._id.toString() === input.subtopicId);
         if (!subtopic) throw new NotFoundException("Subtopic was not found.");
         item = subtopic;
+        quizzes = subtopic.quizzes;
+      }
+      if (input.quizId) {
+        const quiz = quizzes?.find((entry) => entry._id.toString() === input.quizId);
+        if (!quiz) throw new NotFoundException("Quiz was not found.");
+        item = quiz;
       }
     }
     item.title = input.title.trim();
@@ -226,8 +234,6 @@ export class ContentService {
       _id: new Types.ObjectId(),
       title: input.title.trim(),
       description: input.description?.trim() || undefined,
-      timeLimitMinutes: input.timeLimitMinutes,
-      attemptsAllowed: input.attemptsAllowed,
       passingPercent: input.passingPercent,
     };
 
@@ -270,8 +276,6 @@ export class ContentService {
                 id: quiz._id.toString(),
                 title: quiz.title,
                 description: quiz.description,
-                timeLimitMinutes: quiz.timeLimitMinutes,
-                attemptsAllowed: quiz.attemptsAllowed,
                 passingPercent: quiz.passingPercent,
               })),
             })),
@@ -285,8 +289,6 @@ export class ContentService {
                       id: quiz._id.toString(),
                       title: quiz.title,
                       description: quiz.description,
-                      timeLimitMinutes: quiz.timeLimitMinutes,
-                      attemptsAllowed: quiz.attemptsAllowed,
                       passingPercent: quiz.passingPercent,
                     })),
                   },

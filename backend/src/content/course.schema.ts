@@ -13,12 +13,6 @@ export class CourseQuiz {
   @Prop({ trim: true })
   description?: string;
 
-  @Prop({ default: 10, min: 1 })
-  timeLimitMinutes: number;
-
-  @Prop({ default: 1, min: 1 })
-  attemptsAllowed: number;
-
   @Prop({ default: 50, min: 0, max: 100 })
   passingPercent: number;
 }

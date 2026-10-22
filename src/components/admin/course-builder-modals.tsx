@@ -283,9 +283,7 @@ export function QuizUploadModal({
             onChange={(event) => onTitleChange(event.target.value)}
             autoFocus
           />
-          <fieldset disabled={uploading || status === "done"} className="grid gap-3 sm:grid-cols-3">
-            <Field label="Time limit (minutes)" type="number" value={String(settings.timeLimitMinutes)} onChange={(value) => onSettingsChange({ ...settings, timeLimitMinutes: Number(value) })} />
-            <Field label="Attempts allowed" type="number" value={String(settings.attemptsAllowed)} onChange={(value) => onSettingsChange({ ...settings, attemptsAllowed: Number(value) })} />
+          <fieldset disabled={uploading || status === "done"} className="grid gap-3 sm:max-w-xs">
             <Field label="Passing score (%)" type="number" value={String(settings.passingPercent)} onChange={(value) => onSettingsChange({ ...settings, passingPercent: Number(value) })} />
           </fieldset>
           {(status === "review" || status === "uploading") && review && file ? (
