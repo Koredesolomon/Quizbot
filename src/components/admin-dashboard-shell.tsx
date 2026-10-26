@@ -236,10 +236,12 @@ export function AdminDashboard({
 
   const createQuiz = async (): Promise<QuizQuestionContext> => {
     if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse) {
-      throw new Error("Create or select a subtopic before creating a quiz.");
+      throw new Error("Create or select a topic or subtopic before creating a quiz.");
     }
     if (!quizForm.title.trim()) throw new Error("Enter a quiz title.");
-    const existingQuizIds = new Set(activeSubtopic?.quizzes.map((quiz) => quiz.id) ?? []);
+    // A quiz for the topic itself uses the topic id as its subtopic id.
+    const quizGroup = activeTopic?.subtopics.find((subtopic) => subtopic.id === activeSubtopicId);
+    const existingQuizIds = new Set(quizGroup?.quizzes.map((quiz) => quiz.id) ?? []);
     const updatedCourse = await onAddQuiz(activeCourseId, activeModuleId, activeTopicId, activeSubtopicId, {
       title: quizForm.title.trim(),
       description: quizForm.description.trim() || undefined,
@@ -260,8 +262,8 @@ export function AdminDashboard({
   };
 
   const readQuizUpload = async (file: File) => {
-    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse || !activeSubtopic) {
-      throw new Error("Create or select a subtopic before creating a quiz.");
+    if (!activeCourseId || !activeModuleId || !activeTopicId || !activeSubtopicId || !activeCourse) {
+      throw new Error("Create or select a topic or subtopic before creating a quiz.");
     }
 
     if (!quizForm.title.trim()) {

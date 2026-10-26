@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
-import type { CourseContent, CourseModule, StructureDelete, StructureEdit } from "@/lib/api";
+import type { CourseContent, CourseModule, CourseQuiz, StructureDelete, StructureEdit } from "@/lib/api";
+import { realSubtopics, topicQuizGroup } from "@/lib/course-outline";
 
 type Props = {
   modules: CourseModule[];
@@ -85,6 +86,9 @@ export function CourseStructure(props: Props) {
       {input.title}
     </button>
   );
+  const quizList = (moduleId: string, topicId: string, subtopicId: string, quizzes: CourseQuiz[]) => (
+    <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{editableTitle({ moduleId, topicId, subtopicId, quizId: quiz.id, title: quiz.title, description: quiz.description ?? "" })}</strong>{quiz.description && <p>{quiz.description}</p>}</div><div className="flex flex-wrap items-center gap-3"><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(moduleId, topicId, subtopicId, quiz.id)}>Manage Questions</button>{deleteButton({ kind: "quiz", moduleId, topicId, subtopicId, quizId: quiz.id }, quiz.title)}</div></li>)}</ul>
+  );
   return (
     <div className="grid gap-4" aria-busy={busy}>
       <p className="text-sm text-[#5e7086]">Click a title, including a quiz title, to edit it. Use the arrow beside it to expand or collapse the section. Drag a module handle or use Move Up / Down to change the order.</p>
@@ -111,12 +115,12 @@ export function CourseStructure(props: Props) {
                     <summary className="flex cursor-pointer list-none items-center gap-4 py-3 text-lg font-normal text-[#123f63] [&::-webkit-details-marker]:hidden" onClick={() => { props.onSelectModule(module.id); props.onSelectTopic(topic.id); }}><ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} className="shrink-0 text-[#8d95a5] transition-transform [[open]>summary>&]:rotate-90" /><strong className="shrink-0 font-semibold">Topic {topicIndex + 1}</strong><span aria-hidden="true">-</span>{editableTitle({ moduleId: module.id, topicId: topic.id, title: topic.title, description: topic.description ?? "" })}</summary>
                     <div className="mt-2 grid gap-2 pl-4 sm:pl-6">
                       {topic.description && <p className="text-sm text-[#737b8d]">{topic.description}</p>}
-                      {topic.subtopics.map((subtopic) => (
+                      {realSubtopics(topic).map((subtopic) => (
                         <div key={subtopic.id} className="py-1">
                           <details open className="group/section">
                             <summary className="flex cursor-pointer list-none items-center gap-4 py-3 text-lg font-normal text-[#123f63] [&::-webkit-details-marker]:hidden" onClick={() => { props.onSelectModule(module.id); props.onSelectTopic(topic.id); props.onSelectSubtopic(subtopic.id); }}><ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} className="shrink-0 text-[#8d95a5] transition-transform [[open]>summary>&]:rotate-90" />{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, title: subtopic.title, description: subtopic.description ?? "" })} ({subtopic.quizzes.length} quizzes)</summary>
                             {subtopic.description && <p className="mt-2 text-sm text-[#737b8d]">{subtopic.description}</p>}
-                            <ul className="mt-2 grid gap-2 text-sm text-[#404756]">{subtopic.quizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-2 py-1 pl-4 text-[#5e7086]"><div><strong>{editableTitle({ moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id, title: quiz.title, description: quiz.description ?? "" })}</strong>{quiz.description && <p>{quiz.description}</p>}</div><div className="flex flex-wrap items-center gap-3"><button className={action} type="button" disabled={busy} onClick={() => props.onManageQuiz(module.id, topic.id, subtopic.id, quiz.id)}>Manage Questions</button>{deleteButton({ kind: "quiz", moduleId: module.id, topicId: topic.id, subtopicId: subtopic.id, quizId: quiz.id }, quiz.title)}</div></li>)}</ul>
+                            {quizList(module.id, topic.id, subtopic.id, subtopic.quizzes)}
                             {!subtopic.quizzes.length && <p className="mt-2 text-sm text-[#737b8d]">No quizzes yet.</p>}
                           </details>
                           <div className="ml-4 flex flex-wrap items-center gap-3">
@@ -125,8 +129,15 @@ export function CourseStructure(props: Props) {
                           </div>
                         </div>
                       ))}
-                      {!topic.subtopics.length && <p className="text-sm text-[#737b8d]">No subtopics yet.</p>}
-                      <button className={`${action} justify-self-start`} type="button" disabled={busy} onClick={() => props.onAddSubtopic(module.id, topic.id)}><Plus size={16} />Add Subtopic</button>
+                      {!realSubtopics(topic).length && <p className="text-sm text-[#737b8d]">No subtopics yet.</p>}
+                      {topicQuizGroup(topic) && <div className="py-1">
+                        <p className="py-3 text-lg font-semibold text-[#123f63]">Topic quizzes ({topicQuizGroup(topic)!.quizzes.length})</p>
+                        {quizList(module.id, topic.id, topic.id, topicQuizGroup(topic)!.quizzes)}
+                      </div>}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button className={action} type="button" disabled={busy} onClick={() => props.onAddSubtopic(module.id, topic.id)}><Plus size={16} />Add Subtopic</button>
+                        <button className={action} type="button" disabled={busy} aria-label={`Add quiz to topic ${topic.title}`} onClick={() => props.onAddQuiz(module.id, topic.id, topic.id)}><Plus size={16} />Add Quiz</button>
+                      </div>
                     </div>
                   </details>
                   {deleteButton({ kind: "topic", moduleId: module.id, topicId: topic.id }, topic.title)}

@@ -379,7 +379,8 @@ export function CourseBuilder({
                   openQuizModal(
                     activeModuleId || modules[0]?.id,
                     activeTopicId || modules[0]?.topics[0]?.id,
-                    activeSubtopicId || modules[0]?.topics[0]?.subtopics[0]?.id
+                    // With no subtopic to pick, the quiz goes on the topic itself.
+                    activeSubtopicId || (activeTopicId ? activeTopicId : modules[0]?.topics[0]?.subtopics[0]?.id || modules[0]?.topics[0]?.id)
                   )
                 }
               />

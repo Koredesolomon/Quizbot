@@ -1,4 +1,5 @@
 import type { CourseContent } from "@/lib/api";
+import { isTopicQuizGroup } from "@/lib/course-outline";
 import type { Question } from "@/types/platform";
 
 export type QuestionInput = Omit<Question, "id">;
@@ -17,7 +18,7 @@ export function quizQuestionContexts(courses: CourseContent[]): QuizQuestionCont
       quizId: quiz.id,
       subject: course.subject,
       topic: subtopic.title,
-      label: `${course.title} / ${module.title} / ${topic.title} / ${subtopic.title} / ${quiz.title}`,
+      label: [course.title, module.title, topic.title, ...(isTopicQuizGroup(topic, subtopic) ? [] : [subtopic.title]), quiz.title].join(" / "),
     })))
   )));
 }

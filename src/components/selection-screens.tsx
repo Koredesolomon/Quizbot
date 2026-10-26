@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Sparkles, X } from "lucide-react";
 import type { CourseContent, CourseModule, CourseQuiz, CourseSubtopic } from "@/lib/api";
+import { isTopicQuizGroup, realSubtopics } from "@/lib/course-outline";
 import type { QuizQuestion } from "@/types/platform";
 import { BackButton, Metric, Panel, PrimaryButton } from "./ui";
 
@@ -64,7 +65,7 @@ export function Courses({
           const moduleCount = course.modules.length;
           const topicCount = course.modules.reduce((sum, module) => sum + module.topics.length, 0);
           const subtopicCount = course.modules.reduce(
-            (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + topic.subtopics.length, 0),
+            (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + realSubtopics(topic).length, 0),
             0
           );
           const quizCount = course.modules.reduce(
@@ -79,7 +80,7 @@ export function Courses({
           );
           const focusModule = course.modules[0];
           const focusTopic = focusModule?.topics[0];
-          const focusSubtopic = focusTopic?.subtopics[0];
+          const focusSubtopic = focusTopic && realSubtopics(focusTopic)[0];
           const progress = Math.min(100, Math.max(12, registered ? 68 : moduleCount ? 26 + moduleCount * 12 : 16));
 
           return (
@@ -241,9 +242,9 @@ export function Topics({
                             onClick={() => onSelectSubtopic(module, subtopic)}
                           >
                             <span className="shrink-0 rounded-md bg-[var(--surface)] px-2 py-1 text-xs font-bold tabular-nums text-[var(--ink-muted)] ring-1 ring-[var(--line)] transition group-hover:text-[var(--brand-green)]">
-                              {moduleIndex + 1}.{topicIndex + 1}.{subtopicIndex + 1}
+                              {isTopicQuizGroup(topic, subtopic) ? "Quiz" : `${moduleIndex + 1}.${topicIndex + 1}.${subtopicIndex + 1}`}
                             </span>
-                            <span className="min-w-0 flex-1">{subtopic.title}</span>
+                            <span className="min-w-0 flex-1">{isTopicQuizGroup(topic, subtopic) ? `${topic.title} ${subtopic.quizzes.length === 1 ? "quiz" : "quizzes"}` : subtopic.title}</span>
                             <ChevronRight aria-hidden="true" className="shrink-0 text-[var(--ink-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand-green)]" size={18} />
                           </button>
                         )) : (

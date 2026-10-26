@@ -2,6 +2,7 @@ import { BarChart3, BookOpen, CalendarDays, Camera, ChevronRight, Clock3, Layout
 import type { ComponentType } from "react";
 import { useRef, useState } from "react";
 import type { AuthUser, CourseContent } from "@/lib/api";
+import { realSubtopics } from "@/lib/course-outline";
 import type { StudentAttempt } from "@/types/platform";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
@@ -68,7 +69,7 @@ export function StudentDashboard({
   const topicCount = primaryCourse?.modules.reduce((sum, module) => sum + module.topics.length, 0) ?? 0;
   const subtopicCount =
     primaryCourse?.modules.reduce(
-      (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + topic.subtopics.length, 0),
+      (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + realSubtopics(topic).length, 0),
       0
     ) ?? 0;
   const [avatarError, setAvatarError] = useState("");

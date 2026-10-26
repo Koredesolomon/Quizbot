@@ -302,3 +302,23 @@ test('answer keys resolve letters, option text and compact forms without droppin
   assert.equal(answers.toggleSelectedLetter('A, C', 1, 4), 'A, B, C');
   assert.equal(answers.toggleSelectedLetter('A, C', 0, 4), 'C');
 });
+
+test('quizzes added straight to a topic are told apart from subtopic quizzes', () => {
+  const outline = loadSource(resolve(projectRoot, 'src/lib/course-outline.ts'));
+  const { quizQuestionContexts } = loadSource(resolve(projectRoot, 'src/lib/question-editor.ts'));
+  const quiz = (id) => ({ id, title: `Quiz ${id}`, passingPercent: 50 });
+  // The API sends topic-level quizzes as a trailing subtopic that shares the topic's id.
+  const topic = { id: 't1', title: 'Vectors', subtopics: [
+    { id: 's1', title: 'Resolving forces', quizzes: [quiz('q1')] },
+    { id: 't1', title: 'Vectors', quizzes: [quiz('q2')] },
+  ] };
+  const course = { id: 'c1', title: 'PHS001', code: 'PHS001', subject: 'Physics', status: 'draft', modules: [{ id: 'm1', title: 'Mechanics', topics: [topic] }] };
+
+  assert.deepEqual(outline.realSubtopics(topic).map((subtopic) => subtopic.id), ['s1']);
+  assert.deepEqual(outline.topicQuizGroup(topic).quizzes.map((item) => item.id), ['q2']);
+  assert.equal(outline.topicQuizGroup({ ...topic, subtopics: [topic.subtopics[0]] }), undefined);
+  assert.deepEqual(quizQuestionContexts([course]).map(({ quizId, subtopicId, label }) => ({ quizId, subtopicId, label })), [
+    { quizId: 'q1', subtopicId: 's1', label: 'PHS001 / Mechanics / Vectors / Resolving forces / Quiz q1' },
+    { quizId: 'q2', subtopicId: 't1', label: 'PHS001 / Mechanics / Vectors / Quiz q2' },
+  ]);
+});

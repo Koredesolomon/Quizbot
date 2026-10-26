@@ -1,4 +1,5 @@
 import type * as api from "@/lib/api";
+import { realSubtopics } from "@/lib/course-outline";
 import type { StudentFeedback } from "@/types/platform";
 import type { AdminSection, QuestionBankView } from "./config";
 
@@ -6,7 +7,7 @@ export function courseOutlineCounts(course: api.CourseContent) {
   const modules = course.modules ?? [];
   const topics = modules.reduce((sum, module) => sum + (module.topics ?? []).length, 0);
   const subtopics = modules.reduce(
-    (sum, module) => sum + (module.topics ?? []).reduce((topicSum, topic) => topicSum + (topic.subtopics ?? []).length, 0),
+    (sum, module) => sum + (module.topics ?? []).reduce((topicSum, topic) => topicSum + realSubtopics(topic).length, 0),
     0
   );
   const quizzes = modules.reduce(
