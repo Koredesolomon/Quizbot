@@ -20,13 +20,16 @@ import { StudentAuth } from "@/components/student-auth";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { TestInterface } from "@/components/test-interface";
 import * as api from "@/lib/api";
-import { markedAttemptQuestions, submitSavedAttempt } from "@/lib/test-attempt";
+import { markedAttemptQuestions, submitSavedAttempt, waitForSavedResult } from "@/lib/test-attempt";
 import type { MarkedQuestion, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const studentName = "Practice Student";
 const adminStorageKey = "stem-jupeb-admin-account";
 const studentStorageKey = "stem-jupeb-student-session";
 const themeStorageKey = "stem-jupeb-theme";
+const navigationStorageKey = "tlchub-navigation";
+// Screens that only make sense for a signed-in student.
+const studentOnlyScreens = new Set<Screen>(["studentDashboard", "test", "marking", "results", "details"]);
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const screens = new Set<Screen>([
   "landing",
@@ -44,6 +47,21 @@ const screens = new Set<Screen>([
   "passwordReset",
   "comingSoon",
 ]);
+
+/** Where the student was, kept per tab so a page refresh resumes instead of returning to the homepage. */
+type NavigationSnapshot = {
+  screen: Screen;
+  courseId: string;
+  moduleId: string;
+  subtopicId: string;
+  quizId: string;
+  quizPickerOpen: boolean;
+  attemptId: string | null;
+  selectedDetail: number;
+  currentQuestion: number;
+  answers: Record<string, string>;
+  attemptQuestions: QuizQuestion[];
+};
 
 type GoogleCallback =
   | { role: "student"; session: api.AuthResponse; error?: never }
@@ -190,6 +208,9 @@ export default function Home() {
   const [quizPickerOpen, setQuizPickerOpen] = useState(false);
   const historyReadyRef = useRef(false);
   const restoringHistoryRef = useRef(false);
+  const historyFirstRunRef = useRef(true);
+  const navigationReadyRef = useRef(false);
+  const [browserStateReady, setBrowserStateReady] = useState(false);
   const activeStudentName = studentSession?.user.fullName ?? studentName;
 
   useEffect(() => {
@@ -217,6 +238,12 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined" || !historyReadyRef.current) return;
 
+    // The first run is the initial "landing" state, before a saved position has been restored.
+    if (historyFirstRunRef.current) {
+      historyFirstRunRef.current = false;
+      return;
+    }
+
     if (restoringHistoryRef.current) {
       restoringHistoryRef.current = false;
       return;
@@ -234,7 +261,61 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const restoreNavigation = (student: api.AuthResponse | null) => {
+      let saved: NavigationSnapshot | null = null;
+      try {
+        saved = JSON.parse(window.sessionStorage.getItem(navigationStorageKey) ?? "null") as NavigationSnapshot | null;
+      } catch {
+        return;
+      }
+      if (!saved || !isScreen(saved.screen) || saved.screen === "landing") return;
+      if (saved.screen === "passwordReset" || saved.screen === "comingSoon") return;
+      if (studentOnlyScreens.has(saved.screen) && !student?.accessToken) return;
+
+      setSelectedCourseId(saved.courseId ?? "");
+      setSelectedModuleId(saved.moduleId ?? "");
+      setSelectedSubtopicId(saved.subtopicId ?? "");
+      setSelectedQuizId(saved.quizId ?? "");
+      setQuizPickerOpen(Boolean(saved.quizPickerOpen));
+
+      const inAttempt = saved.screen === "test" || saved.screen === "marking";
+      if (inAttempt) {
+        setCurrentAttemptId(saved.attemptId);
+        setAttemptQuestions(saved.attemptQuestions ?? []);
+        setAnswers(saved.answers ?? {});
+        setCurrentQuestion(saved.currentQuestion ?? 0);
+      }
+
+      if (saved.screen === "marking" || saved.screen === "results" || saved.screen === "details") {
+        if (!saved.attemptId || !student?.accessToken) return;
+        const attemptId = saved.attemptId;
+        const token = student.accessToken;
+        setCurrentAttemptId(attemptId);
+        setScreen("marking");
+        void waitForSavedResult(attemptId, token)
+          .then((result) => {
+            setAttemptQuestions(result.questions);
+            setMarked(markedAttemptQuestions(result));
+            setAiSummary(result.attempt.aiSummary ?? "");
+            setAiSummarySource(result.attempt.aiSummarySource);
+            setSelectedDetail(saved.screen === "details" ? saved.selectedDetail ?? 0 : 0);
+            setScreen(saved.screen === "details" ? "details" : "results");
+          })
+          .catch(() => {
+            // Not submitted yet (the refresh interrupted it): go back to the answers that were saved.
+            setScreen(saved.screen === "marking" && saved.attemptQuestions?.length ? "test" : "studentDashboard");
+          });
+        return;
+      }
+
+      setScreen(saved.screen);
+    };
+
     const loadBrowserState = window.setTimeout(() => {
+      // Effects only run after this callback finishes, so any restored position is in state before the first save.
+      navigationReadyRef.current = true;
+      // Set with any restored position in the same render, so the homepage never shows in between.
+      setBrowserStateReady(true);
       const savedTheme = window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
       setTheme(savedTheme);
       setThemeLoaded(true);
@@ -286,17 +367,49 @@ export default function Home() {
       }
 
       const savedStudent = window.localStorage.getItem(studentStorageKey);
-      if (!savedStudent) return;
-
-      try {
-        setStudentSession(JSON.parse(savedStudent) as api.AuthResponse);
-      } catch {
-        window.localStorage.removeItem(studentStorageKey);
+      let restoredStudent: api.AuthResponse | null = null;
+      if (savedStudent) {
+        try {
+          restoredStudent = JSON.parse(savedStudent) as api.AuthResponse;
+          setStudentSession(restoredStudent);
+        } catch {
+          window.localStorage.removeItem(studentStorageKey);
+        }
       }
+
+      restoreNavigation(restoredStudent);
     }, 0);
 
     return () => window.clearTimeout(loadBrowserState);
   }, [router]);
+
+  useEffect(() => {
+    if (browserStateReady) document.documentElement.removeAttribute("data-resuming");
+  }, [browserStateReady]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigationReadyRef.current) return;
+
+    const inAttempt = screen === "test" || screen === "marking";
+    const snapshot: NavigationSnapshot = {
+      screen,
+      courseId: selectedCourseId,
+      moduleId: selectedModuleId,
+      subtopicId: selectedSubtopicId,
+      quizId: selectedQuizId,
+      quizPickerOpen,
+      attemptId: currentAttemptId,
+      selectedDetail,
+      currentQuestion: inAttempt ? currentQuestion : 0,
+      answers: inAttempt ? answers : {},
+      attemptQuestions: inAttempt ? attemptQuestions : [],
+    };
+    try {
+      window.sessionStorage.setItem(navigationStorageKey, JSON.stringify(snapshot));
+    } catch {
+      // Storage can be unavailable (private windows); the page just will not resume after a refresh.
+    }
+  }, [answers, attemptQuestions, currentAttemptId, currentQuestion, quizPickerOpen, screen, selectedCourseId, selectedDetail, selectedModuleId, selectedQuizId, selectedSubtopicId]);
 
   useEffect(() => {
     let ignore = false;

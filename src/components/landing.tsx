@@ -10,7 +10,7 @@ export function Landing({
   onBrowseSubjects: () => void;
 }) {
   return (
-    <section className="surface-enter relative mx-auto w-full max-w-[1440px] overflow-hidden px-5 py-12 sm:px-10 lg:px-16 lg:py-16">
+    <section data-screen="landing" className="surface-enter relative mx-auto w-full max-w-[1440px] overflow-hidden px-5 py-12 sm:px-10 lg:px-16 lg:py-16">
       <div className="content-rise mx-auto flex max-w-4xl flex-col items-center text-center">
         <div className="mb-6 rounded-[15px] border border-[var(--brand-green)] px-4 py-2 text-xs font-normal uppercase tracking-[0.18em] text-[var(--brand-green)]">
           The focused practice room

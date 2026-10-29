@@ -19,6 +19,12 @@ export async function submitSavedAttempt(attemptId: string, answers: Record<stri
   return response.attempt.status === "grading" ? waitForResult(attemptId, token, poll) : response;
 }
 
+/** Fetches a saved result after a page reload, waiting for marking that is still running. */
+export async function waitForSavedResult(attemptId: string, token: string, poll: PollOptions = {}) {
+  const response = await api.getAttemptResult(attemptId, token);
+  return response.attempt.status === "grading" ? waitForResult(attemptId, token, poll) : response;
+}
+
 /** Marking on a slow server finishes in the background; poll until the saved result is ready. */
 async function waitForResult(attemptId: string, token: string, { intervalMs = 3000, timeoutMs = 35 * 60 * 1000 }: PollOptions) {
   const deadline = Date.now() + timeoutMs;

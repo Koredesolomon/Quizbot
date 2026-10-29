@@ -801,3 +801,15 @@ button:disabled {
     transition-duration: 1ms !important;
   }
 }
+
+/* Refreshing mid-session: keep the homepage hidden until the saved position is restored, with a failsafe reveal. */
+html[data-resuming] [data-screen="landing"] {
+  visibility: hidden;
+  animation: resume-failsafe 0s 3s forwards;
+}
+
+@keyframes resume-failsafe {
+  to {
+    visibility: visible;
+  }
+}

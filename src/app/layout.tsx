@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const theme = localStorage.getItem("stem-jupeb-theme"); document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light"); } catch (_) { document.documentElement.classList.add("theme-light"); } })();`,
+            __html: `(() => { try { const theme = localStorage.getItem("stem-jupeb-theme"); document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light"); } catch (_) { document.documentElement.classList.add("theme-light"); } try { const saved = JSON.parse(sessionStorage.getItem("tlchub-navigation") || "null"); if (saved && saved.screen && saved.screen !== "landing") document.documentElement.setAttribute("data-resuming", "1"); } catch (_) {} })();`,
           }}
         />
         {children}
