@@ -112,7 +112,7 @@ export function Courses({
                   <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--ink-muted)]">
                     {course.code || course.subject}
                   </span>
-                  <strong className="mt-4 block text-3xl font-semibold leading-tight tracking-normal text-[var(--brand-blue-deep)]">
+                  <strong className="mt-4 block text-[18px] font-semibold leading-snug tracking-normal text-[var(--brand-blue-deep)] sm:text-[30px] sm:leading-tight">
                     {focusSubtopic?.title ?? focusTopic?.title ?? focusModule?.title ?? course.subject}
                   </strong>
                   <span className="mt-5 block text-sm font-semibold leading-6 text-[var(--ink-muted)]">
@@ -210,7 +210,7 @@ export function Topics({
     <Panel title={course.title} subtitle="Select a topic, then choose a subtopic.">
       <BackButton className="mb-5" label="Courses" onClick={onBack} />
       <div className="space-y-4">
-        {course.modules.length ? course.modules.map((module, moduleIndex) => {
+        {course.modules.length ? course.modules.map((module) => {
           const open = openModuleId === module.id;
 
           return (
@@ -222,28 +222,28 @@ export function Topics({
               >
                 {open ? <ChevronDown className="text-[#1683d8]" size={20} /> : <ChevronRight className="text-slate-500" size={20} />}
                 <strong className="min-w-0 flex-1 text-lg font-semibold text-[var(--ink)]">
-                  Topic {moduleIndex + 1} - <span className="font-medium">{module.title}</span>
+                  {module.title}
                 </strong>
                 <span className="hidden h-4 w-36 rounded-full bg-[#f1eee8] sm:block" />
               </button>
               {open && (
-                <div className={`grid gap-y-9 divide-[var(--line)] px-4 py-6 sm:px-6 ${module.topics.length > 1 ? "md:grid-cols-2 md:divide-x xl:grid-cols-3" : ""}`}>
-                  {module.topics.length ? module.topics.map((topic, topicIndex) => (
-                    <div className="px-2 text-left text-[var(--ink)] sm:px-4" key={topic.id}>
+                <div className="grid divide-y divide-[var(--line)] px-4 py-2 sm:px-6">
+                  {module.topics.length ? module.topics.map((topic) => (
+                    <div className="px-2 py-6 text-left text-[var(--ink)] sm:px-4" key={topic.id}>
                       <strong className="block text-base font-semibold">
-                        {moduleIndex + 1}.{topicIndex + 1} - <span className="font-medium">{topic.title}</span>
+                        {topic.title}
                       </strong>
-                      <div className={`mt-4 grid gap-3 ${module.topics.length > 1 ? "" : "sm:grid-cols-2"}`}>
-                        {topic.subtopics.length ? topic.subtopics.map((subtopic, subtopicIndex) => (
+                      <div className="mt-4 grid gap-3">
+                        {topic.subtopics.length ? topic.subtopics.map((subtopic) => (
                           <button
                             className="group flex min-h-16 items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 text-left text-sm font-semibold leading-snug transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green)]"
                             key={subtopic.id}
                             type="button"
                             onClick={() => onSelectSubtopic(module, subtopic)}
                           >
-                            <span className="shrink-0 rounded-md bg-[var(--surface)] px-2 py-1 text-xs font-bold tabular-nums text-[var(--ink-muted)] ring-1 ring-[var(--line)] transition group-hover:text-[var(--brand-green)]">
-                              {isTopicQuizGroup(topic, subtopic) ? "Quiz" : `${moduleIndex + 1}.${topicIndex + 1}.${subtopicIndex + 1}`}
-                            </span>
+                            {isTopicQuizGroup(topic, subtopic) && <span className="shrink-0 rounded-md bg-[var(--surface)] px-2 py-1 text-xs font-bold text-[var(--ink-muted)] ring-1 ring-[var(--line)] transition group-hover:text-[var(--brand-green)]">
+                              Quiz
+                            </span>}
                             <span className="min-w-0 flex-1">{isTopicQuizGroup(topic, subtopic) ? `${topic.title} ${subtopic.quizzes.length === 1 ? "quiz" : "quizzes"}` : subtopic.title}</span>
                             <ChevronRight aria-hidden="true" className="shrink-0 text-[var(--ink-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand-green)]" size={18} />
                           </button>
