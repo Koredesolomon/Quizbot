@@ -97,7 +97,7 @@ export function Courses({
                 void onRegisterCourse(course);
               }}
             >
-              <span className="flex min-h-48 flex-col justify-between bg-[var(--brand-blue-deep)] p-7 text-white sm:min-h-full">
+              <span className="flex min-h-48 flex-col bg-[var(--brand-blue-deep)] p-7 text-white sm:min-h-full">
                 <span>
                   <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/50">Course {index + 1}</span>
                   <strong className="mt-5 block text-2xl font-semibold leading-tight tracking-normal text-white">{course.title}</strong>
@@ -112,7 +112,7 @@ export function Courses({
                   <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[var(--ink-muted)]">
                     {course.code || course.subject}
                   </span>
-                  <strong className="mt-4 block text-[18px] font-semibold leading-snug tracking-normal text-[var(--brand-blue-deep)] sm:text-[30px] sm:leading-tight">
+                  <strong className="mt-4 block text-[18px] font-semibold leading-snug tracking-normal text-[var(--brand-blue-deep)] sm:text-[20px]">
                     {focusSubtopic?.title ?? focusTopic?.title ?? focusModule?.title ?? course.subject}
                   </strong>
                   <span className="mt-5 block text-sm font-semibold leading-6 text-[var(--ink-muted)]">
