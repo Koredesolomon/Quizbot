@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash } from "node:crypto";
+import { tableToMarkdown } from "../grading/answer-table";
 import type { QuestionDocument } from "../questions/question.schema";
 
 /** Where feedback came from: the AI marker, plain keyword matching, or fixed rules (e.g. option choices). */
@@ -61,12 +62,12 @@ export class AiMarkerService {
     try {
       const text = await this.complete({
         system:
-          "You are a fair examiner. Mark only against the supplied question, model answer, explanation, keywords, and marks. Award an integer score. Give concise feedback that helps the student improve and agrees with the score you award. " +
+          "You are a fair examiner. Mark only against the supplied question, model answer, explanation, keywords, and marks. Award an integer score. If the student's answer starts with a markdown table they filled in, mark each cell against the correct table (when one is supplied) as well as the written part that follows it. Give concise feedback that helps the student improve and agrees with the score you award. " +
           INJECTION_GUARD,
         user: {
           question: question.prompt,
           topic: question.topic,
-          modelAnswer: question.answer,
+          modelAnswer: this.modelAnswer(question),
           explanation: question.referenceSolution || question.explanation,
           keywords: question.keywords ?? [],
           rubricPoints: question.rubricPoints ?? [],
@@ -182,6 +183,13 @@ export class AiMarkerService {
     } catch (error) {
       return auto(this.failed("test review", error, fallback));
     }
+  }
+
+  /** The model answer, with the correct table appended when the question has a table to fill in. */
+  private modelAnswer(question: QuestionDocument) {
+    const table = question.answerTable;
+    if (!table?.solution) return question.answer;
+    return `${question.answer}\n\nCorrect table:\n${tableToMarkdown(table, table.solution)}`;
   }
 
   private failed<T>(context: string, error: unknown, fallback: T): T {

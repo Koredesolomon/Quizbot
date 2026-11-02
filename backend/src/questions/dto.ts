@@ -1,6 +1,30 @@
-import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { PartialType } from "@nestjs/mapped-types";
+
+export class AnswerTableDto {
+  @IsOptional()
+  @IsString()
+  corner?: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  columns: string[];
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  rows: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsArray({ each: true })
+  @IsString({ each: true, context: "cells" })
+  solution?: string[][];
+}
 
 export class CreateQuestionDto {
   @IsIn(["objective", "multiple", "theory"])
@@ -54,6 +78,11 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsString()
   explanation?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AnswerTableDto)
+  answerTable?: AnswerTableDto | null;
 
   @IsOptional()
   @IsIn(["numeric", "expression", "text"])

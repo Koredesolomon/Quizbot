@@ -6,6 +6,7 @@ export type QuestionType = "objective" | "multiple" | "theory";
 /** How a written answer's final result is checked in code: a number, an algebraic expression, or free text. */
 export type AnswerType = "numeric" | "expression" | "text";
 export type SolutionStatus = "pending" | "verified" | "needs_review";
+export type AnswerTable = import("../grading/answer-table").AnswerTable;
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionDocument = HydratedDocument<Question>;
 
@@ -54,6 +55,10 @@ export class Question {
   /** Theory only. numeric and expression answers are checked by code; the AI only explains the verdict. */
   @Prop({ enum: ["numeric", "expression", "text"] })
   answerType?: AnswerType;
+
+  /** Theory only: a table the student fills in. The AI marks the filled table together with the written answer. */
+  @Prop({ type: Object })
+  answerTable?: AnswerTable;
 
   /** Worked solution the AI explains against and students see after submitting. */
   @Prop({ trim: true })

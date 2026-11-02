@@ -1,3 +1,4 @@
+import type { AnswerTable } from "@/lib/answer-table";
 export type Screen =
   | "landing"
   | "howItWorks"
@@ -32,6 +33,8 @@ export type Question = {
   options?: string[];
   /** Objective/MCQ only: also show an answer box for the student to explain their choice. */
   answerBox?: boolean;
+  /** Theory only: a table the student fills in. `solution` is only present for admins and in results. */
+  answerTable?: AnswerTable | null;
   answer: string;
   explanation: string;
   marks: number;

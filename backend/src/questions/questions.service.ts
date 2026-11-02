@@ -28,6 +28,7 @@ export class QuestionsService {
 
     const question = await this.questionModel.create({
       ...input,
+      answerTable: input.answerTable ?? undefined,
       createdBy: new Types.ObjectId(adminId),
     });
 
@@ -85,6 +86,16 @@ export class QuestionsService {
         throw new BadRequestException(`Enter a valid ${field}.`);
       }
     }
+    if (input.answerTable) {
+      if (input.type !== "theory") throw new BadRequestException("Only written (theory) questions can have a table to fill in.");
+      const { columns, rows, solution } = input.answerTable;
+      if (columns.some((value) => !value.trim()) || rows.some((value) => !value.trim())) {
+        throw new BadRequestException("Every table row and column needs a heading.");
+      }
+      if (solution && (solution.length !== rows.length || solution.some((row) => row.length !== columns.length))) {
+        throw new BadRequestException("The correct table must have the same rows and columns as the table.");
+      }
+    }
     if (input.answerType && input.type !== "theory") {
       throw new BadRequestException("Only written (theory) questions can have an answer type.");
     }
@@ -121,6 +132,9 @@ export class QuestionsService {
       imageUrl: question.imageUrl,
       options: question.options,
       answerBox: question.type !== "theory" && question.answerBox ? true : undefined,
+      answerTable: question.type === "theory" && question.answerTable
+        ? { corner: question.answerTable.corner, columns: question.answerTable.columns, rows: question.answerTable.rows }
+        : undefined,
       marks: question.marks,
       difficulty: question.difficulty,
       learningObjective: question.learningObjective,
@@ -132,6 +146,7 @@ export class QuestionsService {
       ...this.publicPrompt(question),
       answer: question.answer,
       explanation: question.explanation,
+      answerTable: question.answerTable ?? undefined,
       answerType: question.answerType,
       referenceSolution: question.referenceSolution,
       solutionStatus: question.solutionStatus,

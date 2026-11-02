@@ -36,6 +36,7 @@ export function questionInput(question: QuestionInput): QuestionInput {
     imageUrl: question.imageUrl,
     options: question.options,
     answerBox: question.answerBox,
+    answerTable: question.answerTable,
     answer: question.answer,
     explanation: question.explanation,
     marks: question.marks,

@@ -11,6 +11,7 @@ import { MathTextEditor } from "./math-text-editor";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
 const maxOptions = 8;
+const headings = (value: string) => value.split(/[,;\n]/).map((heading) => heading.trim()).filter(Boolean);
 const control = "w-full rounded-md border border-[#d5e2f0] bg-white px-3 py-2.5 text-sm font-medium text-[#10243f] outline-none focus:border-[#06479b] focus:ring-2 focus:ring-blue-100";
 
 function initialForm(question?: Question, subject = "Physics", context?: QuizQuestionContext) {
@@ -37,6 +38,13 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     rubricPoints: question?.rubricPoints?.join("\n") ?? "",
     commonMistakes: question?.commonMistakes?.join("\n") ?? "",
     keywords: question?.keywords?.join(", ") ?? "",
+    // Theory only: a table the student fills in. The correct cells are keyed "row:column".
+    tableOn: Boolean(question?.answerTable),
+    tableCorner: question?.answerTable?.corner ?? "",
+    tableColumns: question?.answerTable?.columns.join(", ") ?? "",
+    tableRows: question?.answerTable?.rows.join(", ") ?? "",
+    tableSolution: Object.fromEntries((question?.answerTable?.solution ?? []).flatMap((row, rowIndex) =>
+      row.map((cell, columnIndex) => [`${rowIndex}:${columnIndex}`, cell]))) as Record<string, string>,
   };
 }
 
@@ -97,6 +105,14 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
       setError("Select the correct answer from the options.");
       return;
     }
+    const tableColumns = headings(form.tableColumns);
+    const tableRows = headings(form.tableRows);
+    const withTable = form.type === "theory" && form.tableOn;
+    if (withTable && (!tableColumns.length || !tableRows.length || tableColumns.length > 12 || tableRows.length > 20)) {
+      setError("Enter at least one column heading and one row heading (up to 12 columns and 20 rows).");
+      return;
+    }
+    const solution = tableRows.map((_, rowIndex) => tableColumns.map((__, columnIndex) => form.tableSolution[`${rowIndex}:${columnIndex}`]?.trim() ?? ""));
     busyRef.current = true;
     setSaving(true);
     try {
@@ -122,6 +138,12 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
         rubricPoints: lines(form.rubricPoints),
         commonMistakes: lines(form.commonMistakes),
         keywords: form.type === "theory" ? form.keywords.split(/[,;\n]/).map((word) => word.trim()).filter(Boolean) : [],
+        answerTable: withTable ? {
+          corner: form.tableCorner.trim() || undefined,
+          columns: tableColumns,
+          rows: tableRows,
+          solution: solution.some((row) => row.some(Boolean)) ? solution : undefined,
+        } : null,
       });
       if (addAnother) {
         setForm({ ...initialForm(undefined, form.subject, target), topic: form.topic, type: form.type, marks: form.marks, difficulty: form.difficulty });
@@ -279,6 +301,54 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
           <label className="grid gap-1.5 text-sm font-bold">Common Mistakes (one per line)<textarea className={`${control} min-h-24`} value={form.commonMistakes} onChange={(event) => change("commonMistakes", event.target.value)} /></label>
         </div>
         {form.type === "theory" && <label className="grid gap-1.5 text-sm font-bold">Grading Keywords (comma separated)<input className={control} value={form.keywords} onChange={(event) => change("keywords", event.target.value)} /></label>}
+        {form.type === "theory" && (
+          <fieldset className="grid gap-3 rounded-md border border-[#d5e2f0] p-4">
+            <label className="flex items-center gap-2 text-sm font-bold">
+              <input className="h-4 w-4" type="checkbox" checked={form.tableOn} onChange={(event) => change("tableOn", event.target.checked)} />
+              Students fill in a table
+            </label>
+            {form.tableOn && <>
+              <p className="text-xs text-[#5e7086]">For questions that show a table, such as a multiplication table. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below so the AI can compare them.</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="grid gap-1.5 text-sm font-bold">Corner label (optional)<input className={control} placeholder="⊗" value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)} /></label>
+                <label className="grid gap-1.5 text-sm font-bold">Column headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableColumns} onChange={(event) => change("tableColumns", event.target.value)} /></label>
+                <label className="grid gap-1.5 text-sm font-bold">Row headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableRows} onChange={(event) => change("tableRows", event.target.value)} /></label>
+              </div>
+              {headings(form.tableColumns).length > 0 && headings(form.tableRows).length > 0 && (
+                <div>
+                  <p className="text-sm font-bold">Correct table</p>
+                  <div className="mt-2 overflow-x-auto rounded-md border border-[#d5e2f0]">
+                    <table className="w-full border-collapse text-center text-sm">
+                      <thead>
+                        <tr>
+                          <th className="border border-[#d5e2f0] bg-[#eef4fb] p-2 font-black">{form.tableCorner}</th>
+                          {headings(form.tableColumns).map((column, columnIndex) => <th className="border border-[#d5e2f0] bg-[#eef4fb] p-2 font-black" key={columnIndex} scope="col">{column}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {headings(form.tableRows).map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            <th className="border border-[#d5e2f0] bg-[#eef4fb] p-2 font-black" scope="row">{row}</th>
+                            {headings(form.tableColumns).map((column, columnIndex) => (
+                              <td className="border border-[#d5e2f0] p-0" key={columnIndex}>
+                                <input
+                                  aria-label={`Correct value for ${row} by ${column}`}
+                                  className="h-10 w-full min-w-14 bg-white px-2 text-center font-semibold outline-none focus:bg-blue-50"
+                                  value={form.tableSolution[`${rowIndex}:${columnIndex}`] ?? ""}
+                                  onChange={(event) => change("tableSolution", { ...form.tableSolution, [`${rowIndex}:${columnIndex}`]: event.target.value })}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>}
+          </fieldset>
+        )}
       </fieldset>
       <details className="rounded-md border border-[#d5e2f0] p-3"><summary className="cursor-pointer text-sm font-bold">Preview question and answer</summary>
         <div className="mt-3 space-y-3"><MathContent>{form.prompt || "Question preview"}</MathContent>

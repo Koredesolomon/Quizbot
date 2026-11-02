@@ -6,6 +6,7 @@ import {
   parseAnswerValue,
   serializeAnswerValue,
 } from "@/lib/answer-attachments";
+import { parseTableAnswer, serializeTableAnswer, type AnswerTable } from "@/lib/answer-table";
 import { joinChoiceAnswer, optionLetter, parseSelectedLetters, splitChoiceAnswer, toggleSelectedLetter } from "@/lib/question-answers";
 import type { QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
@@ -166,6 +167,13 @@ export function TestInterface({
                   </label>
                 ))}
               </div>
+            ) : question.answerTable ? (
+              <TableAnswer
+                table={question.answerTable}
+                questionId={question.id}
+                value={answers[question.id] ?? ""}
+                onChange={(value) => onAnswer(question.id, value)}
+              />
             ) : (
               <WordAnswerBox
                 questionId={question.id}
@@ -411,5 +419,67 @@ function LegendItem({ className, label }: { className: string; label: string }) 
       <b className={`h-2.5 w-2.5 rounded-full ${className}`} />
       {label}
     </span>
+  );
+}
+
+/** A table the student fills in, followed by the usual answer box for the written parts. */
+function TableAnswer({
+  table,
+  questionId,
+  value,
+  onChange,
+}: {
+  table: AnswerTable;
+  questionId: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const parsed = useMemo(() => parseTableAnswer(table, value), [table, value]);
+
+  const setCell = (row: number, column: number, cell: string) => {
+    const cells = parsed.cells.map((cellRow) => [...cellRow]);
+    cells[row][column] = cell;
+    onChange(serializeTableAnswer(table, cells, parsed.text));
+  };
+
+  return (
+    <div className="content-rise mt-6">
+      <p className="text-sm font-bold text-emerald-700">Fill in the table.</p>
+      <div className="mt-3 overflow-x-auto rounded-lg border border-slate-300 bg-white">
+        <table className="w-full border-collapse text-center text-sm">
+          <thead>
+            <tr>
+              <th className="border border-slate-300 bg-sky-50 p-2 font-black text-slate-800">{table.corner}</th>
+              {table.columns.map((column, columnIndex) => (
+                <th className="border border-slate-300 bg-sky-50 p-2 font-black text-slate-800" key={columnIndex} scope="col">{column}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                <th className="border border-slate-300 bg-sky-50 p-2 font-black text-slate-800" scope="row">{row}</th>
+                {table.columns.map((column, columnIndex) => (
+                  <td className="border border-slate-300 p-0" key={columnIndex}>
+                    <input
+                      aria-label={`${row} by ${column}`}
+                      className="h-11 w-full min-w-14 bg-white px-2 text-center font-semibold text-slate-900 outline-none focus:bg-emerald-50"
+                      value={parsed.cells[rowIndex]?.[columnIndex] ?? ""}
+                      onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-5 text-sm font-bold text-emerald-700">Answer the other parts here.</p>
+      <WordAnswerBox
+        questionId={questionId}
+        value={parsed.text}
+        onChange={(text) => onChange(serializeTableAnswer(table, parsed.cells, text))}
+      />
+    </div>
   );
 }

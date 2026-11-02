@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
+import { parseTableAnswer, type AnswerTable } from "@/lib/answer-table";
 import { describeAnswer } from "@/lib/question-answers";
 import type { MarkedQuestion, QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
@@ -183,8 +184,18 @@ export function Details({
         <div className="mt-5 font-bold text-slate-900">
           <MathContent>{question.prompt}</MathContent>
         </div>
-        <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
+        {question.answerTable && question.userAnswer ? (
+          <>
+            <TableBlock label="Your Table" table={question.answerTable} cells={parseTableAnswer(question.answerTable, question.userAnswer).cells} />
+            {parseTableAnswer(question.answerTable, question.userAnswer).text.trim() && (
+              <ResultBlock label="Your Written Answer" text={describeAnswer(question, parseTableAnswer(question.answerTable, question.userAnswer).text)} />
+            )}
+          </>
+        ) : (
+          <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
+        )}
         <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />
+        {question.answerTable?.solution && <TableBlock label="Correct Table" table={question.answerTable} cells={question.answerTable.solution} />}
         {question.userAnswer && (
           <ResultBlock
             icon={question.feedbackSource === "ai" ? <Sparkles aria-hidden="true" className="text-[var(--brand-green)]" size={14} /> : undefined}
@@ -213,4 +224,30 @@ function feedbackLabel(source: MarkedQuestion["feedbackSource"]) {
   if (source === "ai") return "AI Feedback";
   if (source === "keyword") return "Auto-marked by keywords";
   return "Feedback";
+}
+
+function TableBlock({ label, table, cells }: { label: string; table: AnswerTable; cells: string[][] }) {
+  return (
+    <div className="content-rise mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <strong className="block text-xs font-black uppercase text-slate-600">{label}</strong>
+      <div className="mt-2 overflow-x-auto rounded-md border border-slate-300 bg-white">
+        <table className="w-full border-collapse text-center text-sm font-semibold text-slate-900">
+          <thead>
+            <tr>
+              <th className="border border-slate-300 bg-sky-50 p-2 font-black">{table.corner}</th>
+              {table.columns.map((column, columnIndex) => <th className="border border-slate-300 bg-sky-50 p-2 font-black" key={columnIndex} scope="col">{column}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                <th className="border border-slate-300 bg-sky-50 p-2 font-black" scope="row">{row}</th>
+                {table.columns.map((_, columnIndex) => <td className="h-10 border border-slate-300 p-2" key={columnIndex}>{cells[rowIndex]?.[columnIndex] ?? ""}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
