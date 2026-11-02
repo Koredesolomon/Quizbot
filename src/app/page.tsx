@@ -211,6 +211,8 @@ export default function Home() {
   const historyFirstRunRef = useRef(true);
   const navigationReadyRef = useRef(false);
   const [browserStateReady, setBrowserStateReady] = useState(false);
+  const studentTokenRef = useRef("");
+  const adminTokenRef = useRef("");
   const activeStudentName = studentSession?.user.fullName ?? studentName;
 
   useEffect(() => {
@@ -354,8 +356,13 @@ export default function Home() {
       if (savedAdmin) {
         try {
           const restoredAdmin = JSON.parse(savedAdmin) as AdminAccount;
-          setAdminAccount(restoredAdmin);
-          setAdminUnlocked(Boolean(restoredAdmin.accessToken));
+          if (restoredAdmin.accessToken && api.isTokenExpired(restoredAdmin.accessToken)) {
+            // An old admin login must not make the student pages call admin-only endpoints.
+            window.localStorage.removeItem(adminStorageKey);
+          } else {
+            setAdminAccount(restoredAdmin);
+            setAdminUnlocked(Boolean(restoredAdmin.accessToken));
+          }
         } catch {
           window.localStorage.removeItem(adminStorageKey);
         }
@@ -371,7 +378,13 @@ export default function Home() {
       if (savedStudent) {
         try {
           restoredStudent = JSON.parse(savedStudent) as api.AuthResponse;
-          setStudentSession(restoredStudent);
+          if (api.isTokenExpired(restoredStudent.accessToken)) {
+            // Logins last a day; drop an old one instead of failing on the first request.
+            window.localStorage.removeItem(studentStorageKey);
+            restoredStudent = null;
+          } else {
+            setStudentSession(restoredStudent);
+          }
         } catch {
           window.localStorage.removeItem(studentStorageKey);
         }
@@ -386,6 +399,39 @@ export default function Home() {
   useEffect(() => {
     if (browserStateReady) document.documentElement.removeAttribute("data-resuming");
   }, [browserStateReady]);
+
+  useEffect(() => {
+    studentTokenRef.current = studentSession?.accessToken ?? "";
+  }, [studentSession]);
+
+  useEffect(() => {
+    adminTokenRef.current = adminAccount?.accessToken ?? "";
+  }, [adminAccount]);
+
+  useEffect(() => {
+    const handleExpired = (event: Event) => {
+      const token = (event as CustomEvent<{ token?: string }>).detail?.token;
+      if (!token) return;
+
+      if (token === adminTokenRef.current) {
+        // A rejected admin login only drops the admin session here, so student pages go back to the public course list.
+        window.localStorage.removeItem(adminStorageKey);
+        setAdminAccount(null);
+        setAdminUnlocked(false);
+        return;
+      }
+
+      if (token !== studentTokenRef.current) return;
+
+      window.localStorage.removeItem(studentStorageKey);
+      setStudentSession(null);
+      setStudentAuthError("Your session has expired. Please sign in again.");
+      setScreen("student");
+    };
+
+    window.addEventListener(api.sessionExpiredEvent, handleExpired);
+    return () => window.removeEventListener(api.sessionExpiredEvent, handleExpired);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !navigationReadyRef.current) return;
@@ -414,8 +460,9 @@ export default function Home() {
   useEffect(() => {
     let ignore = false;
 
+    // Admins see drafts too, but a failing admin request (an expired login) must never hide the published courses.
     const courseRequest = adminUnlocked && adminAccount?.accessToken
-      ? api.getAdminCourses(adminAccount.accessToken)
+      ? api.getAdminCourses(adminAccount.accessToken).catch(() => api.getCourses())
       : api.getCourses();
     // Load independently so a failing questions request cannot hide the published courses.
     // Content stays empty when the backend is unavailable so demo questions do not leak into real tests.

@@ -129,6 +129,19 @@ export type CourseContent = {
   createdAt: string;
 };
 
+/** Fired when the backend rejects a saved login (an expired token), so the page can ask the user to sign in again. */
+export const sessionExpiredEvent = "tlchub:session-expired";
+
+/** Reads the expiry from a JWT without verifying it; the backend still decides. Unreadable tokens count as valid. */
+export function isTokenExpired(token: string) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { exp?: number };
+    return typeof payload.exp === "number" && payload.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
 async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -153,6 +166,10 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   if (!response.ok) {
+    if (response.status === 401 && options.token && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(sessionExpiredEvent, { detail: { token: options.token } }));
+    }
+
     const message = await response
       .json()
       .then((body) => formatApiError(body))

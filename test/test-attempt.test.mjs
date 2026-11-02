@@ -133,3 +133,21 @@ test('polling gives up with a helpful message when marking never finishes', asyn
   mockFetch(context, () => json({ attempt: { id: 'attempt', status: 'grading' }, answers: [], questions: [] }));
   await assert.rejects(submitSavedAttempt('attempt', {}, 'token', { intervalMs: 1, timeoutMs: 20 }), /taking longer than expected/);
 });
+
+test('a rejected login fires the session-expired event with the token, and expired tokens are recognised', async (context) => {
+  const original = globalThis.window;
+  globalThis.window = new EventTarget();
+  context.after(() => { if (original === undefined) delete globalThis.window; else globalThis.window = original; });
+  const seen = [];
+  globalThis.window.addEventListener(api.sessionExpiredEvent, (event) => seen.push(event.detail.token));
+  mockFetch(context, () => json({ message: 'Unauthorized', statusCode: 401 }, 401));
+  await assert.rejects(api.getAttemptResult('attempt', 'stale-token'), /Unauthorized/);
+  assert.deepEqual(seen, ['stale-token']);
+  await assert.rejects(api.getCourses(), /Unauthorized/); // no token: nothing to expire
+  assert.deepEqual(seen, ['stale-token']);
+
+  const jwt = (exp) => `x.${Buffer.from(JSON.stringify({ exp })).toString('base64url')}.y`;
+  assert.equal(api.isTokenExpired(jwt(Math.floor(Date.now() / 1000) - 60)), true);
+  assert.equal(api.isTokenExpired(jwt(Math.floor(Date.now() / 1000) + 3600)), false);
+  assert.equal(api.isTokenExpired('not-a-jwt'), false);
+});
