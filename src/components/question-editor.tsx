@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ImagePlus, UploadCloud, Trash2 } from "lucide-react";
+import { defaultTableCorner, tableCornerSymbols } from "@/lib/answer-table";
 import type { CourseContent } from "@/lib/api";
 import { defaultMarks, formatAnswerLetters, isChoiceType, optionLetter, questionTypeLabels, resolveAnswerIndices } from "@/lib/question-answers";
 import { questionInput, quizQuestionContexts, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
@@ -40,7 +41,8 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     keywords: question?.keywords?.join(", ") ?? "",
     // Theory only: a table the student fills in. The correct cells are keyed "row:column".
     tableOn: Boolean(question?.answerTable),
-    tableCorner: question?.answerTable?.corner ?? "",
+    // New tables start with ⊗; an existing table keeps whatever it had, including no symbol.
+    tableCorner: question?.answerTable ? question.answerTable.corner ?? "" : defaultTableCorner,
     tableColumns: question?.answerTable?.columns.join(", ") ?? "",
     tableRows: question?.answerTable?.rows.join(", ") ?? "",
     tableSolution: Object.fromEntries((question?.answerTable?.solution ?? []).flatMap((row, rowIndex) =>
@@ -310,7 +312,12 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
             {form.tableOn && <>
               <p className="text-xs text-[#5e7086]">For questions that show a table, such as a multiplication table. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below so the AI can compare them.</p>
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1.5 text-sm font-bold">Corner label (optional)<input className={control} placeholder="⊗" value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)} /></label>
+                <label className="grid gap-1.5 text-sm font-bold">Corner symbol
+                  <select className={control} value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)}>
+                    {!tableCornerSymbols.some((option) => option.symbol === form.tableCorner) && <option value={form.tableCorner}>{form.tableCorner}</option>}
+                    {tableCornerSymbols.map((option) => <option key={option.label} value={option.symbol}>{option.symbol ? `${option.symbol}  ${option.label}` : option.label}</option>)}
+                  </select>
+                </label>
                 <label className="grid gap-1.5 text-sm font-bold">Column headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableColumns} onChange={(event) => change("tableColumns", event.target.value)} /></label>
                 <label className="grid gap-1.5 text-sm font-bold">Row headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableRows} onChange={(event) => change("tableRows", event.target.value)} /></label>
               </div>

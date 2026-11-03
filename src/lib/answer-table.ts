@@ -6,6 +6,23 @@ export type AnswerTable = {
   solution?: string[][];
 };
 
+/** Operation symbols an admin picks for the table's corner, so nobody has to type them. The first is the default. */
+export const tableCornerSymbols = [
+  { symbol: "⊗", label: "Multiplication modulo n" },
+  { symbol: "⊕", label: "Addition modulo n" },
+  { symbol: "×", label: "Multiplication" },
+  { symbol: "+", label: "Addition" },
+  { symbol: "∘", label: "Composition" },
+  { symbol: "∗", label: "Binary operation" },
+  { symbol: "∧", label: "And" },
+  { symbol: "∨", label: "Or" },
+  { symbol: "∩", label: "Intersection" },
+  { symbol: "∪", label: "Union" },
+  { symbol: "", label: "None (leave blank)" },
+];
+
+export const defaultTableCorner = tableCornerSymbols[0].symbol;
+
 /** Separates the filled table from the written answer in the stored answer string. */
 export const tableDivider = "\n\n--- Written answer ---\n";
 
