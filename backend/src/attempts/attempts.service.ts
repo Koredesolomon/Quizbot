@@ -108,20 +108,7 @@ export class AttemptsService {
       const summaryReview = await this.aiMarker.reviewCompletedTest(
         {
           score, totalMarks, percent,
-          answers: markedAnswers.map((answer) => ({
-            topic: answer.question.topic,
-            prompt: answer.question.prompt,
-            modelAnswer: answer.question.answer,
-            explanation: answer.question.explanation,
-            difficulty: answer.question.difficulty,
-            learningObjective: answer.question.learningObjective,
-            rubricPoints: answer.question.rubricPoints ?? [],
-            commonMistakes: answer.question.commonMistakes ?? [],
-            studentAnswer: answer.answer,
-            awarded: answer.awarded,
-            marks: answer.question.marks,
-            correct: answer.correct,
-          })),
+          answers: markedAnswers.map((answer) => this.reviewEntry(answer)),
         },
         this.fallbackTestSummary(score, totalMarks, percent, markedAnswers)
       );
@@ -481,6 +468,29 @@ export class AttemptsService {
       feedbackSource: answer.feedbackSource,
       createdAt: new Date(),
       updatedAt: new Date(),
+    };
+  }
+
+  /**
+   * One question as the end-of-test review sees it. A small model reads this slowly, so it stays short: the full
+   * model answer and explanation are only included where the student lost marks, and long text is cut.
+   */
+  private reviewEntry(answer: { question: QuestionDocument; answer: string; awarded: number; correct: boolean }) {
+    const shorten = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
+    const answered = answer.answer.length > 0;
+    const missedMarks = answered && answer.awarded < answer.question.marks;
+
+    return {
+      topic: answer.question.topic,
+      prompt: shorten(answer.question.prompt, 160),
+      studentAnswer: answered ? shorten(answer.answer, 240) : "(no answer)",
+      awarded: answer.awarded,
+      marks: answer.question.marks,
+      correct: answer.correct,
+      ...(missedMarks ? {
+        modelAnswer: shorten(answer.question.answer, 160),
+        explanation: shorten(answer.question.explanation ?? "", 200),
+      } : {}),
     };
   }
 

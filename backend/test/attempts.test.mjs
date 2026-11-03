@@ -336,3 +336,22 @@ test('choice explanations can be switched off and never change the mark when the
   await f.service.submit(second.attempt.id, f.studentId, [{ questionId: f.questions[1].id, answer: 'Wrong' }]);
   assert.equal(calls, before);
 });
+
+test('the end-of-test review gets short entries: model answers only where marks were lost, blanks marked as such', async () => {
+  const f = fixture();
+  let review;
+  f.marker.reviewCompletedTest = async (input) => { review = input; return { text: 'Saved feedback', source: 'ai' }; };
+  const { attempt } = await f.start();
+  await f.service.submit(attempt.id, f.studentId, [{ questionId: f.questions[0].id, answer: 'Right' }]);
+  const [right, blank] = review.answers;
+  assert.equal(right.studentAnswer, 'Right');
+  assert.equal(Object.hasOwn(right, 'modelAnswer'), false);
+  assert.equal(blank.studentAnswer, '(no answer)');
+  assert.equal(Object.hasOwn(blank, 'modelAnswer'), false);
+  assert.equal(JSON.stringify(review).includes('PRIVATE_'), false);
+
+  const second = await f.start();
+  await f.service.submit(second.attempt.id, f.studentId, [{ questionId: f.questions[0].id, answer: 'Wrong' }]);
+  assert.equal(review.answers[0].modelAnswer, 'Right');
+  assert.equal(review.answers[0].explanation, 'PRIVATE_EXPLANATION'.slice(0, 200));
+});

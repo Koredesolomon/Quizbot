@@ -26,12 +26,9 @@ export type TestReviewInput = {
   answers: Array<{
     topic: string;
     prompt: string;
-    modelAnswer: string;
-    explanation: string;
-    difficulty?: string;
-    learningObjective?: string;
-    rubricPoints?: string[];
-    commonMistakes?: string[];
+    /** Only sent for answers the student got wrong, to keep the review short and quick to read. */
+    modelAnswer?: string;
+    explanation?: string;
     studentAnswer: string;
     awarded: number;
     marks: number;

@@ -1,14 +1,23 @@
 import { Sparkles } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { parseTableAnswer, type AnswerTable } from "@/lib/answer-table";
+import { estimateMarking, markingMessage } from "@/lib/marking-estimate";
 import { describeAnswer } from "@/lib/question-answers";
 import type { MarkedQuestion, QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
 
-export function Marking() {
+export function Marking({ questions, answers }: { questions: QuizQuestion[]; answers: Record<string, string> }) {
+  const estimate = useMemo(() => estimateMarking(questions, answers), [questions, answers]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
-    <Panel title="AI is reviewing your answers..." subtitle="This can take a minute or two for written answers.">
+    <Panel title="AI is reviewing your answers..." subtitle={markingMessage(estimate, elapsedSeconds)}>
       <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-sky-50 bg-[#082b63] text-4xl font-black text-white shadow-2xl shadow-sky-100">
         AI
       </div>
