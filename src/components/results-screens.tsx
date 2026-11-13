@@ -5,6 +5,7 @@ import { estimateMarking, markingMessage } from "@/lib/marking-estimate";
 import { describeAnswer } from "@/lib/question-answers";
 import type { MarkedQuestion, QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
+import { WhatsAppCommunityCard } from "./whatsapp-community";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
 
 export function Marking({ questions, answers }: { questions: QuizQuestion[]; answers: Record<string, string> }) {
@@ -92,6 +93,7 @@ export function Results({
               : "Keep building. Review the model explanations, focus on missed topics, and retry similar questions after studying.")}
         </div>
       </div>
+      <WhatsAppCommunityCard />
       <form
         className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
         onSubmit={(event) => {
