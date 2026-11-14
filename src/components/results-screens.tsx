@@ -61,7 +61,13 @@ export function Results({
 }) {
   const correct = marked.filter((question) => question.correct).length;
   const unanswered = marked.filter((question) => !question.userAnswer).length;
-  const feedbackOptions = [1, 2, 3, 4, 5];
+  const feedbackOptions = [
+    { value: 1, emoji: "😡", label: "Very poor" },
+    { value: 2, emoji: "😞", label: "Poor" },
+    { value: 3, emoji: "😐", label: "Okay" },
+    { value: 4, emoji: "😊", label: "Good" },
+    { value: 5, emoji: "😍", label: "Excellent" },
+  ];
 
   return (
     <Panel title="Great work!" subtitle="You have completed PHS 001 - Topic 1.">
@@ -110,17 +116,21 @@ export function Results({
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <strong className="text-sm font-black text-slate-900">Platform Feedback</strong>
-          <select
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400"
-            defaultValue="5"
-            name="rating"
-          >
+          <fieldset className="flex gap-1.5">
+            <legend className="sr-only">Rate the platform</legend>
             {feedbackOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}/5
-              </option>
+              <label className="cursor-pointer" key={option.value} title={option.label}>
+                <input className="peer sr-only" defaultChecked={option.value === 5} name="rating" type="radio" value={option.value} />
+                <span
+                  aria-hidden="true"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-2xl opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:opacity-100 peer-checked:grayscale-0 peer-checked:ring-4 peer-checked:ring-emerald-100 peer-focus-visible:ring-4 peer-focus-visible:ring-emerald-200"
+                >
+                  {option.emoji}
+                </span>
+                <span className="sr-only">{option.label}</span>
+              </label>
             ))}
-          </select>
+          </fieldset>
         </div>
         <textarea
           className="mt-3 min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
