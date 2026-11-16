@@ -383,3 +383,52 @@ test('a table under a choice question, or one with a blank heading, falls back t
   assert.equal(questions[1].answerTable, undefined);
   assert.ok(warnings.some((warning) => /blank row or column heading/.test(warning.message)));
 });
+
+const addMod6 = [['⊕', '0', '1', '2', '3', '4', '5'], ['0', '0', '1', '2', '3', '4', '5'], ['1', '1', '2', '3', '4', '5', '0'], ['2', '2', '3', '4', '5', '0', '1'],
+  ['3', '3', '4', '5', '0', '1', '2'], ['4', '4', '5', '0', '1', '2', '3'], ['5', '5', '0', '1', '2', '3', '4']];
+const gridLines = (rows) => rows.map((row) => p(row.join(' '))).join('');
+
+test('a table typed as lines of values under a "complete the table" question becomes the fill-in table', async () => {
+  const file = await docx([p('1. Complete the addition table modulo 6. [6 marks]'), p('Answer:'), gridLines(addMod6)].join(''));
+  const { questions, warnings } = await parseQuestionImportFile(file);
+  assert.equal(questions.length, 1);
+  assert.deepEqual(questions[0].answerTable, {
+    corner: '⊕',
+    columns: ['0', '1', '2', '3', '4', '5'],
+    rows: ['0', '1', '2', '3', '4', '5'],
+    solution: addMod6.slice(1).map((row) => row.slice(1)),
+  });
+  assert.equal(questions[0].marks, 6);
+  assert.match(questions[0].answer, /Complete the table/);
+  assert.ok(warnings.some((warning) => /used as the correct table/.test(warning.message)));
+});
+
+test('a table of given values typed as lines is displayed as a real table', async () => {
+  const file = await docx([p('1. Use the table below to find 3 ⊕ 4.'), gridLines(addMod6), p('Answer: 1')].join(''));
+  const { questions } = await parseQuestionImportFile(file);
+  assert.equal(questions[0].answerTable, undefined);
+  assert.match(questions[0].prompt, /\| ⊕ \| 0 \| 1 \| 2 \| 3 \| 4 \| 5 \|\n\| --- \|/);
+  assert.match(questions[0].prompt, /\| 3 \| 3 \| 4 \| 5 \| 0 \| 1 \| 2 \|/);
+});
+
+test('prose lines and plain number grids are not turned into tables', async () => {
+  const file = await docx([
+    p('1. Read these notes.'), p('Mass is conserved here'), p('Energy is lost there'), p('Charge is kept again'),
+    p('Answer: Mass'),
+    p('2. Add the matrices.'), p('1 2 3'), p('4 5 6'), p('7 8 9'),
+    p('Answer: 45'),
+  ].join(''));
+  const { questions } = await parseQuestionImportFile(file);
+  assert.equal(questions.length, 2);
+  for (const question of questions) assert.doesNotMatch(question.prompt, /\| --- \|/);
+});
+
+test('markdown tables are split from text and written back the same way', () => {
+  const { splitMarkdownTables, tableToMarkdownText } = loadSource(resolve(projectRoot, 'src/lib/markdown-table.ts'));
+  const text = `Fill in:\n${tableToMarkdownText(['⊕', '0', '1'], [['0', '0', '1'], ['1', '1', '0']])}\nThen explain.`;
+  const parts = splitMarkdownTables(text);
+  assert.deepEqual(parts.map((part) => part.type), ['text', 'table', 'text']);
+  assert.deepEqual(parts[1].table, { header: ['⊕', '0', '1'], rows: [['0', '0', '1'], ['1', '1', '0']] });
+  assert.equal(parts[2].value, 'Then explain.');
+  assert.deepEqual(splitMarkdownTables('A | B | C\nno separator row').map((part) => part.type), ['text']);
+});

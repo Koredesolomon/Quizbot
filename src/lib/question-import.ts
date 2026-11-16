@@ -12,7 +12,8 @@ import {
 import { readDocxQuestions } from "@/lib/import/docx";
 import { withImages, type ImportCell, type RawQuestion } from "@/lib/import/raw";
 import { rowsToRawQuestions } from "@/lib/import/rows";
-import { buildAnswerTable, tableToText } from "@/lib/import/table";
+import { findGridBlocks, gridLimits, gridsToMarkdown, removeBlock } from "@/lib/import/grid-text";
+import { asksToCompleteTable, buildAnswerTable, tableToText } from "@/lib/import/table";
 import { readFirstSheetImages } from "@/lib/import/xlsx-images";
 import { loadZip } from "@/lib/import/zip";
 
@@ -241,6 +242,31 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
       }
     }
   }
+
+  // Values typed as lines ("⊕ 0 1 2" above "0 0 1 2" …). Under a "complete the table" question, a grid in the model
+  // answer or explanation is the correct table; any other grid becomes a real table so it displays as one.
+  if (type === "theory" && !answerTable && asksToCompleteTable(prompt)) {
+    for (const field of ["answer", "explanation"] as const) {
+      const text = field === "answer" ? answer : explanation;
+      const block = findGridBlocks(text).find((candidate) => candidate.columns.length <= gridLimits.maxColumns && candidate.rows.length <= gridLimits.maxRows);
+      if (!block) continue;
+      answerTable = {
+        ...(block.corner ? { corner: block.corner } : {}),
+        columns: block.columns,
+        rows: block.rows,
+        solution: block.cells,
+      };
+      const rest = removeBlock(text, block);
+      if (field === "answer") answer = rest || "Complete the table as shown in the correct table.";
+      else explanation = rest;
+      warnings.push(`A table of values in the ${field === "answer" ? "answer" : "explanation"} was used as the correct table. Check it in the question editor.`);
+      break;
+    }
+  }
+  prompt = gridsToMarkdown(prompt);
+  explanation = gridsToMarkdown(explanation);
+  if (type === "theory") answer = gridsToMarkdown(answer);
+
   if (type === "theory" && !answer) return fail("No model answer was found. Theory questions need an answer to mark against.");
 
   const promptImages = [...raw.promptImages];

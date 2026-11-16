@@ -1,5 +1,6 @@
 import katex from "katex";
 
+import { splitMarkdownTables, type MarkdownTable } from "@/lib/markdown-table";
 import { parseMathSegments } from "@/lib/math-segments";
 
 export function MathContent({
@@ -18,7 +19,27 @@ function normalizeMathInput(value: string) {
   return value.replace(/\uFF04/g, "$");
 }
 
-function renderMathText(value: string) {
+/** A pipe table in the text is shown as a real table; the text around it is formatted as usual. */
+function renderTable({ header, rows }: MarkdownTable) {
+  const cell = (value: string) => renderMathText(value);
+  const head = "border border-slate-300 bg-sky-50 px-3 py-1.5 font-black";
+  return (
+    `<span class="my-2 block max-w-full overflow-x-auto"><table class="border-collapse text-center text-sm">` +
+    `<thead><tr>${header.map((value) => `<th class="${head}" scope="col">${cell(value)}</th>`).join("")}</tr></thead>` +
+    `<tbody>${rows.map((row) => `<tr>${header.map((_, index) =>
+      index === 0
+        ? `<th class="${head}" scope="row">${cell(row[index] ?? "")}</th>`
+        : `<td class="border border-slate-300 px-3 py-1.5 font-semibold">${cell(row[index] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody>` +
+    `</table></span>`
+  );
+}
+
+function renderMathText(value: string): string {
+  const parts = splitMarkdownTables(value);
+  if (parts.some((part) => part.type === "table")) {
+    return parts.map((part) => (part.type === "table" ? renderTable(part.table) : renderMathText(part.value.replace(/^\n+|\n+$/g, "")))).join("");
+  }
+
   // Keep generated math HTML out of the formatting parser.
   const protectedHtml: string[] = [];
   const protect = (html: string) => {
