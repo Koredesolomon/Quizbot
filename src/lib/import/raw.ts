@@ -26,6 +26,10 @@ export type RawQuestion = {
   romanOptions?: boolean;
   /** Spreadsheet answerBox column (yes/no). */
   answerBox?: string;
+  /** A table in the question for the student to fill in (Word files only): heading row, heading column, then cells. */
+  table?: ImportCell[][];
+  /** A table in the answer holding the correct cells. */
+  solutionTable?: ImportCell[][];
   warnings: string[];
 };
 

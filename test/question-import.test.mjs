@@ -322,3 +322,64 @@ test('quizzes added straight to a topic are told apart from subtopic quizzes', (
     { quizId: 'q2', subtopicId: 't1', label: 'PHS001 / Mechanics / Vectors / Quiz q2' },
   ]);
 });
+const tableCell = (text) => `<w:tc>${p(text)}</w:tc>`;
+const tableRow = (...cells) => `<w:tr>${cells.map(tableCell).join('')}</w:tr>`;
+const wordTable = (...rows) => `<w:tbl>${rows.map((cells) => tableRow(...cells)).join('')}</w:tbl>`;
+
+test('a blank Word table in a written question becomes a fill-in table, with the correct cells from the answer table', async () => {
+  const file = await docx([
+    p('1. Complete the multiplication table modulo 3. [4 marks]'),
+    wordTable(['⊗', '0', '1', '2'], ['0', '', '', ''], ['1', '', '', ''], ['2', '', '', '']),
+    p('Answer:'),
+    wordTable(['⊗', '0', '1', '2'], ['0', '0', '0', '0'], ['1', '0', '1', '2'], ['2', '0', '2', '1']),
+    p('Explanation: Multiply, then take the remainder on division by 3.'),
+  ].join(''));
+
+  const { questions, skipped } = await parseQuestionImportFile(file);
+  assert.equal(skipped.length, 0);
+  assert.equal(questions.length, 1);
+  assert.equal(questions[0].type, 'theory');
+  assert.equal(questions[0].marks, 4);
+  assert.deepEqual(questions[0].answerTable, {
+    corner: '⊗',
+    columns: ['0', '1', '2'],
+    rows: ['0', '1', '2'],
+    solution: [['0', '0', '0'], ['0', '1', '2'], ['0', '2', '1']],
+  });
+});
+
+test('a data table in a Word question stays plain text, and tables are not limited to operation tables', async () => {
+  const given = await docx([
+    p('1. Use the table to find the mean length of the rod.'),
+    wordTable(['Trial', 'Length (cm)', 'Width (cm)'], ['1', '10.2', '2.1'], ['2', '10.4', '2.0']),
+    p('Answer: 10.3 cm'),
+  ].join(''));
+  const givenResult = await parseQuestionImportFile(given);
+  assert.equal(givenResult.questions[0].answerTable, undefined);
+  assert.match(givenResult.questions[0].prompt, /10\.2/);
+
+  const blank = await docx([
+    p('1. Record your results in the table below.'),
+    wordTable(['', 'Mass (g)', 'Volume (cm3)'], ['Trial 1', '', ''], ['Trial 2', '', '']),
+  ].join(''));
+  const blankResult = await parseQuestionImportFile(blank);
+  assert.deepEqual(blankResult.questions[0].answerTable, { columns: ['Mass (g)', 'Volume (cm3)'], rows: ['Trial 1', 'Trial 2'] });
+  assert.ok(blankResult.warnings.some((warning) => /correct cells are blank/.test(warning.message)));
+});
+
+test('a table under a choice question, or one with a blank heading, falls back to plain text instead of failing', async () => {
+  const file = await docx([
+    p('1. Which row is correct?'),
+    p('A. First'), p('B. Second'),
+    wordTable(['x', 'y'], ['', '']),
+    p('Answer: A'),
+    p('2. Complete the table.'),
+    wordTable(['', 'A', ''], ['r1', '', '']),
+    p('Answer: see the table'),
+  ].join(''));
+  const { questions, warnings } = await parseQuestionImportFile(file);
+  assert.equal(questions.length, 2);
+  assert.equal(questions[0].answerTable, undefined);
+  assert.equal(questions[1].answerTable, undefined);
+  assert.ok(warnings.some((warning) => /blank row or column heading/.test(warning.message)));
+});

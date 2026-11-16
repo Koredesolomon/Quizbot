@@ -3,13 +3,22 @@ import { parseQuestionType } from "@/lib/question-answers";
 import { isMathNode, mathToText } from "./omml";
 import { emptyRawQuestion, type ImportCell, type RawQuestion } from "./raw";
 import { looksLikeQuestionTable, rowsToRawQuestions } from "./rows";
+import { isFillInTable, isGrid } from "./table";
 import { attr, child, children, childVal, descendants, type XmlNode } from "./xml";
 import { readRelationships, readZipImage, readZipXml } from "./zip";
 
 type ListMarker = { kind: "number" | "letter" | "bullet"; value: number; level: number; listId: string };
 
 /** One visual line of the document: paragraph text split on manual line breaks. */
-type Line = { text: string; images: string[]; problems: string[]; list?: ListMarker };
+type Line = {
+  text: string;
+  images: string[];
+  problems: string[];
+  list?: ListMarker;
+  /** A Word table that may be a table for the student to fill in; `fallback` is how it reads as plain lines. */
+  table?: ImportCell[][];
+  fallback?: Line[];
+};
 
 type Context = {
   zip: JSZip;
@@ -194,17 +203,23 @@ async function bodyLines(container: XmlNode, context: Context, lines: Line[]) {
         context.tableQuestions.push(...rowsToRawQuestions(rows, (index) => `Table ${table}, row ${index + 1}`));
       } else {
         // Layout tables (options in a grid, answer keys): read row by row.
+        const rowLines: Line[] = [];
         for (const row of rows) {
           const joined = row.map((cell) => cell.text).filter(Boolean).join(" ");
           const images = row.flatMap((cell) => cell.images);
           if (/^\s*\d{1,3}\s*$/.test(row[0]?.text ?? "") && row.length === 2) {
-            lines.push({ text: `${row[0].text.trim()}. ${row[1].text}`, images, problems: [] }); // "1 | B" answer-key rows
+            rowLines.push({ text: `${row[0].text.trim()}. ${row[1].text}`, images, problems: [] }); // "1 | B" answer-key rows
           } else if (row.every((cell) => /^\s*\(?[A-H][.)]/i.test(cell.text) || !cell.text.trim())) {
-            for (const cell of row) if (cell.text.trim() || cell.images.length) lines.push({ text: cell.text, images: cell.images, problems: [] });
+            for (const cell of row) if (cell.text.trim() || cell.images.length) rowLines.push({ text: cell.text, images: cell.images, problems: [] });
           } else if (joined || images.length) {
-            lines.push({ text: joined, images, problems: [] });
+            rowLines.push({ text: joined, images, problems: [] });
           }
         }
+        // A heading row and heading column with cells to fill in: keep its shape so it can become a table question.
+        const layout = rows.every((row) => row.length === 2 && /^\s*\d{1,3}\s*$/.test(row[0]?.text ?? "")) ||
+          rows.every((row) => row.every((cell) => /^\s*\(?[A-H][.)]/i.test(cell.text) || !cell.text.trim()));
+        if (!layout && isGrid(rows)) lines.push({ text: "", images: [], problems: [], table: rows, fallback: rowLines });
+        else lines.push(...rowLines);
       }
     } else if (node.localName === "sdt") {
       await bodyLines(child(node, "sdtContent") ?? node, context, lines);
@@ -383,6 +398,24 @@ function linesToQuestions(lines: Line[]): RawQuestion[] {
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = lines[lineIndex];
     const text = line.text;
+
+    if (line.table) {
+      // A blank table under a written question is the table to fill in; a second table is its correct cells.
+      // Anything else (data to read, a table under a choice question) is read as plain lines, as before.
+      const open = current && !current.options.length && !inAnswerKey;
+      if (open && !current!.table && field === "prompt" && isFillInTable(line.table, current!.prompt)) {
+        current!.table = line.table;
+        continue;
+      }
+      if (open && current!.table && !current!.solutionTable) {
+        current!.solutionTable = line.table;
+        continue;
+      }
+      lines.splice(lineIndex, 1, ...(line.fallback ?? []));
+      lineIndex--;
+      continue;
+    }
+
     if (!text && !line.images.length) {
       if (line.problems.length && current) current.warnings.push(...line.problems);
       continue;

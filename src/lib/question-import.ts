@@ -1,3 +1,4 @@
+import type { AnswerTable } from "@/lib/answer-table";
 import type { Question, QuestionType } from "@/types/platform";
 import {
   asksForExplanation,
@@ -11,6 +12,7 @@ import {
 import { readDocxQuestions } from "@/lib/import/docx";
 import { withImages, type ImportCell, type RawQuestion } from "@/lib/import/raw";
 import { rowsToRawQuestions } from "@/lib/import/rows";
+import { buildAnswerTable, tableToText } from "@/lib/import/table";
 import { readFirstSheetImages } from "@/lib/import/xlsx-images";
 import { loadZip } from "@/lib/import/zip";
 
@@ -220,6 +222,25 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
   if (type === "theory" && choices.length) {
     prompt = [prompt, ...choices.map((choice, position) => `(${optionLetter(position).toLowerCase()}) ${choice}`)].join("\n");
   }
+
+  // A table in the question for the student to fill in (Word files). Its correct cells come from the table in the answer.
+  let answerTable: AnswerTable | undefined;
+  if (type === "theory" && raw.table) {
+    const built = buildAnswerTable(raw.table, raw.solutionTable);
+    if ("error" in built) {
+      warnings.push(built.error);
+      prompt = `${prompt}\n${tableToText(raw.table)}`;
+    } else {
+      answerTable = built.table;
+      warnings.push(...built.warnings);
+      if (!answer) {
+        answer = built.table.solution ? "Complete the table as shown in the correct table." : "Complete the table.";
+        if (!built.table.solution) {
+          warnings.push("No correct table or model answer was found, so the correct cells are blank. Open the question and enter them so the AI can mark it.");
+        }
+      }
+    }
+  }
   if (type === "theory" && !answer) return fail("No model answer was found. Theory questions need an answer to mark against.");
 
   const promptImages = [...raw.promptImages];
@@ -258,6 +279,7 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
       rubricPoints: rubric,
       commonMistakes: splitList(raw.commonMistakes),
       keywords: type === "theory" ? splitList(raw.keywords) : undefined,
+      answerTable,
     },
   };
 }

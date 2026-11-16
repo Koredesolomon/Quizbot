@@ -60,7 +60,9 @@ before anything is saved. Rows or questions that cannot be imported are listed w
 - **Word papers:** number questions (`1.` or Word's numbered list), letter options (`A.`, `(a)`, a lettered list, or on one
   line), then add `Answer:` and optionally `Explanation:`, `Marks:` or `[4 marks]`. A heading such as `SECTION B: THEORY`
   sets the type for the questions below it, and an `Answer Key` section at the end (`1. B  2. A, C`) is also read. Word
-  equations become LaTeX. MathType objects and EMF/WMF pictures cannot be read and are reported.
+  equations become LaTeX. MathType objects and EMF/WMF pictures cannot be read and are reported. A Word table with blank
+  cells under a written question becomes a fill-in table (first row = column headings, first column = row headings,
+  top-left cell = corner); a second table under `Answer:` supplies the correct cells. Tables of given values stay plain text.
 - **Spreadsheets:** use the downloadable template columns. Pictures placed over (or in) a question or option cell are
   attached to that question or option.
 - **Pictures** are uploaded to `backend/uploads/question-images/` when questions are saved.
