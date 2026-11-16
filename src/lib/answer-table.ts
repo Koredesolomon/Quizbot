@@ -6,7 +6,7 @@ export type AnswerTable = {
   solution?: string[][];
 };
 
-/** Operation symbols an admin picks for the table's corner, so nobody has to type them. The first is the default. */
+/** Suggested symbols for the table's top-left cell (handy for operation tables). Any text can be typed instead. */
 export const tableCornerSymbols = [
   { symbol: "⊗", label: "Multiplication modulo n" },
   { symbol: "⊕", label: "Addition modulo n" },
@@ -21,7 +21,8 @@ export const tableCornerSymbols = [
   { symbol: "", label: "None (leave blank)" },
 ];
 
-export const defaultTableCorner = tableCornerSymbols[0].symbol;
+/** New tables start with an empty corner: most tables (data, truth, frequency) have no operation symbol. */
+export const defaultTableCorner = "";
 
 /** Separates the filled table from the written answer in the stored answer string. */
 export const tableDivider = "\n\n--- Written answer ---\n";

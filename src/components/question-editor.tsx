@@ -310,16 +310,16 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
               Students fill in a table
             </label>
             {form.tableOn && <>
-              <p className="text-xs text-[#5e7086]">For questions that show a table, such as a multiplication table. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below so the AI can compare them.</p>
+              <p className="text-xs text-[#5e7086]">For any question where students complete a table, such as a data or results table, truth table, frequency table, or an operation table like multiplication modulo n. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below so the AI can compare them.</p>
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1.5 text-sm font-bold">Corner symbol
-                  <select className={control} value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)}>
-                    {!tableCornerSymbols.some((option) => option.symbol === form.tableCorner) && <option value={form.tableCorner}>{form.tableCorner}</option>}
-                    {tableCornerSymbols.map((option) => <option key={option.label} value={option.symbol}>{option.symbol ? `${option.symbol}  ${option.label}` : option.label}</option>)}
-                  </select>
+                <label className="grid gap-1.5 text-sm font-bold">Top-left cell (optional)
+                  <input className={control} list="table-corner-suggestions" placeholder="Leave blank, type a label, or pick a symbol" value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)} />
+                  <datalist id="table-corner-suggestions">
+                    {tableCornerSymbols.filter((option) => option.symbol).map((option) => <option key={option.label} label={option.label} value={option.symbol} />)}
+                  </datalist>
                 </label>
-                <label className="grid gap-1.5 text-sm font-bold">Column headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableColumns} onChange={(event) => change("tableColumns", event.target.value)} /></label>
-                <label className="grid gap-1.5 text-sm font-bold">Row headings (comma separated)<input className={control} placeholder="0, 1, 2, 3, 4" value={form.tableRows} onChange={(event) => change("tableRows", event.target.value)} /></label>
+                <label className="grid gap-1.5 text-sm font-bold">Column headings (comma separated)<input className={control} placeholder="e.g. Trial 1, Trial 2, Trial 3" value={form.tableColumns} onChange={(event) => change("tableColumns", event.target.value)} /></label>
+                <label className="grid gap-1.5 text-sm font-bold">Row headings (comma separated)<input className={control} placeholder="e.g. Length (cm), Time (s)" value={form.tableRows} onChange={(event) => change("tableRows", event.target.value)} /></label>
               </div>
               {headings(form.tableColumns).length > 0 && headings(form.tableRows).length > 0 && (
                 <div>
