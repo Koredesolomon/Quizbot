@@ -1,6 +1,21 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, registerDecorator, ValidateNested, type ValidationOptions } from "class-validator";
 import { Type } from "class-transformer";
 import { PartialType } from "@nestjs/mapped-types";
+
+/** A list of rows, each a list of text cells. (`IsString({ each: true })` would test each whole row as one string.) */
+function IsStringGrid(options?: ValidationOptions) {
+  return (target: object, propertyName: string) =>
+    registerDecorator({
+      name: "isStringGrid",
+      target: target.constructor,
+      propertyName,
+      options,
+      validator: {
+        validate: (value: unknown) => Array.isArray(value) && value.every((row) => Array.isArray(row) && row.every((cell) => typeof cell === "string")),
+        defaultMessage: () => "solution must be a table of text cells",
+      },
+    });
+}
 
 export class AnswerTableDto {
   @IsOptional()
@@ -20,10 +35,13 @@ export class AnswerTableDto {
   rows: string[];
 
   @IsOptional()
-  @IsArray()
-  @IsArray({ each: true })
-  @IsString({ each: true, context: "cells" })
+  @IsStringGrid()
   solution?: string[][];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  tableMarks?: number;
 }
 
 export class CreateQuestionDto {

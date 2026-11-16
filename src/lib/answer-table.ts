@@ -4,6 +4,8 @@ export type AnswerTable = {
   columns: string[];
   rows: string[];
   solution?: string[][];
+  /** Marks for the table cells (admin only); the rest of the question's marks are for the written answer. Defaults to all marks. */
+  tableMarks?: number;
 };
 
 /** Suggested symbols for the table's top-left cell (handy for operation tables). Any text can be typed instead. */

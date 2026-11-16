@@ -41,6 +41,7 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     keywords: question?.keywords?.join(", ") ?? "",
     // Theory only: a table the student fills in. The correct cells are keyed "row:column".
     tableOn: Boolean(question?.answerTable),
+    tableMarks: question?.answerTable?.tableMarks ? String(question.answerTable.tableMarks) : "",
     // New tables start with ⊗; an existing table keeps whatever it had, including no symbol.
     tableCorner: question?.answerTable ? question.answerTable.corner ?? "" : defaultTableCorner,
     tableColumns: question?.answerTable?.columns.join(", ") ?? "",
@@ -114,6 +115,11 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
       setError("Enter at least one column heading and one row heading (up to 12 columns and 20 rows).");
       return;
     }
+    const tableMarks = form.tableMarks.trim() ? Number(form.tableMarks) : undefined;
+    if (withTable && tableMarks !== undefined && (!Number.isInteger(tableMarks) || tableMarks < 1 || tableMarks > marks)) {
+      setError("Marks for the table must be a whole number from 1 up to the question's marks.");
+      return;
+    }
     const solution = tableRows.map((_, rowIndex) => tableColumns.map((__, columnIndex) => form.tableSolution[`${rowIndex}:${columnIndex}`]?.trim() ?? ""));
     busyRef.current = true;
     setSaving(true);
@@ -145,6 +151,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
           columns: tableColumns,
           rows: tableRows,
           solution: solution.some((row) => row.some(Boolean)) ? solution : undefined,
+          tableMarks: solution.some((row) => row.some(Boolean)) ? tableMarks : undefined,
         } : null,
       });
       if (addAnother) {
@@ -310,7 +317,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
               Students fill in a table
             </label>
             {form.tableOn && <>
-              <p className="text-xs text-[#5e7086]">For any question where students complete a table, such as a data or results table, truth table, frequency table, or an operation table like multiplication modulo n. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below so the AI can compare them.</p>
+              <p className="text-xs text-[#5e7086]">For any question where students complete a table, such as a data or results table, truth table, frequency table, or an operation table like multiplication modulo n. Students type into each cell and the AI marks the filled table together with their written answer. Enter the correct cells below: they are then marked exactly, cell by cell, instantly and without the AI. Without correct cells, the AI marks the table.</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1.5 text-sm font-bold">Top-left cell (optional)
                   <input className={control} list="table-corner-suggestions" placeholder="Leave blank, type a label, or pick a symbol" value={form.tableCorner} onChange={(event) => change("tableCorner", event.target.value)} />
@@ -353,6 +360,10 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
                   </div>
                 </div>
               )}
+              <label className="grid max-w-md gap-1.5 text-sm font-bold">Marks for the table (optional)
+                <input className={control} inputMode="numeric" placeholder={`Leave blank for all ${form.marks || "the"} marks`} value={form.tableMarks} onChange={(event) => change("tableMarks", event.target.value)} />
+                <span className="text-xs font-normal text-[#5e7086]">Only used when you enter correct cells. Cell marks are shared by the fraction of cells right, rounded down. Any marks left over go to the student&apos;s written answer, which the AI marks.</span>
+              </label>
             </>}
           </fieldset>
         )}

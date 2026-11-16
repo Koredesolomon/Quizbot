@@ -56,7 +56,7 @@ export class Question {
   @Prop({ enum: ["numeric", "expression", "text"] })
   answerType?: AnswerType;
 
-  /** Theory only: a table the student fills in. The AI marks the filled table together with the written answer. */
+  /** Theory only: a table the student fills in. With correct cells, the cells are marked exactly by code; otherwise the AI marks the table with the written answer. */
   @Prop({ type: Object })
   answerTable?: AnswerTable;
 

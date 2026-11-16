@@ -92,6 +92,10 @@ export class QuestionsService {
       if (columns.some((value) => !value.trim()) || rows.some((value) => !value.trim())) {
         throw new BadRequestException("Every table row and column needs a heading.");
       }
+      const { tableMarks } = input.answerTable;
+      if (tableMarks !== undefined && (!Number.isInteger(tableMarks) || tableMarks < 1 || tableMarks > input.marks)) {
+        throw new BadRequestException("The marks for the table must be a whole number between 1 and the question's marks.");
+      }
       if (solution && (solution.length !== rows.length || solution.some((row) => row.length !== columns.length))) {
         throw new BadRequestException("The correct table must have the same rows and columns as the table.");
       }

@@ -155,3 +155,17 @@ test('answer-bearing question lists are available only to authenticated admins',
   assert.equal(roles.canActivate(context('student')), false);
   assert.equal(roles.canActivate(context()), false);
 });
+
+test('a table question with its correct cells passes request validation', async () => {
+  require('reflect-metadata');
+  const { plainToInstance } = require('class-transformer');
+  const { validate } = require('class-validator');
+  const { CreateQuestionDto } = require('../dist/questions/dto.js');
+  const check = (answerTable) =>
+    validate(plainToInstance(CreateQuestionDto, { type: 'theory', topic: 'T', prompt: 'P', answer: 'A', marks: 2, answerTable }), { whitelist: true, forbidNonWhitelisted: true });
+
+  assert.equal((await check({ columns: ['0', '1'], rows: ['0'], solution: [['0', '1']] })).length, 0);
+  assert.equal((await check({ columns: ['0', '1'], rows: ['0'] })).length, 0);
+  assert.ok((await check({ columns: ['0', '1'], rows: ['0'], solution: [[0, 1]] })).length > 0);
+  assert.ok((await check({ columns: ['0', '1'], rows: ['0'], solution: ['0', '1'] })).length > 0);
+});

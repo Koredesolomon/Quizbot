@@ -10,6 +10,7 @@ import { ContentService } from "../content/content.service";
 import { Attempt, AttemptDocument } from "./attempt.schema";
 import { AiMarkerService, type AnswerReview, type FeedbackSource } from "./ai-marker.service";
 import { SubmitAnswerDto } from "./dto";
+import { compareTable, parseTableAnswer } from "../grading/answer-table";
 import { checkFinalAnswer } from "../grading/final-answer";
 
 /** A submission holds its lock this long; slow local models can take many minutes to mark a test. */
@@ -202,10 +203,60 @@ export class AttemptsService {
       return this.answerRecord(attemptId, question, response, verdict.correct ? question.marks : 0, verdict.correct, explained.aiFeedback, explained.source);
     }
 
+    const tableReview = await this.tableReview(question, response);
+    if (tableReview) {
+      return this.answerRecord(attemptId, question, response, tableReview.awarded, tableReview.correct, tableReview.aiFeedback, tableReview.source ?? "auto");
+    }
+
     const fallback = this.keywordReview(question, response);
     const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
 
     return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
+  }
+
+  /**
+   * A table with correct cells is marked by code, cell by cell, so it is instant and never depends on the AI.
+   * The table is worth `tableMarks` (default: all the marks); any marks left are for the written answer, which the AI marks.
+   * Returns undefined when the question has no correct cells, so the AI marks it as before.
+   */
+  private async tableReview(question: QuestionDocument, response: string): Promise<AnswerReview | undefined> {
+    const table = question.answerTable;
+    if (!table?.solution) return undefined;
+    const { cells, text } = parseTableAnswer(table, response);
+    const comparison = compareTable(table, cells);
+    if (!comparison.total) return undefined;
+
+    const tableMarks = Math.min(question.marks, table.tableMarks ?? question.marks);
+    // Floor, so full marks mean every cell is right.
+    const tableAwarded = Math.floor((tableMarks * comparison.correct) / comparison.total);
+    const feedback = [`Table: ${comparison.correct} of ${comparison.total} cells correct (${tableAwarded}/${tableMarks} marks).`];
+    if (comparison.wrong.length) {
+      const shown = comparison.wrong.slice(0, 5).map((cell) => `${cell.row} / ${cell.column}: expected ${cell.expected}${cell.got ? `, you wrote ${cell.got}` : ", left blank"}`);
+      feedback.push(`To fix: ${shown.join("; ")}${comparison.wrong.length > shown.length ? `; and ${comparison.wrong.length - shown.length} more` : ""}.`);
+    }
+
+    const writtenMarks = question.marks - tableMarks;
+    let writtenAwarded = 0;
+    let source: FeedbackSource = "auto";
+    if (writtenMarks > 0) {
+      if (text.trim()) {
+        const writtenQuestion = {
+          ...question.toObject(),
+          prompt: `${question.prompt}\n\nMark only the student's written answer. The table is marked separately.`,
+          answerTable: undefined,
+          marks: writtenMarks,
+        } as QuestionDocument;
+        const written = await this.aiMarker.reviewTheoryAnswer(writtenQuestion, text, this.keywordReview(writtenQuestion, text));
+        writtenAwarded = Math.min(writtenMarks, Math.max(0, written.awarded));
+        feedback.push(`Written answer (${writtenAwarded}/${writtenMarks} marks): ${written.aiFeedback}`);
+        source = written.source ?? "auto";
+      } else {
+        feedback.push(`Written answer (0/${writtenMarks} marks): none was written.`);
+      }
+    }
+
+    const awarded = tableAwarded + writtenAwarded;
+    return { awarded, correct: awarded >= Math.ceil(question.marks * 0.7), aiFeedback: feedback.join(" "), source };
   }
 
   private async explainChoice(question: QuestionDocument, response: string, review: AnswerReview) {

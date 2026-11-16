@@ -126,3 +126,71 @@ test('students are told which choice questions need an explanation box', () => {
   assert.equal(service.publicPrompt(doc({ type: 'theory', answerBox: true })).answerBox, undefined);
   assert.equal(service.publicPrompt(doc({ type: 'objective', options: ['A', 'B'] })).answerBox, undefined);
 });
+
+const grid = { corner: '⊗', columns: ['0', '1', '2'], rows: ['0', '1', '2'], solution: [['0', '0', '0'], ['0', '1', '2'], ['0', '2', '1']] };
+const studentTable = (cells, written = '') => {
+  const markdown = ['| ⊗ | 0 | 1 | 2 |', '| --- | --- | --- | --- |', ...grid.rows.map((row, index) => `| ${row} | ${cells[index].join(' | ')} |`)].join('\n');
+  return written ? `${markdown}\n\n--- Written answer ---\n${written}` : markdown;
+};
+const tableQuestion = (answerTable = grid, marks = 4) => ({ type: 'theory', answer: 'Complete the table.', marks, answerTable });
+const neverAi = () => { throw new Error('The AI must not be used to mark table cells.'); };
+
+test('a table with correct cells is marked cell by cell by code, without the AI', async () => {
+  const all = await mark(tableQuestion(), studentTable(grid.solution), neverAi);
+  assert.deepEqual({ awarded: all.awarded, correct: all.correct, source: all.feedbackSource }, { awarded: 4, correct: true, source: 'auto' });
+  assert.match(all.aiFeedback, /9 of 9 cells correct/);
+
+  const one = await mark(tableQuestion(), studentTable([['0', '0', '0'], ['0', '1', '2'], ['0', '2', '2']]), neverAi);
+  assert.equal(one.awarded, 3); // 8 of 9 cells: never rounded up to full marks
+  assert.match(one.aiFeedback, /8 of 9 cells correct/);
+  assert.match(one.aiFeedback, /2 \/ 2: expected 1, you wrote 2/);
+
+  const none = await mark(tableQuestion(), studentTable([['1', '1', '1'], ['1', '2', '0'], ['1', '0', '0']]), neverAi);
+  assert.equal(none.awarded, 0);
+  assert.equal(none.correct, false);
+});
+
+test('table cells ignore case, spacing and number formatting, but a blank cell is wrong', async () => {
+  const solution = [['A', '0.5'], ['1', 'x y']];
+  const table = { columns: ['c1', 'c2'], rows: ['r1', 'r2'], solution };
+  const answer = (cells) => ['| | c1 | c2 |', '| --- | --- | --- |', ...table.rows.map((row, index) => `| ${row} | ${cells[index].join(' | ')} |`)].join('\n');
+
+  assert.equal((await mark(tableQuestion(table, 4), answer([['a', '.50'], ['1.0', ' X  y ']]), neverAi)).awarded, 4);
+  const blank = await mark(tableQuestion(table, 4), answer([['a', ''], ['1', 'x y']]), neverAi);
+  assert.equal(blank.awarded, 3);
+  assert.match(blank.aiFeedback, /left blank/);
+});
+
+test('with marks set for the table, the rest go to the written answer, which the AI marks alone', async () => {
+  const question = tableQuestion({ ...grid, tableMarks: 2 }, 4);
+  const seen = [];
+  const reviewer = async (reviewQuestion, response) => {
+    seen.push({ marks: reviewQuestion.marks, hasTable: Boolean(reviewQuestion.answerTable), response });
+    return { awarded: 2, correct: true, aiFeedback: 'Good explanation.', source: 'ai' };
+  };
+
+  const both = await mark(question, studentTable(grid.solution, 'The pattern repeats every three.'), reviewer);
+  assert.equal(both.awarded, 4);
+  assert.deepEqual(seen, [{ marks: 2, hasTable: false, response: 'The pattern repeats every three.' }]);
+  assert.match(both.aiFeedback, /Table: 9 of 9 cells correct \(2\/2 marks\)/);
+  assert.match(both.aiFeedback, /Written answer \(2\/2 marks\): Good explanation/);
+
+  const tableOnly = await mark(question, studentTable(grid.solution), neverAi);
+  assert.equal(tableOnly.awarded, 2);
+  assert.match(tableOnly.aiFeedback, /none was written/);
+});
+
+test('a table question without correct cells is still marked by the AI', async () => {
+  const noSolution = { columns: ['a'], rows: ['b'] };
+  const reviewed = await mark(tableQuestion(noSolution, 2), '| | a |\n| --- | --- |\n| b | 7 |', async () => ({ awarded: 1, correct: false, aiFeedback: 'AI marked it.', source: 'ai' }));
+  assert.equal(reviewed.awarded, 1);
+  assert.equal(reviewed.aiFeedback, 'AI marked it.');
+});
+
+test('marks for the table cannot exceed the question marks', () => {
+  const service = new QuestionsService({});
+  const base = { type: 'theory', topic: 'T', prompt: 'P', answer: 'A', marks: 4 };
+  service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 4 } });
+  service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 1 } });
+  assert.throws(() => service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 5 } }), /marks for the table/);
+});
