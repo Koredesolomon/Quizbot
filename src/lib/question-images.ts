@@ -18,7 +18,7 @@ export async function hostQuestionImages<T extends Partial<QuestionInput>>(
   upload: (image: Blob) => Promise<{ url: string }>,
   onProgress?: (done: number, total: number) => void
 ): Promise<T[]> {
-  const fields = (question: T) => [question.imageUrl, question.prompt, question.explanation, question.answer, ...(question.options ?? [])];
+  const fields = (question: T) => [question.imageUrl, question.prompt, question.explanation, question.answer, ...(question.options ?? []), ...(question.parts ?? []).flatMap((part) => [part.prompt, part.answer, part.explanation, part.referenceSolution])];
   const pending = new Set<string>();
   for (const question of questions) {
     for (const value of fields(question)) for (const match of value?.match(dataUrlPattern) ?? []) pending.add(match);
@@ -44,5 +44,6 @@ export async function hostQuestionImages<T extends Partial<QuestionInput>>(
     explanation: swap(question.explanation),
     answer: swap(question.answer),
     options: question.options?.map((option) => swap(option) ?? option),
+    parts: question.parts?.map((part) => ({ ...part, prompt: swap(part.prompt) ?? "", answer: swap(part.answer) ?? "", explanation: swap(part.explanation), referenceSolution: swap(part.referenceSolution) })),
   }));
 }

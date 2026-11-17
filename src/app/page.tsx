@@ -922,7 +922,7 @@ export default function Home() {
           onSubmit={startMarking}
         />
       )}
-      {screen === "marking" && <Marking questions={activeQuestions} answers={answers} />}
+      {screen === "marking" && <Marking />}
       {screen === "results" && (
         <Results
           marked={marked}

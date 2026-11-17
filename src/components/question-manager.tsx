@@ -52,7 +52,7 @@ export function QuestionManager({ subject, context, scope, questions, courses, o
   const topics = Array.from(new Set(scopedQuestions.map((question) => question.topic))).sort();
   const filtered = scopedQuestions.filter((question) =>
     (!type || question.type === type) && (!topic || question.topic === topic) &&
-    `${question.prompt} ${question.topic} ${question.keywords?.join(" ") ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+    `${question.prompt} ${question.topic} ${question.keywords?.join(" ") ?? ""} ${question.parts?.map((part) => `${part.prompt} ${part.keywords?.join(" ") ?? ""}`).join(" ") ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
   const importFile = async (file: File | null) => {
     if (!file || uploadBusyRef.current) return;
@@ -125,9 +125,15 @@ export function QuestionManager({ subject, context, scope, questions, courses, o
     </div>
     <p className="text-sm text-[#5e7086]">{preview.topic} · {questionTypeLabels[preview.type]}{preview.answerBox ? " + explanation box" : ""} · {preview.marks} marks · {preview.difficulty ?? "medium"}</p>
     <MathContent>{preview.prompt}</MathContent>
+    {preview.parts?.map((part) => <section key={part.label} className="space-y-2 rounded-lg border border-[#d5e2f0] p-4">
+      <h4 className="font-black">Part ({part.label}) — {part.marks} marks</h4>
+      <MathContent>{part.prompt}</MathContent>
+      <p className="text-sm font-bold">Model answer</p><MathContent>{part.answer}</MathContent>
+      {part.explanation && <><p className="text-sm font-bold">Explanation</p><MathContent>{part.explanation}</MathContent></>}
+    </section>)}
     {preview.imageUrl && <ImagePreview src={preview.imageUrl} />}
     {isChoiceType(preview.type) && <ol className="list-inside list-[upper-alpha] space-y-2">{preview.options?.map((option, index) => <li key={index}><MathContent>{option}</MathContent></li>)}</ol>}
-    <p className="font-bold">{preview.type === "theory" ? "Model Answer" : preview.type === "multiple" ? "Correct Answers" : "Correct Answer"}</p><MathContent>{describeAnswer(preview, preview.answer)}</MathContent>
+    {!preview.parts?.length && <><p className="font-bold">{preview.type === "theory" ? "Model Answer" : preview.type === "multiple" ? "Correct Answers" : "Correct Answer"}</p><MathContent>{describeAnswer(preview, preview.answer)}</MathContent></>}
     {preview.explanation && <><p className="font-bold">Explanation</p><MathContent>{preview.explanation}</MathContent></>}
     {preview.learningObjective && <p>Learning objective: {preview.learningObjective}</p>}
     {!!preview.rubricPoints?.length && <div><p className="font-bold">Rubric Points</p><ul className="list-inside list-disc">{preview.rubricPoints.map((point, index) => <li key={index}>{point}</li>)}</ul></div>}

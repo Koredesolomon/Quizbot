@@ -33,6 +33,7 @@ function loadSource(filename) {
 const { parseQuestionImportFile } = loadSource(resolve(projectRoot, 'src/lib/question-import.ts'));
 const answers = loadSource(resolve(projectRoot, 'src/lib/question-answers.ts'));
 const template = loadSource(resolve(projectRoot, 'src/lib/question-template.ts'));
+const { parsePartAnswers, serializePartAnswers } = loadSource(resolve(projectRoot, 'src/lib/part-answers.ts'));
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
@@ -53,6 +54,77 @@ async function docx(body, { numbering, media = {} } = {}) {
   if (numbering) zip.file('word/numbering.xml', `<?xml version="1.0"?><w:numbering ${W}>${numbering}</w:numbering>`);
   return new File([await zip.generateAsync({ type: 'uint8array' })], 'paper.docx');
 }
+
+test('Word theory parts keep individual marks, labelled model answers and a shared stem', async () => {
+  const file = await docx([
+    p('SECTION C: THEORY'), p('1. A cyclist travels at a constant speed.'),
+    p('(a) Calculate the distance. [2 marks]'), p('(b) Calculate the time. [5 marks]'), p('(c) Describe the motion. [3 marks]'),
+    p('Answer: (a) 10 m'), p('(b) 5 s'), p('(c) Constant velocity'),
+  ].join(''));
+  const result = await parseQuestionImportFile(file);
+  assert.deepEqual(result.skipped, []);
+  assert.equal(result.questions.length, 1);
+  const question = result.questions[0];
+  assert.equal(question.marks, 10);
+  assert.equal(question.prompt, 'A cyclist travels at a constant speed.');
+  assert.deepEqual(question.parts.map((part) => [part.label, part.marks, part.answer]), [['a', 2, '10 m'], ['b', 5, '5 s'], ['c', 3, 'Constant velocity']]);
+  assert.equal(question.parts[0].prompt, 'Calculate the distance.');
+});
+
+test('Excel and CSV parts use the stated allocations and reject missing marks or inconsistent totals', async () => {
+  const prompt = 'Use the data.\n(a) Define speed. [2 marks]\n(b) Define velocity. [5 marks]';
+  const answer = '(a) Distance per time\n(b) Speed with direction';
+  for (const extension of ['xlsx', 'csv']) {
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+      ['Type', 'Question', 'Answer', 'Marks'],
+      ['theory', prompt, answer, '7'],
+      ['theory', prompt.replace('[5 marks]', ''), answer, '7'],
+      ['theory', prompt, answer, '9'],
+      ['theory', prompt, 'One unlabelled model answer', '7'],
+    ]), 'Questions');
+    const data = extension === 'csv' ? XLSX.utils.sheet_to_csv(book.Sheets.Questions) : XLSX.write(book, { type: 'array', bookType: 'xlsx' });
+    const result = await parseQuestionImportFile(new File([data], `parts.${extension}`));
+    assert.equal(result.questions.length, 1);
+    assert.equal(result.questions[0].marks, 7);
+    assert.deepEqual(result.questions[0].parts.map((part) => part.marks), [2, 5]);
+    assert.equal(result.skipped.length, 3);
+    assert.match(result.skipped[0].message, /explicit marks to part \(b\)/);
+    assert.match(result.skipped[1].message, /add up to 7/);
+    assert.match(result.skipped[2].message, /model answer for each part/);
+  }
+});
+
+test('part answers survive storage and navigation, keep blanks blank, and cannot break out of their label', () => {
+  assert.equal(serializePartAnswers({ a: '', b: '  ' }), '');
+  const answers = { a: 'Answer with (b) in the text\n\n$2x = 4$', b: 'Second answer' };
+  const serialized = serializePartAnswers(answers);
+  assert.deepEqual(parsePartAnswers(serialized), answers);
+  assert.deepEqual(parsePartAnswers(''), {});
+  assert.deepEqual(parsePartAnswers('{"kind":"question-parts","answers":[]}'), {});
+});
+
+test('inline Word parts and letter-dot parts retain the last part allocation', async () => {
+  for (const [a, b] of [['(a)', '(b)'], ['a.', 'b.'], ['a)', 'b)']]) {
+    const file = await docx([
+      p('SECTION C: THEORY'),
+      p(`1. Use the data. ${a} State the speed. [2 marks] ${b} State the time. [5 marks]`),
+      p(`Answer: ${a} 10 m/s ${b} 5 s`),
+    ].join(''));
+    const result = await parseQuestionImportFile(file);
+    assert.deepEqual(result.skipped, [], `${a} ${b}`);
+    assert.deepEqual(result.questions[0].parts.map((part) => part.marks), [2, 5]);
+    assert.equal(result.questions[0].marks, 7);
+  }
+});
+
+test('fractional and negative part allocations are reported instead of reading their last digit as marks', async () => {
+  const { extractQuestionParts } = loadSource(resolve(projectRoot, 'src/lib/question-parts.ts'));
+  for (const allocation of ['1.5', '-2', '0']) {
+    const result = extractQuestionParts(`(a) Define speed. [${allocation} marks]\n(b) Define velocity. [2 marks]`, '(a) Distance per time\n(b) Speed with direction');
+    assert.match(result.error, /explicit marks/);
+  }
+});
 
 test('Word papers with typed numbering yield objective, MCQ and theory questions with pictures and equations', async () => {
   const fraction = '<m:oMath><m:f><m:num><m:r><m:t>1</m:t></m:r></m:num><m:den><m:r><m:t>2</m:t></m:r></m:den></m:f><m:r><m:t>m</m:t></m:r><m:sSup><m:e><m:r><m:t>v</m:t></m:r></m:e><m:sup><m:r><m:t>2</m:t></m:r></m:sup></m:sSup></m:oMath>';

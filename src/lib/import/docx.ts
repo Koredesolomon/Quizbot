@@ -341,6 +341,8 @@ function headingTopic(value: string) {
 }
 
 function extractInlineMarks(question: RawQuestion) {
+  // A final [n marks] may belong to (b) or (c), rather than to the whole question.
+  if (/(?:^|\s)(?:\(a\)|a[.)])\s/i.test(question.prompt) && /(?:^|\s)(?:\(b\)|b[.)])\s/i.test(question.prompt)) return;
   const match = question.prompt.match(/[[(]\s*(\d{1,3})\s*(?:marks?|mks?|pts?|points?)\s*[\])]\s*$/i);
   if (!match) return;
   question.marks ??= match[1];

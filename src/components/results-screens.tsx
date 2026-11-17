@@ -1,24 +1,14 @@
 import { Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { parseTableAnswer, type AnswerTable } from "@/lib/answer-table";
-import { estimateMarking, markingMessage } from "@/lib/marking-estimate";
 import { describeAnswer } from "@/lib/question-answers";
 import type { MarkedQuestion, QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
-import { WhatsAppCommunityCard } from "./whatsapp-community";
 import { BackButton, Metric, Panel, PrimaryButton, ResultBlock, SecondaryButton, StatusBadge } from "./ui";
 
-export function Marking({ questions, answers }: { questions: QuizQuestion[]; answers: Record<string, string> }) {
-  const estimate = useMemo(() => estimateMarking(questions, answers), [questions, answers]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
+export function Marking() {
   return (
-    <Panel title="AI is reviewing your answers..." subtitle={markingMessage(estimate, elapsedSeconds)}>
+    <Panel title="AI is reviewing your answers..." subtitle="Please bear with us—this can take a few minutes depending on the length of your answers">
       <div className="marking-orb mx-auto flex h-32 w-32 items-center justify-center rounded-lg border-[10px] border-sky-50 bg-[#082b63] text-4xl font-black text-white shadow-2xl shadow-sky-100">
         AI
       </div>
@@ -99,7 +89,6 @@ export function Results({
               : "Keep building. Review the model explanations, focus on missed topics, and retry similar questions after studying.")}
         </div>
       </div>
-      <WhatsAppCommunityCard />
       <form
         className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
         onSubmit={(event) => {
@@ -205,7 +194,28 @@ export function Details({
         <div className="mt-5 font-bold text-slate-900">
           <MathContent>{question.prompt}</MathContent>
         </div>
-        {question.answerTable && question.userAnswer ? (
+        {question.parts?.length ? (
+          <div className="mt-5 space-y-4">
+            {question.parts.map((part) => {
+              const result = question.partResults?.find((item) => item.label === part.label);
+              return (
+                <section key={part.label} className="rounded-lg border border-slate-200 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="font-black text-slate-900">Part ({part.label})</h3>
+                    <strong className="text-sm text-emerald-700">{result?.awarded ?? 0}/{part.marks} marks</strong>
+                  </div>
+                  <MathContent>{part.prompt}</MathContent>
+                  {part.answerTable && result?.answer ? <TableBlock label="Your Table" table={part.answerTable} cells={parseTableAnswer(part.answerTable, result.answer).cells} /> : null}
+                  <ResultBlock label="Your Answer" text={result?.answer ? (part.answerTable ? parseTableAnswer(part.answerTable, result.answer).text || "See table above." : result.answer) : "No answer submitted."} />
+                  <ResultBlock label="Model Answer" text={part.answer} />
+                  {part.answerTable?.solution && <TableBlock label="Correct Table" table={part.answerTable} cells={part.answerTable.solution} />}
+                  {result && <ResultBlock label={feedbackLabel(result.feedbackSource)} text={result.aiFeedback} />}
+                  {part.explanation && <ResultBlock label="Explanation" text={part.explanation} />}
+                </section>
+              );
+            })}
+          </div>
+        ) : question.answerTable && question.userAnswer ? (
           <>
             <TableBlock label="Your Table" table={question.answerTable} cells={parseTableAnswer(question.answerTable, question.userAnswer).cells} />
             {parseTableAnswer(question.answerTable, question.userAnswer).text.trim() && (
@@ -215,9 +225,9 @@ export function Details({
         ) : (
           <ResultBlock label="Your Answer" text={question.userAnswer ? describeAnswer(question, question.userAnswer) : "No answer submitted."} />
         )}
-        <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />
+        {!question.parts?.length && <ResultBlock label={question.type === "multiple" ? "Correct Answers" : "Model Answer"} text={describeAnswer(question, question.answer)} />}
         {question.answerTable?.solution && <TableBlock label="Correct Table" table={question.answerTable} cells={question.answerTable.solution} />}
-        {question.userAnswer && (
+        {question.userAnswer && !question.parts?.length && (
           <ResultBlock
             icon={question.feedbackSource === "ai" ? <Sparkles aria-hidden="true" className="text-[var(--brand-green)]" size={14} /> : undefined}
             label={feedbackLabel(question.feedbackSource)}

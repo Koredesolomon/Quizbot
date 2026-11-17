@@ -1,4 +1,4 @@
-import type { Question, QuizQuestion } from "@/types/platform";
+import type { PartResult, Question, QuizQuestion } from "@/types/platform";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -44,6 +44,7 @@ export type ApiAttempt = {
 };
 
 export type ApiMarkedAnswer = {
+  partResults?: PartResult[];
   id: string;
   attemptId: string;
   questionId: string;

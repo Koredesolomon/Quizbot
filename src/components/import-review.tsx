@@ -133,7 +133,15 @@ export function ImportReview({ fileName, result, busy = false, busyLabel = "Impo
               </div>
               <div className="mt-3 text-sm font-semibold text-[#10243f]"><MathContent>{question.prompt}</MathContent></div>
               {question.imageUrl && <div className="mt-2"><ImagePreview src={question.imageUrl} /></div>}
-              {question.type !== "theory" ? (
+              {question.parts?.length ? (
+                <div className="mt-3 space-y-3">
+                  {question.parts.map((part) => <section key={part.label} className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                    <strong>Part ({part.label}) — {part.marks} marks</strong>
+                    <MathContent>{part.prompt}</MathContent>
+                    <p className="mt-2 text-xs font-bold uppercase">Model answer</p><MathContent>{part.answer}</MathContent>
+                  </section>)}
+                </div>
+              ) : question.type !== "theory" ? (
                 <ul className="mt-3 grid gap-1.5 text-sm">
                   {question.options?.map((option, optionIndex) => {
                     const isCorrect = correct.includes(optionIndex);

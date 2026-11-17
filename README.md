@@ -90,6 +90,26 @@ Question uploads can include AI engine metadata:
 
 ## Student Attempts
 
+Theory questions can have separately marked parts `(a)`, `(b)`, `(c)`, each with its own model answer and mark allocation.
+In **Add/Edit Question**, choose **Theory**, enable **Separate parts**, then enter the prompt, answer, marks and optional
+grading guidance for each part. The total is calculated from the part marks. Students receive separate answer boxes;
+results show the score and feedback for every part. Unanswered parts earn zero.
+
+For Word, Excel and CSV uploads, label both the question parts and model answers. Put the marks on each question part:
+
+```text
+1. A cyclist travels at a constant speed.
+(a) Calculate the distance travelled. [2 marks]
+(b) Calculate the time taken. [5 marks]
+Answer: (a) 10 m
+(b) 5 s
+```
+
+In spreadsheets, put the labelled question lines in the Question cell and the labelled answers in the Answer cell;
+set Type to `theory`. A supplied total must match the part marks. Missing allocations or model answers are reported
+before importing. Existing questions need to be edited to configure their parts, or uploaded again with this format;
+previously started attempts retain their original question snapshot. Deploy the frontend and backend together.
+
 Students must register or sign in before starting any test. When questions are loaded from the backend, their attempts,
 answers, scores, and feedback are persisted through the backend and become visible in the admin dashboard.
 Password sign-in accepts either the account email address or username.

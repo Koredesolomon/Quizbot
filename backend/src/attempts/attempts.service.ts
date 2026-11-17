@@ -4,7 +4,8 @@ import { Model, Types } from "mongoose";
 import { resolveAnswerIndices, selectedOptionIndices, splitChoiceAnswer } from "../questions/answer-key";
 import { QuestionsService } from "../questions/questions.service";
 import type { QuestionDocument } from "../questions/question.schema";
-import type { AnswerDocument } from "./answer.schema";
+import type { AnswerDocument, PartResult } from "./answer.schema";
+import { parsePartAnswers } from "../grading/part-answers";
 import { randomUUID } from "node:crypto";
 import { ContentService } from "../content/content.service";
 import { Attempt, AttemptDocument } from "./attempt.schema";
@@ -179,6 +180,8 @@ export class AttemptsService {
   private async markAnswer(attemptId: string, question: QuestionDocument, answer: string) {
     const response = answer.trim();
 
+    if (question.parts?.length) return this.markParts(attemptId, question, response);
+
     if (!response) {
       return this.answerRecord(attemptId, question, response, 0, false, "No response was submitted.", "auto");
     }
@@ -212,6 +215,42 @@ export class AttemptsService {
     const review = await this.aiMarker.reviewTheoryAnswer(question, response, fallback);
 
     return this.answerRecord(attemptId, question, response, review.awarded, review.correct, review.aiFeedback, review.source ?? "auto");
+  }
+
+  private async markParts(attemptId: string, question: QuestionDocument, response: string) {
+    const parts = question.parts!;
+    const answers = parsePartAnswers(response, parts.map((part) => part.label));
+    const partResults: PartResult[] = await Promise.all(parts.map(async (part) => {
+      // Keep shared context but use only this part's key, rubric and allocated marks.
+      const data = {
+        ...question.toObject(),
+        ...part,
+        prompt: `${question.prompt}\n\nPart (${part.label}): ${part.prompt}`,
+        parts: undefined,
+        answerType: part.answerType,
+        answerTable: part.answerTable,
+        explanation: part.explanation ?? "",
+        referenceSolution: part.referenceSolution,
+        keywords: part.keywords,
+        rubricPoints: part.rubricPoints,
+        commonMistakes: part.commonMistakes,
+      };
+      const partQuestion = question.$clone();
+      partQuestion.set(data);
+      const result = await this.markAnswer(attemptId, partQuestion, answers[part.label] ?? "");
+      return {
+        label: part.label, answer: result.answer, marks: part.marks,
+        awarded: Math.min(part.marks, Math.max(0, result.awarded)), correct: result.correct,
+        aiFeedback: result.aiFeedback, feedbackSource: result.feedbackSource,
+      };
+    }));
+    const awarded = partResults.reduce((sum, part) => sum + part.awarded, 0);
+    const sources = new Set(partResults.map((part) => part.feedbackSource));
+    const source = sources.has("keyword") ? "keyword" : sources.has("ai") ? "ai" : "auto";
+    const normalizedAnswer = partResults.some((part) => part.answer.trim())
+      ? JSON.stringify({ kind: "question-parts", answers: Object.fromEntries(partResults.map((part) => [part.label, part.answer])) }) : "";
+    return this.answerRecord(attemptId, question, normalizedAnswer, awarded, partResults.every((part) => part.correct),
+      partResults.map((part) => `(${part.label}) ${part.awarded}/${part.marks} marks: ${part.aiFeedback}`).join("\n"), source, partResults);
   }
 
   /**
@@ -443,7 +482,8 @@ export class AttemptsService {
     awarded: number,
     correct: boolean,
     aiFeedback: string,
-    feedbackSource: FeedbackSource
+    feedbackSource: FeedbackSource,
+    partResults?: PartResult[]
   ) {
     return {
       attemptId: new Types.ObjectId(attemptId),
@@ -454,6 +494,7 @@ export class AttemptsService {
       correct,
       aiFeedback,
       feedbackSource,
+      partResults,
     };
   }
 
@@ -495,6 +536,7 @@ export class AttemptsService {
       correct: answer.correct,
       aiFeedback: answer.aiFeedback,
       feedbackSource: answer.feedbackSource,
+      partResults: answer.partResults,
       createdAt: answer.createdAt.toISOString(),
     };
   }
@@ -517,6 +559,7 @@ export class AttemptsService {
       correct: answer.correct,
       aiFeedback: answer.aiFeedback,
       feedbackSource: answer.feedbackSource,
+      partResults: answer.partResults,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -526,7 +569,7 @@ export class AttemptsService {
    * One question as the end-of-test review sees it. A small model reads this slowly, so it stays short: the full
    * model answer and explanation are only included where the student lost marks, and long text is cut.
    */
-  private reviewEntry(answer: { question: QuestionDocument; answer: string; awarded: number; correct: boolean }) {
+  private reviewEntry(answer: { question: QuestionDocument; answer: string; awarded: number; correct: boolean; partResults?: PartResult[] }) {
     const shorten = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
     const answered = answer.answer.length > 0;
     const missedMarks = answered && answer.awarded < answer.question.marks;
@@ -534,7 +577,9 @@ export class AttemptsService {
     return {
       topic: answer.question.topic,
       prompt: shorten(answer.question.prompt, 160),
-      studentAnswer: answered ? shorten(answer.answer, 240) : "(no answer)",
+      studentAnswer: answer.partResults?.length
+        ? answer.partResults.map((part) => `(${part.label}) ${part.awarded}/${part.marks}: ${shorten(part.answer, 100) || "(no answer)"}`).join("\n")
+        : answered ? shorten(answer.answer, 240) : "(no answer)",
       awarded: answer.awarded,
       marks: answer.question.marks,
       correct: answer.correct,

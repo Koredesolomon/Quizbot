@@ -117,6 +117,15 @@ test('incomplete or active responses cannot render as completed results', () => 
   assert.throws(() => markedAttemptQuestions(active), /saved completed result/);
 });
 
+test('saved part scores and feedback reach detailed results, while incomplete part results reject', () => {
+  const saved = result();
+  saved.questions[0].parts = [{ label: 'a', prompt: 'First part', answer: 'A', marks: 1 }, { label: 'b', prompt: 'Second part', answer: 'B', marks: 1 }];
+  saved.answers[0].partResults = [{ label: 'a', answer: 'A', marks: 1, awarded: 1, correct: true, aiFeedback: 'Correct', feedbackSource: 'auto' }, { label: 'b', answer: '', marks: 1, awarded: 0, correct: false, aiFeedback: 'No response', feedbackSource: 'auto' }];
+  assert.deepEqual(markedAttemptQuestions(saved)[0].partResults, saved.answers[0].partResults);
+  saved.answers[0].partResults.pop();
+  assert.throws(() => markedAttemptQuestions(saved), /part results are incomplete/);
+});
+
 test('a submission still being marked is polled until the saved result is ready', async (context) => {
   let polls = 0;
   const calls = mockFetch(context, (call) => {

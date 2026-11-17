@@ -8,6 +8,8 @@ const { AttemptSchema } = require('../dist/attempts/attempt.schema.js');
 const { QuestionSchema } = require('../dist/questions/question.schema.js');
 const { QuestionsService } = require('../dist/questions/questions.service.js');
 const { questionImageExtension } = require('../dist/questions/question-images.controller.js');
+const { ValidationPipe } = require('@nestjs/common');
+const { CreateQuestionDto } = require('../dist/questions/dto.js');
 const { Types } = mongoose;
 const AttemptModel = mongoose.model('QuestionTypeAttemptFixture', AttemptSchema);
 const QuestionModel = mongoose.model('QuestionTypeQuestionFixture', QuestionSchema);
@@ -39,6 +41,10 @@ async function mark(question, answer, reviewer) {
   const service = new AttemptsService(model, questions, marker, { async findPublishedQuiz() { return { courseId: 'course', quizId }; } });
   const started = await service.start(studentId, quizId);
   const result = await service.submit(started.attempt.id, studentId, [{ questionId: stored.id, answer }]);
+  if (question.parts) {
+    const recovered = await service.result(started.attempt.id, studentId);
+    assert.deepEqual(recovered.answers, result.answers, 'part marks and feedback must survive result recovery');
+  }
   return result.answers[0];
 }
 
@@ -193,4 +199,78 @@ test('marks for the table cannot exceed the question marks', () => {
   service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 4 } });
   service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 1 } });
   assert.throws(() => service.validateQuestion({ ...base, answerTable: { ...grid, tableMarks: 5 } }), /marks for the table/);
+});
+
+const multipart = {
+  type: 'theory', topic: 'Motion', prompt: 'A cyclist travels at a constant speed.', answer: '(a) 10\n(b) 5\n(c) Constant velocity', marks: 10,
+  parts: [
+    { label: 'a', prompt: 'Find the distance.', answer: '10', answerType: 'numeric', marks: 2 },
+    { label: 'b', prompt: 'Find the time.', answer: '5', answerType: 'numeric', marks: 5 },
+    { label: 'c', prompt: 'Describe the motion.', answer: 'Constant velocity', keywords: ['constant', 'velocity'], marks: 3 },
+  ],
+};
+const partAnswers = (answers) => JSON.stringify({ kind: 'question-parts', answers });
+
+test('each part earns its own unequal mark allocation, with no credit transferred between parts', async () => {
+  const mixed = await mark(multipart, partAnswers({ a: '10', b: '9', c: 'Constant velocity' }));
+  assert.equal(mixed.awarded, 5);
+  assert.deepEqual(mixed.partResults.map((part) => [part.label, part.awarded, part.marks]), [['a', 2, 2], ['b', 0, 5], ['c', 3, 3]]);
+  assert.deepEqual(mixed.partResults.map((part) => part.answer), ['10', '9', 'Constant velocity']);
+  assert.match(mixed.aiFeedback, /\(b\) 0\/5 marks/);
+  assert.equal((await mark(multipart, partAnswers({ a: '10', b: '5', c: 'Constant velocity' }))).awarded, 10);
+});
+
+test('blank parts get zero and feedback without being sent to the AI, including entirely unanswered questions', async () => {
+  const onlyA = await mark(multipart, partAnswers({ a: '10' }), neverAi);
+  assert.equal(onlyA.awarded, 2);
+  assert.deepEqual(onlyA.partResults.map((part) => part.awarded), [2, 0, 0]);
+  assert.match(onlyA.partResults[1].aiFeedback, /No response/);
+  const empty = await mark(multipart, '', neverAi);
+  assert.deepEqual(empty.partResults.map((part) => part.awarded), [0, 0, 0]);
+});
+
+test('AI grading sees only each part key, rubric and marks alongside the common context', async () => {
+  const seen = [];
+  const question = { ...multipart, keywords: ['PARENT_KEYWORD'], rubricPoints: ['PARENT_RUBRIC'], referenceSolution: 'PARENT_SOLUTION' };
+  question.parts = [
+    { label: 'a', prompt: 'Explain speed.', answer: 'Distance per time', marks: 2, rubricPoints: ['a rubric'] },
+    { label: 'b', prompt: 'Explain velocity.', answer: 'Speed with direction', marks: 8, keywords: ['direction'] },
+  ];
+  const result = await mark(question, partAnswers({ a: 'First response', b: 'Second response' }), (part, response) => {
+    seen.push({ answer: part.answer, marks: part.marks, keywords: part.keywords, rubricPoints: part.rubricPoints, referenceSolution: part.referenceSolution, response, prompt: part.prompt });
+    return { awarded: part.marks === 2 ? 1 : 6, correct: false, aiFeedback: 'Individual feedback', source: 'ai' };
+  });
+  assert.equal(result.awarded, 7);
+  assert.equal(seen.length, 2);
+  assert.deepEqual(seen.map((part) => [part.answer, part.marks, part.response]), [['Distance per time', 2, 'First response'], ['Speed with direction', 8, 'Second response']]);
+  assert.ok(seen.every((part) => part.referenceSolution === undefined && part.prompt.includes('A cyclist travels')));
+  assert.deepEqual(seen[0].rubricPoints, ['a rubric']);
+  assert.equal(seen[0].keywords, undefined);
+  assert.deepEqual(seen[1].keywords, ['direction']);
+  assert.equal(seen[1].rubricPoints, undefined);
+});
+
+test('malformed part answers and invented labels are rejected rather than graded as one answer', async () => {
+  for (const response of ['10 5 Constant velocity', partAnswers({ a: '10', z: '5' }), partAnswers({ a: { awarded: 10 } }), '{"kind":"question-parts","answers":[]}']) {
+    await assert.rejects(mark(multipart, response), /answer|Answer/);
+  }
+});
+
+test('question part allocations are validated and their private grading fields never enter public prompts', async () => {
+  const service = new QuestionsService({});
+  service.validateQuestion(multipart);
+  assert.throws(() => service.validateQuestion({ ...multipart, marks: 11 }), /sum of its part marks/);
+  assert.throws(() => service.validateQuestion({ ...multipart, type: 'objective' }), /Only theory/);
+  assert.throws(() => service.validateQuestion({ ...multipart, parts: [multipart.parts[0]] }), /between 2 and 12/);
+  assert.throws(() => service.validateQuestion({ ...multipart, parts: multipart.parts.map((part) => ({ ...part, marks: 1.5 })) }), /positive whole/);
+  assert.throws(() => service.validateQuestion({ ...multipart, parts: multipart.parts.map((part) => ({ ...part, label: 'a' })) }), /Label question parts/);
+  const stored = new QuestionModel({ ...multipart, createdBy: new Types.ObjectId(), createdAt: new Date() });
+  const publicQuestion = service.publicPrompt(stored);
+  assert.deepEqual(publicQuestion.parts.map((part) => Object.keys(part).filter((key) => part[key] !== undefined)), [['label', 'prompt', 'marks'], ['label', 'prompt', 'marks'], ['label', 'prompt', 'marks']]);
+  assert.equal(service.publicQuestion(stored).parts[1].answer, '5');
+  const pipe = new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true });
+  const validate = (input) => pipe.transform(input, { type: 'body', metatype: CreateQuestionDto });
+  assert.equal((await validate(multipart)).parts[1].marks, 5);
+  await assert.rejects(validate({ ...multipart, parts: [{ ...multipart.parts[0], awarded: 99 }] }));
+  await assert.rejects(validate({ ...multipart, parts: [{ ...multipart.parts[0], marks: -1 }] }));
 });

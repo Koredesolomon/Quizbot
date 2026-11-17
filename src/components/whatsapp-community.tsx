@@ -15,9 +15,9 @@ const dots = [
   { top: "84%", left: "58%", label: "B", color: "bg-[#06479b]", hideOnMobile: true },
 ];
 
-export function WhatsAppCommunityCard() {
+export function WhatsAppCommunityCard({ compact = false }: { compact?: boolean }) {
   return (
-    <section className="relative mt-6 overflow-hidden rounded-xl bg-[#082b63] px-6 py-16 text-center shadow-xl shadow-sky-100 sm:py-20">
+    <section className={`relative mt-6 overflow-hidden rounded-xl bg-[#082b63] text-center ${compact ? "px-5 py-6" : "px-6 py-16 shadow-xl shadow-sky-100 sm:py-20"}`}>
       <svg
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 h-full w-full"
@@ -33,7 +33,7 @@ export function WhatsAppCommunityCard() {
         <path d="M1000 420 L800 330 A80 80 0 0 0 700 400 L600 470" stroke="#0b9230" strokeOpacity="0.7" />
       </svg>
 
-      {dots.map((dot) => (
+      {!compact && dots.map((dot) => (
         <span
           aria-hidden="true"
           className={`absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#082b63] text-xs font-black text-white ring-2 ring-white/20 sm:h-11 sm:w-11 sm:text-sm ${dot.color} ${dot.hideOnMobile ? "hidden sm:flex" : "flex"}`}
@@ -46,18 +46,18 @@ export function WhatsAppCommunityCard() {
 
       <div className="relative mx-auto max-w-xl">
         <p className="text-sm font-bold text-emerald-300">Join our student community</p>
-        <h3 className="mt-4 text-3xl font-black leading-tight text-white sm:text-4xl">Ready to learn together?</h3>
-        <p className="mx-auto mt-5 max-w-md text-sm font-semibold leading-6 text-sky-100">
-          Connect with other students on WhatsApp, get updates and share study tips after every quiz.
+        <h3 className={`${compact ? "mt-2 text-2xl" : "mt-4 text-3xl sm:text-4xl"} font-black leading-tight text-white`}>Ready to learn together?</h3>
+        <p className={`mx-auto ${compact ? "mt-3" : "mt-5"} max-w-md text-sm font-semibold leading-6 text-sky-100`}>
+          A little support goes a long way. Connect with fellow students on WhatsApp for study tips, helpful updates and encouragement.
         </p>
         <a
-          className="mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-emerald-300 px-7 text-sm font-black text-[#082b63] transition hover:bg-emerald-200"
+          className={`${compact ? "mt-5 w-full justify-center" : "mt-8"} inline-flex min-h-12 items-center gap-2 rounded-lg bg-emerald-300 px-7 py-3 text-sm font-black text-[#082b63] transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300`}
           href={WHATSAPP_COMMUNITY_URL}
           rel="noopener noreferrer"
           target="_blank"
         >
           <MessageCircle aria-hidden="true" size={18} />
-          Join WhatsApp Group
+          Join Community
         </a>
       </div>
     </section>

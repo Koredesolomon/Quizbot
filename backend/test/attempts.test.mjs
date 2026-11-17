@@ -97,6 +97,24 @@ test('starting a quiz snapshots its questions and total without exposing answers
   assert.equal(f.records.get(started.attempt.id).questionSnapshots.length, 2);
 });
 
+test('part allocations and keys stay frozen for active attempts, even when an admin changes the source', async () => {
+  const f = fixture();
+  f.questions.splice(1);
+  const question = f.questions[0];
+  question.set({ type: 'theory', prompt: 'Shared context', marks: 7, answer: '(a) 10\n(b) 5', options: undefined,
+    parts: [{ label: 'a', prompt: 'Distance', answer: '10', answerType: 'numeric', marks: 2 }, { label: 'b', prompt: 'Time', answer: '5', answerType: 'numeric', marks: 5 }] });
+  const { attempt, questions } = await f.start();
+  assert.equal(attempt.totalMarks, 7);
+  assert.equal(questions[0].parts[0].answer, undefined);
+  question.set({ marks: 100, parts: [{ label: 'a', prompt: 'Changed', answer: '999', marks: 100 }] });
+  const result = await f.service.submit(attempt.id, f.studentId, [{ questionId: question.id, answer: JSON.stringify({ kind: 'question-parts', answers: { a: '10', b: '5' } }) }]);
+  assert.equal(result.attempt.score, 7);
+  assert.equal(result.attempt.totalMarks, 7);
+  assert.deepEqual(result.answers[0].partResults.map((part) => [part.awarded, part.marks]), [[2, 2], [5, 5]]);
+  const recovered = await f.service.result(attempt.id, f.studentId);
+  assert.deepEqual(recovered.answers[0].partResults, result.answers[0].partResults);
+});
+
 test('unanswered questions count as zero in the full quiz total and completed review', async () => {
   const f = fixture();
   let review;

@@ -1,5 +1,5 @@
 import { FileText, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   dedupeAttachments,
   formatBytes,
@@ -7,11 +7,13 @@ import {
   serializeAnswerValue,
 } from "@/lib/answer-attachments";
 import { parseTableAnswer, serializeTableAnswer, type AnswerTable } from "@/lib/answer-table";
+import { parsePartAnswers, serializePartAnswers } from "@/lib/part-answers";
 import { joinChoiceAnswer, optionLetter, parseSelectedLetters, splitChoiceAnswer, toggleSelectedLetter } from "@/lib/question-answers";
 import type { QuizQuestion } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { MathTextEditor } from "./math-text-editor";
 import { BackButton, PrimaryButton, SecondaryButton } from "./ui";
+import { WhatsAppCommunityCard } from "./whatsapp-community";
 
 export function TestInterface({
   questions,
@@ -117,7 +119,26 @@ export function TestInterface({
               </span>
             </div>
 
-            {question.type === "multiple" ? (
+            {question.parts?.length ? (
+              <div className="mt-6 space-y-6">
+                <p className="text-sm font-medium text-slate-500">Answer each part below. Each part is marked separately.</p>
+                {question.parts.map((part) => {
+                  const partAnswers = parsePartAnswers(answers[question.id] ?? "");
+                  const update = (value: string) => onAnswer(question.id, serializePartAnswers({ ...partAnswers, [part.label]: value }));
+                  return (
+                    <section key={part.label} aria-label={`Part ${part.label}`} className="rounded-lg border border-slate-200 p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <h3 className="font-bold text-slate-900">Part ({part.label})</h3>
+                        <span className="shrink-0 text-xs font-bold text-emerald-700">{part.marks} mark{part.marks === 1 ? "" : "s"}</span>
+                      </div>
+                      <MathContent>{part.prompt}</MathContent>
+                      {part.answerTable ? <TableAnswer table={part.answerTable} questionId={`${question.id}-${part.label}`} value={partAnswers[part.label] ?? ""} onChange={update} />
+                        : <WordAnswerBox questionId={`${question.id}-${part.label}`} placeholder={`Write your answer to part (${part.label})`} value={partAnswers[part.label] ?? ""} onChange={update} />}
+                    </section>
+                  );
+                })}
+              </div>
+            ) : question.type === "multiple" ? (
               <fieldset className="mt-6 space-y-3">
                 <legend className="mb-3 text-sm font-bold text-emerald-700">Select all that apply.</legend>
                 {question.options?.map((option, index) => {
@@ -203,7 +224,7 @@ export function TestInterface({
               </SecondaryButton>
               {currentQuestion === questions.length - 1 ? (
                 <PrimaryButton type="button" onClick={requestSubmit}>
-                  Submit Test
+                  Submit Quiz
                 </PrimaryButton>
               ) : (
                 <PrimaryButton type="button" onClick={() => onCurrentQuestion(currentQuestion + 1)}>
@@ -242,46 +263,72 @@ function SubmitConfirmModal({
   onConfirm: () => void;
 }) {
   const allAnswered = unansweredCount === 0;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    dialog?.showModal();
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   return (
-    <div className="modal-backdrop-enter absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-[1px]">
-      <div
-        aria-modal="true"
-        className="modal-card-enter w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/25"
-        role="dialog"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-black text-slate-950">Ready to submit?</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {allAnswered
-                ? "All questions answered. Submit your quiz?"
-                : `${unansweredCount} of ${totalQuestions} questions unanswered. Submit your quiz?`}
-            </p>
-          </div>
-          <button
-            aria-label="Close submit confirmation"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={18} />
-          </button>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="submit-quiz-title"
+      aria-describedby="submit-quiz-description"
+      className="modal-card-enter fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/25 backdrop:bg-slate-950/70 backdrop:backdrop-blur-[1px] sm:p-6"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 id="submit-quiz-title" className="text-xl font-black text-slate-950">Before you submit</h2>
+          <p id="submit-quiz-description" className="mt-2 text-sm font-medium leading-6 text-slate-500">
+            Keep the learning going with a little help from our student community.
+          </p>
         </div>
-
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-          <PrimaryButton className="min-h-10 px-5 py-2 text-sm" type="button" onClick={onConfirm}>
-            Submit anyway
-          </PrimaryButton>
-          <SecondaryButton className="min-h-10 border-0 px-4 py-2 text-sm shadow-none" type="button" onClick={onClose}>
-            Review
-          </SecondaryButton>
-        </div>
-        <p className="mt-4 text-xs font-bold text-slate-500">
-          Answered {answeredCount}/{totalQuestions}
-        </p>
+        <button
+          autoFocus
+          aria-label="Close submit confirmation"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+          type="button"
+          onClick={onClose}
+        >
+          <X aria-hidden="true" size={18} />
+        </button>
       </div>
-    </div>
+
+      <WhatsAppCommunityCard compact />
+      <p className="mt-3 text-center text-xs font-medium leading-5 text-slate-500">
+        WhatsApp opens in a new tab, and your answers stay here. Come back when you’re ready to submit. Already a member? Continue below.
+      </p>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <p className="text-sm font-semibold text-slate-700">
+          {allAnswered
+            ? `All ${totalQuestions} questions answered. Ready to submit?`
+            : `${unansweredCount} of ${totalQuestions} questions unanswered. You can review them before submitting.`}
+        </p>
+        <p className="mt-1 text-xs font-medium text-slate-500">Answered {answeredCount}/{totalQuestions}</p>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+        <SecondaryButton className="min-h-10 border-0 px-4 py-2 text-sm shadow-none" type="button" onClick={onClose}>
+          Review answers
+        </SecondaryButton>
+        <PrimaryButton className="min-h-10 px-5 py-2 text-sm" type="button" onClick={onConfirm}>
+          {allAnswered ? "Submit quiz" : "Submit anyway"}
+        </PrimaryButton>
+      </div>
+    </dialog>
   );
 }
 

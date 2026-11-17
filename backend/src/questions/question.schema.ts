@@ -9,6 +9,19 @@ export type SolutionStatus = "pending" | "verified" | "needs_review";
 export type AnswerTable = import("../grading/answer-table").AnswerTable;
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionDocument = HydratedDocument<Question>;
+export type QuestionPart = {
+  label: string;
+  prompt: string;
+  answer: string;
+  marks: number;
+  explanation?: string;
+  answerType?: AnswerType;
+  answerTable?: AnswerTable;
+  keywords?: string[];
+  rubricPoints?: string[];
+  commonMistakes?: string[];
+  referenceSolution?: string;
+};
 
 @Schema({ timestamps: true })
 export class Question {
@@ -59,6 +72,10 @@ export class Question {
   /** Theory only: a table the student fills in. With correct cells, the cells are marked exactly by code; otherwise the AI marks the table with the written answer. */
   @Prop({ type: Object })
   answerTable?: AnswerTable;
+
+  /** Theory subquestions, each with its own answer key and mark allocation. */
+  @Prop({ type: [Object], default: undefined })
+  parts?: QuestionPart[];
 
   /** Worked solution the AI explains against and students see after submitting. */
   @Prop({ trim: true })

@@ -6,6 +6,8 @@ import { defaultTableCorner, tableCornerSymbols } from "@/lib/answer-table";
 import type { CourseContent } from "@/lib/api";
 import { defaultMarks, formatAnswerLetters, isChoiceType, optionLetter, questionTypeLabels, resolveAnswerIndices } from "@/lib/question-answers";
 import { questionInput, quizQuestionContexts, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
+import { extractQuestionParts, labelledParts, partModelAnswer } from "@/lib/question-parts";
+import { QuestionPartsEditor } from "./question-parts-editor";
 import type { Question } from "@/types/platform";
 import { MathContent } from "./math-content";
 import { MathTextEditor } from "./math-text-editor";
@@ -29,6 +31,8 @@ function initialForm(question?: Question, subject = "Physics", context?: QuizQue
     imageUrl: question?.imageUrl ?? "",
     options,
     answerBox: Boolean(question?.answerBox),
+    partsOn: Boolean(question?.parts?.length),
+    parts: question?.parts ?? [],
     answer: question?.type === "theory" || question?.type === "multiple" ? answer : selectedAnswer,
     // Correct option indices for MCQ (multiple answers) questions.
     correct: question?.type === "multiple" ? resolveAnswerIndices(answer, options) ?? [] : [] as number[],
@@ -81,6 +85,8 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
   const busyRef = useRef(false);
   const target = context ?? quizChoices.find((choice) => choice.quizId === targetQuizId);
   const busy = saving || readingImage;
+  const withParts = form.type === "theory" && form.partsOn;
+  const totalMarks = withParts ? form.parts.reduce((sum, part) => sum + part.marks, 0) : Number(form.marks);
   const change = <K extends keyof typeof form>(key: K, value: typeof form[K]) => setForm((current) => ({ ...current, [key]: value }));
   const lines = (value: string) => value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
@@ -89,12 +95,16 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
     setError("");
     setNotice("");
     const choice = isChoiceType(form.type);
-    const answer = form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer.trim();
+    const answer = withParts ? partModelAnswer(form.parts) : form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer.trim();
     if (![form.topic, form.prompt, answer].every((value) => value.trim())) {
       setError(form.type === "multiple" ? "Complete the topic and question, and tick at least one correct answer." : "Complete the topic, question, and answer.");
       return;
     }
-    const marks = Number(form.marks);
+    const marks = totalMarks;
+    if (withParts && (form.parts.length < 2 || form.parts.some((part) => !part.prompt.trim() || !part.answer.trim() || !Number.isInteger(part.marks) || part.marks < 1))) {
+      setError("Complete every part's question, model answer and positive whole-number marks.");
+      return;
+    }
     if (!Number.isInteger(marks) || marks < 1) {
       setError("Marks must be a positive whole number.");
       return;
@@ -110,7 +120,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
     }
     const tableColumns = headings(form.tableColumns);
     const tableRows = headings(form.tableRows);
-    const withTable = form.type === "theory" && form.tableOn;
+    const withTable = form.type === "theory" && form.tableOn && !withParts;
     if (withTable && (!tableColumns.length || !tableRows.length || tableColumns.length > 12 || tableRows.length > 20)) {
       setError("Enter at least one column heading and one row heading (up to 12 columns and 20 rows).");
       return;
@@ -138,6 +148,8 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
         imageUrl: form.imageUrl.trim(),
         options: choice ? options : [],
         answerBox: choice && form.answerBox ? true : undefined,
+        parts: withParts ? form.parts.map((part) => ({ ...part, prompt: part.prompt.trim(), answer: part.answer.trim(), keywords: part.keywords?.filter((word) => word.trim()) })) : [],
+        answerType: withParts ? undefined : question?.answerType,
         answer,
         explanation: form.explanation.trim(),
         marks,
@@ -222,7 +234,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-bold">Topic<input required className={control} value={form.topic} onChange={(event) => change("topic", event.target.value)} /></label>
-          <label className="grid gap-1.5 text-sm font-bold">Marks<input required type="number" min="1" step="1" className={control} value={form.marks} onChange={(event) => { setMarksTouched(true); change("marks", event.target.value); }} /></label>
+          <label className="grid gap-1.5 text-sm font-bold">{withParts ? "Total marks (sum of parts)" : "Marks"}<input required readOnly={withParts} type="number" min="1" step="1" className={control} value={withParts ? totalMarks : form.marks} onChange={(event) => { setMarksTouched(true); change("marks", event.target.value); }} /></label>
           <label className="grid gap-1.5 text-sm font-bold">Difficulty<select className={control} value={form.difficulty} onChange={(event) => change("difficulty", event.target.value as typeof form.difficulty)}>
             <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
           </select></label>
@@ -266,7 +278,24 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
           </div>
           {imageError && <p role="alert" className="text-sm font-bold text-rose-700">{imageError}</p>}
         </section>
-        {isChoiceType(form.type) ? <>
+        {form.type === "theory" && <label className="flex items-start gap-3 rounded-md border border-[#d5e2f0] bg-[#f8fbff] p-3 text-sm">
+          <input type="checkbox" checked={form.partsOn} onChange={(event) => {
+            const partsOn = event.target.checked;
+            const extracted = extractQuestionParts(form.prompt, form.answer, form.explanation);
+            if (partsOn && !form.parts.length && extracted && "parts" in extracted) {
+              setForm((current) => ({ ...current, partsOn, parts: extracted.parts, prompt: extracted.prompt, tableOn: false }));
+            } else {
+              const prompts = labelledParts(form.prompt);
+              const answers = labelledParts(form.answer);
+              setForm((current) => ({ ...current, partsOn, tableOn: partsOn ? false : current.tableOn,
+                parts: current.parts.length ? current.parts : (prompts?.parts ?? [{ label: "a", text: "" }, { label: "b", text: "" }]).map((part) => ({ label: part.label, prompt: part.text, answer: answers?.parts.find((item) => item.label === part.label)?.text ?? "", marks: 0 })),
+                prompt: partsOn && prompts && !current.parts.length ? prompts.context || "Answer each part below." : current.prompt,
+              }));
+            }
+          }} />
+          <span><strong>Separate parts (a), (b), (c)</strong><span className="block text-xs text-[#5e7086]">Students answer each part separately, and each part earns its own marks.</span></span>
+        </label>}
+        {withParts ? <QuestionPartsEditor parts={form.parts} onChange={(parts) => change("parts", parts)} disabled={busy} /> : isChoiceType(form.type) ? <>
           <div className="grid gap-3 sm:grid-cols-2">{form.options.map((option, index) => <div key={index} className="flex items-end gap-2">
             <label className="grid flex-1 gap-1.5 text-sm font-bold">Option {optionLetter(index)}<input required className={control} value={option}
               onChange={(event) => {
@@ -305,12 +334,12 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
         </> : <label className="grid gap-1.5 text-sm font-bold">Model Answer<textarea required className={`${control} min-h-24`} value={form.answer} onChange={(event) => change("answer", event.target.value)} /></label>}
         <label className="grid gap-1.5 text-sm font-bold">{isChoiceType(form.type) && form.answerBox ? "Model explanation (used to mark the student's explanation)" : "Explanation / Feedback (optional)"}<textarea className={`${control} min-h-24`} value={form.explanation} onChange={(event) => change("explanation", event.target.value)} /></label>
         <label className="grid gap-1.5 text-sm font-bold">Learning Objective (optional)<input className={control} value={form.learningObjective} onChange={(event) => change("learningObjective", event.target.value)} /></label>
-        <div className="grid gap-4 sm:grid-cols-2">
+        {!withParts && <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-bold">Rubric Points (one per line)<textarea className={`${control} min-h-24`} value={form.rubricPoints} onChange={(event) => change("rubricPoints", event.target.value)} /></label>
           <label className="grid gap-1.5 text-sm font-bold">Common Mistakes (one per line)<textarea className={`${control} min-h-24`} value={form.commonMistakes} onChange={(event) => change("commonMistakes", event.target.value)} /></label>
-        </div>
-        {form.type === "theory" && <label className="grid gap-1.5 text-sm font-bold">Grading Keywords (comma separated)<input className={control} value={form.keywords} onChange={(event) => change("keywords", event.target.value)} /></label>}
-        {form.type === "theory" && (
+        </div>}
+        {form.type === "theory" && !withParts && <label className="grid gap-1.5 text-sm font-bold">Grading Keywords (comma separated)<input className={control} value={form.keywords} onChange={(event) => change("keywords", event.target.value)} /></label>}
+        {form.type === "theory" && !withParts && (
           <fieldset className="grid gap-3 rounded-md border border-[#d5e2f0] p-4">
             <label className="flex items-center gap-2 text-sm font-bold">
               <input className="h-4 w-4" type="checkbox" checked={form.tableOn} onChange={(event) => change("tableOn", event.target.checked)} />
@@ -373,7 +402,7 @@ export function QuestionEditor({ question, subject, context, courses, defaultQui
           {form.imageUrl && <ImagePreview src={form.imageUrl} />}
           {isChoiceType(form.type) && <ol className="list-inside list-[upper-alpha]">{form.options.map((option, index) => <li key={index}><MathContent>{option}</MathContent></li>)}</ol>}
           <p className="text-xs font-bold">{form.type === "theory" ? "Model answer" : form.type === "multiple" ? "Correct answers" : "Correct answer"}</p>
-          <MathContent>{form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer}</MathContent>
+          {withParts ? form.parts.map((part) => <div key={part.label} className="rounded border border-slate-200 p-3"><strong>({part.label}) — {part.marks} marks</strong><MathContent>{part.prompt}</MathContent><p className="mt-2 text-xs font-bold">Model answer</p><MathContent>{part.answer}</MathContent></div>) : <MathContent>{form.type === "multiple" ? formatAnswerLetters(form.correct) : form.answer}</MathContent>}
           <p className="text-xs font-bold">Explanation</p><MathContent>{form.explanation}</MathContent>
         </div>
       </details>

@@ -44,6 +44,56 @@ export class AnswerTableDto {
   tableMarks?: number;
 }
 
+export class QuestionPartDto {
+  @IsString()
+  @IsNotEmpty()
+  label: string;
+
+  @IsString()
+  @IsNotEmpty()
+  prompt: string;
+
+  @IsString()
+  @IsNotEmpty()
+  answer: string;
+
+  @IsInt()
+  @Min(1)
+  marks: number;
+
+  @IsOptional()
+  @IsString()
+  explanation?: string;
+
+  @IsOptional()
+  @IsIn(["numeric", "expression", "text"])
+  answerType?: "numeric" | "expression" | "text";
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AnswerTableDto)
+  answerTable?: AnswerTableDto;
+
+  @IsOptional()
+  @IsString()
+  referenceSolution?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keywords?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  rubricPoints?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  commonMistakes?: string[];
+}
+
 export class CreateQuestionDto {
   @IsIn(["objective", "multiple", "theory"])
   type: "objective" | "multiple" | "theory";
@@ -101,6 +151,13 @@ export class CreateQuestionDto {
   @ValidateNested()
   @Type(() => AnswerTableDto)
   answerTable?: AnswerTableDto | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => QuestionPartDto)
+  parts?: QuestionPartDto[];
 
   @IsOptional()
   @IsIn(["numeric", "expression", "text"])

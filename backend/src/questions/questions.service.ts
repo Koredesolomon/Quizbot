@@ -52,9 +52,11 @@ export class QuestionsService {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException("Invalid question ID.");
     const question = await this.findById(id);
     const updated = { ...question.toObject(), ...input };
+    if (input.parts?.length && input.answerType === undefined) updated.answerType = undefined;
     this.validateQuestion(updated);
 
     question.set(input);
+    if (input.parts?.length) question.answerType = undefined;
     if (updated.type === "theory") { question.options = undefined; question.answerBox = undefined; }
     if (updated.type !== "theory") question.keywords = undefined;
     await question.save();
@@ -75,6 +77,18 @@ export class QuestionsService {
   }
 
   private validateQuestion(input: CreateQuestionDto) {
+    if (input.parts?.length) {
+      if (input.type !== "theory") throw new BadRequestException("Only theory questions can have separately marked parts.");
+      if (input.parts.length < 2 || input.parts.length > 12) throw new BadRequestException("Enter between 2 and 12 question parts.");
+      if (input.answerTable || input.answerType) throw new BadRequestException("Set answer types and tables on the individual parts, not the whole question.");
+      input.parts.forEach((part, index) => {
+        if (part.label !== String.fromCharCode(97 + index)) throw new BadRequestException("Label question parts in order: a, b, c, and so on.");
+        this.validateQuestion({ ...part, type: "theory", topic: input.topic });
+      });
+      if (input.parts.reduce((total, part) => total + part.marks, 0) !== input.marks) {
+        throw new BadRequestException("The question's total marks must equal the sum of its part marks.");
+      }
+    }
     if (input.type !== "objective" && input.type !== "multiple" && input.type !== "theory") {
       throw new BadRequestException("Select a valid question type.");
     }
@@ -140,6 +154,10 @@ export class QuestionsService {
         ? { corner: question.answerTable.corner, columns: question.answerTable.columns, rows: question.answerTable.rows }
         : undefined,
       marks: question.marks,
+      parts: question.parts?.map((part) => ({
+        label: part.label, prompt: part.prompt, marks: part.marks,
+        answerTable: part.answerTable ? { corner: part.answerTable.corner, columns: part.answerTable.columns, rows: part.answerTable.rows } : undefined,
+      })),
       difficulty: question.difficulty,
       learningObjective: question.learningObjective,
     };
@@ -149,6 +167,7 @@ export class QuestionsService {
     return {
       ...this.publicPrompt(question),
       answer: question.answer,
+      parts: question.parts,
       explanation: question.explanation,
       answerTable: question.answerTable ?? undefined,
       answerType: question.answerType,

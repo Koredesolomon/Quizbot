@@ -16,6 +16,7 @@ import { findGridBlocks, gridLimits, gridsToMarkdown, removeBlock } from "@/lib/
 import { asksToCompleteTable, buildAnswerTable, tableToText } from "@/lib/import/table";
 import { readFirstSheetImages } from "@/lib/import/xlsx-images";
 import { loadZip } from "@/lib/import/zip";
+import { extractQuestionParts, partModelAnswer } from "@/lib/question-parts";
 
 type ImportOptions = {
   defaultSubject?: string;
@@ -280,9 +281,22 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
   // Choice questions that ask "Explain your answer" (or are marked so in a spreadsheet) also get an answer box.
   const answerBox = type !== "theory" && (asksForExplanation.test(prompt) || /^(?:yes|y|true|1|x)$/i.test(raw.answerBox?.trim() ?? ""));
   const marksValue = Number(raw.marks);
-  const marks = Number.isInteger(marksValue) && marksValue >= 1 ? marksValue : defaultMarks(type, answerBox);
+  let marks = Number.isInteger(marksValue) && marksValue >= 1 ? marksValue : defaultMarks(type, answerBox);
   if (raw.marks?.trim() && !(Number.isInteger(marksValue) && marksValue >= 1)) {
     warnings.push(`Marks "${raw.marks}" is not a whole number, so the default of ${marks} mark${marks === 1 ? "" : "s"} was used.`);
+  }
+
+  const split = type === "theory" ? extractQuestionParts(prompt, finalAnswer, explanation) : null;
+  if (split && "error" in split) return fail(split.error);
+  if (split && "parts" in split) {
+    if (answerTable) return fail("This question combines labelled parts and a shared fill-in table. Import the table as a separate question so its marks are explicit.");
+    const sum = split.parts.reduce((total, part) => total + part.marks, 0);
+    if (raw.marks?.trim() && Number.isInteger(marksValue) && marksValue !== sum) {
+      return fail(`The part marks add up to ${sum}, but the question total is ${marksValue}. Correct the allocations before importing.`);
+    }
+    prompt = split.prompt;
+    finalAnswer = partModelAnswer(split.parts);
+    marks = sum;
   }
 
   return {
@@ -306,6 +320,7 @@ function finalizeQuestion(raw: RawQuestion, index: number, options: ImportOption
       commonMistakes: splitList(raw.commonMistakes),
       keywords: type === "theory" ? splitList(raw.keywords) : undefined,
       answerTable,
+      parts: split && "parts" in split ? split.parts : undefined,
     },
   };
 }

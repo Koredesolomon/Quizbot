@@ -18,6 +18,29 @@ export type Screen =
 /** objective: one correct option · multiple: MCQ with one or more correct options · theory: written answer */
 export type QuestionType = "objective" | "multiple" | "theory";
 export type QuestionDifficulty = "easy" | "medium" | "hard";
+export type QuestionPart = {
+  label: string;
+  prompt: string;
+  answer: string;
+  marks: number;
+  explanation?: string;
+  answerType?: "numeric" | "expression" | "text";
+  answerTable?: AnswerTable;
+  referenceSolution?: string;
+  keywords?: string[];
+  rubricPoints?: string[];
+  commonMistakes?: string[];
+};
+export type QuizQuestionPart = Pick<QuestionPart, "label" | "prompt" | "marks"> & { answerTable?: Omit<AnswerTable, "solution"> };
+export type PartResult = {
+  label: string;
+  answer: string;
+  marks: number;
+  awarded: number;
+  correct: boolean;
+  aiFeedback: string;
+  feedbackSource: "ai" | "keyword" | "auto";
+};
 
 export type Question = {
   id: string;
@@ -35,6 +58,10 @@ export type Question = {
   answerBox?: boolean;
   /** Theory only: a table the student fills in. `solution` is only present for admins and in results. */
   answerTable?: AnswerTable | null;
+  parts?: QuestionPart[];
+  answerType?: "numeric" | "expression" | "text";
+  referenceSolution?: string;
+  solutionStatus?: "pending" | "verified" | "needs_review";
   answer: string;
   explanation: string;
   marks: number;
@@ -51,9 +78,10 @@ export type MarkedQuestion = Question & {
   correct: boolean;
   aiFeedback: string;
   feedbackSource?: "ai" | "keyword" | "auto";
+  partResults?: PartResult[];
 };
 
-export type QuizQuestion = Omit<Question, "answer" | "explanation" | "rubricPoints" | "commonMistakes" | "keywords">;
+export type QuizQuestion = Omit<Question, "answer" | "explanation" | "rubricPoints" | "commonMistakes" | "keywords" | "parts" | "referenceSolution" | "solutionStatus" | "answerType"> & { parts?: QuizQuestionPart[] };
 
 export type StudentAttempt = {
   id: string;

@@ -51,6 +51,9 @@ export function markedAttemptQuestions(response: api.SubmitAttemptResponse): Mar
   return response.questions.map((question) => {
     const marked = answers.get(question.id);
     if (!marked) throw new Error("The saved result is incomplete. Please retry your submission.");
-    return { ...question, userAnswer: marked.answer, awarded: marked.awarded, correct: marked.correct, aiFeedback: marked.aiFeedback, feedbackSource: marked.feedbackSource };
+    if (question.parts?.length && (!marked.partResults || marked.partResults.length !== question.parts.length || question.parts.some((part) => !marked.partResults?.some((result) => result.label === part.label && result.marks === part.marks)))) {
+      throw new Error("The saved part results are incomplete. Please retry your submission.");
+    }
+    return { ...question, userAnswer: marked.answer, awarded: marked.awarded, correct: marked.correct, aiFeedback: marked.aiFeedback, feedbackSource: marked.feedbackSource, partResults: marked.partResults };
   });
 }

@@ -2,6 +2,15 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 
 export type AnswerDocument = HydratedDocument<Answer>;
+export type PartResult = {
+  label: string;
+  answer: string;
+  marks: number;
+  awarded: number;
+  correct: boolean;
+  aiFeedback: string;
+  feedbackSource: "ai" | "keyword" | "auto";
+};
 
 @Schema({ timestamps: true })
 export class Answer {
@@ -25,6 +34,9 @@ export class Answer {
 
   @Prop({ enum: ["ai", "keyword", "auto"], default: "auto" })
   feedbackSource: "ai" | "keyword" | "auto";
+
+  @Prop({ type: [Object], default: undefined })
+  partResults?: PartResult[];
 
   createdAt: Date;
   updatedAt: Date;

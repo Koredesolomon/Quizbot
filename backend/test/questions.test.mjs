@@ -79,6 +79,19 @@ test('editing clears removed images and rubric fields and handles type changes',
   assert.equal(objective.quizId, 'quiz');
 });
 
+test('manual part edits preserve quiz assignment and validate the sum before saving', async () => {
+  const f = fixture();
+  const created = await f.service.create({ ...linkedQuestion(), type: 'theory', options: undefined, answer: '10', answerType: 'numeric' }, adminId);
+  const parts = [{ label: 'a', prompt: 'Distance', answer: '10', marks: 2 }, { label: 'b', prompt: 'Time', answer: '5', marks: 5 }];
+  const updated = await f.service.update(created.id, { parts, marks: 7, answer: '(a) 10\n(b) 5' });
+  assert.equal(updated.quizId, 'quiz');
+  assert.equal(updated.answerType, undefined);
+  assert.deepEqual(updated.parts, parts);
+  await assert.rejects(f.service.update(created.id, { marks: 8 }), /sum of its part marks/);
+  const withoutParts = await f.service.update(created.id, { parts: [], answer: 'A single answer', marks: 2 });
+  assert.deepEqual(withoutParts.parts, []);
+});
+
 test('partial edits validate the merged question and reject invalid choices without saving', async () => {
   const f = fixture();
   const question = await f.service.create(linkedQuestion(), adminId);

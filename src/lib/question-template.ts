@@ -117,6 +117,7 @@ export const templateTips = [
   "Label every answer with \"Answer:\". MCQ questions list every correct letter: Answer: A, C.",
   "Add \"Explain your answer\" (or \"Give a reason\") to an objective/MCQ question to give students an answer box under the options. Put the model reasoning on an \"Explanation:\" line.",
   "Marks: objective and MCQ questions are worth 1 mark, theory 2, and objective/MCQ with an explanation box 3. Write [4 marks] after a question to change it.",
+  "For theory parts, write (a), (b), (c) with marks on every part, such as (a) Define speed. [2 marks]. Under Answer:, label each model answer (a), (b), (c) too. In Excel/CSV put these labelled lines in the Question and Answer cells. Each part is marked separately; its marks contribute to the total.",
   "Optional: Explanation: …, marking points as \"1 mark: …\", and EASY / MODERATE / HARD headings.",
   "For a table students must fill in, insert a Word table under the question with a heading row and heading column and blank cells. To give the correct cells, put a second table under \"Answer:\".",
   "Use Word's Insert → Equation for formulas (not MathType), and save as .docx.",
