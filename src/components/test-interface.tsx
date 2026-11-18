@@ -264,6 +264,8 @@ function SubmitConfirmModal({
 }) {
   const allAnswered = unansweredCount === 0;
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Step 1 shows only the community banner. Joining moves on to step 2, where the quiz can be submitted.
+  const [step, setStep] = useState<"community" | "submit">("community");
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -290,13 +292,17 @@ function SubmitConfirmModal({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="submit-quiz-title" className="text-xl font-black text-slate-950">Before you submit</h2>
+          <h2 id="submit-quiz-title" className="text-xl font-black text-slate-950">
+            {step === "community" ? "Before you submit" : "Ready to submit?"}
+          </h2>
           <p id="submit-quiz-description" className="mt-2 text-sm font-medium leading-6 text-slate-500">
-            Keep the learning going with a little help from our student community.
+            {step === "community"
+              ? "Keep the learning going with a little help from our student community."
+              : "Thanks for joining the community. Check your answers, then submit your quiz."}
           </p>
         </div>
         <button
-          autoFocus
+          autoFocus={step === "community"}
           aria-label="Close submit confirmation"
           className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
           type="button"
@@ -306,28 +312,49 @@ function SubmitConfirmModal({
         </button>
       </div>
 
-      <WhatsAppCommunityCard compact />
-      <p className="mt-3 text-center text-xs font-medium leading-5 text-slate-500">
-        WhatsApp opens in a new tab, and your answers stay here. Come back when you’re ready to submit. Already a member? Continue below.
-      </p>
+      {step === "community" ? (
+        <>
+          <WhatsAppCommunityCard compact onJoin={() => setStep("submit")} />
+          <p className="mt-3 text-center text-xs font-medium leading-5 text-slate-500">
+            WhatsApp opens in a new tab. Join the community, then come back here to submit your quiz. Your answers stay saved on this page.
+          </p>
+          <p className="mt-2 text-center text-sm font-semibold text-slate-600">
+            Already joined?{" "}
+            <button
+              className="font-black text-[#06479b] underline underline-offset-2 transition hover:text-[#082b63] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#06479b]"
+              type="button"
+              onClick={() => setStep("submit")}
+            >
+              Continue
+            </button>
+          </p>
+          <div className="mt-5 flex justify-end border-t border-slate-200 pt-4">
+            <SecondaryButton className="min-h-10 border-0 px-4 py-2 text-sm shadow-none" type="button" onClick={onClose}>
+              Review answers
+            </SecondaryButton>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-700">
+              {allAnswered
+                ? `All ${totalQuestions} questions answered. Ready to submit?`
+                : `${unansweredCount} of ${totalQuestions} questions unanswered. You can review them before submitting.`}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500">Answered {answeredCount}/{totalQuestions}</p>
+          </div>
 
-      <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <p className="text-sm font-semibold text-slate-700">
-          {allAnswered
-            ? `All ${totalQuestions} questions answered. Ready to submit?`
-            : `${unansweredCount} of ${totalQuestions} questions unanswered. You can review them before submitting.`}
-        </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">Answered {answeredCount}/{totalQuestions}</p>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
-        <SecondaryButton className="min-h-10 border-0 px-4 py-2 text-sm shadow-none" type="button" onClick={onClose}>
-          Review answers
-        </SecondaryButton>
-        <PrimaryButton className="min-h-10 px-5 py-2 text-sm" type="button" onClick={onConfirm}>
-          {allAnswered ? "Submit quiz" : "Submit anyway"}
-        </PrimaryButton>
-      </div>
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+            <SecondaryButton className="min-h-10 border-0 px-4 py-2 text-sm shadow-none" type="button" onClick={onClose}>
+              Review answers
+            </SecondaryButton>
+            <PrimaryButton autoFocus className="min-h-10 px-5 py-2 text-sm" type="button" onClick={onConfirm}>
+              {allAnswered ? "Submit quiz" : "Submit anyway"}
+            </PrimaryButton>
+          </div>
+        </>
+      )}
     </dialog>
   );
 }

@@ -15,7 +15,8 @@ const dots = [
   { top: "84%", left: "58%", label: "B", color: "bg-[#06479b]", hideOnMobile: true },
 ];
 
-export function WhatsAppCommunityCard({ compact = false }: { compact?: boolean }) {
+/** `onJoin` runs when the student clicks Join Community (the link still opens WhatsApp in a new tab). */
+export function WhatsAppCommunityCard({ compact = false, onJoin }: { compact?: boolean; onJoin?: () => void }) {
   return (
     <section className={`relative mt-6 overflow-hidden rounded-xl bg-[#082b63] text-center ${compact ? "px-5 py-6" : "px-6 py-16 shadow-xl shadow-sky-100 sm:py-20"}`}>
       <svg
@@ -53,6 +54,7 @@ export function WhatsAppCommunityCard({ compact = false }: { compact?: boolean }
         <a
           className={`${compact ? "mt-5 w-full justify-center" : "mt-8"} inline-flex min-h-12 items-center gap-2 rounded-lg bg-emerald-300 px-7 py-3 text-sm font-black text-[#082b63] transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300`}
           href={WHATSAPP_COMMUNITY_URL}
+          onClick={onJoin}
           rel="noopener noreferrer"
           target="_blank"
         >
