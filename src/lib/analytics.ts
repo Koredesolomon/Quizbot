@@ -2,7 +2,7 @@
  * Google Analytics 4 helpers. Nothing is sent unless analytics was started by <GoogleAnalytics />,
  * which only happens in production and never on admin pages. Never put names, emails or answers in an event.
  */
-export const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-R5XF1VD9VF";
+export const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GBE0S6N1KZ";
 
 type Params = Record<string, string | number | boolean | undefined>;
 type AnalyticsWindow = { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void; __gaStarted?: boolean };

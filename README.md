@@ -237,7 +237,7 @@ The site supports Google Analytics 4. Create a GA4 web data stream, then set the
 building or deploying (it is baked in at build time, so rebuild after changing it):
 
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-R5XF1VD9VF
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-GBE0S6N1KZ
 ```
 
 Analytics runs on every page except `/admin`, and only in production builds, so local development sends nothing. The
