@@ -231,16 +231,20 @@ Click an existing equation to change its script values using the labeled fields.
 }
 ```
 
-## Webinar Google Analytics
+## Google Analytics
 
-The live webinar page supports Google Analytics 4 tracking. Create a GA4 web data stream, then set the frontend
-environment variable before building or deploying:
+The site supports Google Analytics 4. Create a GA4 web data stream, then set the frontend environment variable before
+building or deploying (it is baked in at build time, so rebuild after changing it):
 
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-2GKC0GD02N
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-R5XF1VD9VF
 ```
 
-The tracking script is mounted only on `/webinar`, because that is the public live page.
+Analytics runs on every page except `/admin`, and only in production builds, so local development sends nothing. The
+quiz app is a single page, so each screen is sent as a `screen_view` event. Other events: `sign_up`, `login`,
+`quiz_start`, `quiz_submit`, `quiz_complete` (with `score_percent`), `feedback_submit` (with `rating`),
+`join_community_click` and `already_joined_continue`. No names, emails or answers are ever sent. See
+`src/lib/analytics.ts`.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

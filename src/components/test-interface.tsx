@@ -7,6 +7,7 @@ import {
   serializeAnswerValue,
 } from "@/lib/answer-attachments";
 import { parseTableAnswer, serializeTableAnswer, type AnswerTable } from "@/lib/answer-table";
+import { trackEvent } from "@/lib/analytics";
 import { parsePartAnswers, serializePartAnswers } from "@/lib/part-answers";
 import { joinChoiceAnswer, optionLetter, parseSelectedLetters, splitChoiceAnswer, toggleSelectedLetter } from "@/lib/question-answers";
 import type { QuizQuestion } from "@/types/platform";
@@ -314,7 +315,13 @@ function SubmitConfirmModal({
 
       {step === "community" ? (
         <>
-          <WhatsAppCommunityCard compact onJoin={() => setStep("submit")} />
+          <WhatsAppCommunityCard
+            compact
+            onJoin={() => {
+              trackEvent("join_community_click", { location: "submit_popup" });
+              setStep("submit");
+            }}
+          />
           <p className="mt-3 text-center text-xs font-medium leading-5 text-slate-500">
             WhatsApp opens in a new tab. Join the community, then come back here to submit your quiz. Your answers stay saved on this page.
           </p>
@@ -323,7 +330,10 @@ function SubmitConfirmModal({
             <button
               className="font-black text-[#06479b] underline underline-offset-2 transition hover:text-[#082b63] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#06479b]"
               type="button"
-              onClick={() => setStep("submit")}
+              onClick={() => {
+                trackEvent("already_joined_continue", { location: "submit_popup" });
+                setStep("submit");
+              }}
             >
               Continue
             </button>

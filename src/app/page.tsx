@@ -20,6 +20,7 @@ import { StudentAuth } from "@/components/student-auth";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { TestInterface } from "@/components/test-interface";
 import * as api from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { markedAttemptQuestions, submitSavedAttempt, waitForSavedResult } from "@/lib/test-attempt";
 import type { MarkedQuestion, QuizQuestion, Screen, StudentAttempt, StudentFeedback } from "@/types/platform";
 
@@ -201,6 +202,11 @@ export default function Home() {
   const [passwordResetToken, setPasswordResetToken] = useState("");
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [comingSoonBackScreen, setComingSoonBackScreen] = useState<Screen>("courses");
+
+  // The quiz app is one page, so each screen the student sees is recorded as a screen_view.
+  useEffect(() => {
+    trackEvent("screen_view", { screen_name: screen });
+  }, [screen]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [selectedSubtopicId, setSelectedSubtopicId] = useState("");
@@ -346,6 +352,7 @@ export default function Home() {
 
       if (googleCallback && "session" in googleCallback) {
         setStudentSession(googleCallback.session);
+        trackEvent("login", { method: "google" });
         setScreen("studentDashboard");
         window.localStorage.setItem(studentStorageKey, JSON.stringify(googleCallback.session));
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -577,6 +584,7 @@ export default function Home() {
 
     resetTest();
     saveStudentSession(nextSession);
+    trackEvent("login", { method: "password" });
     setScreen("studentDashboard");
     return nextSession;
   };
@@ -589,6 +597,7 @@ export default function Home() {
 
     resetTest();
     saveStudentSession(nextSession);
+    trackEvent("sign_up", { method: "password" });
     setScreen("studentDashboard");
     return nextSession;
   };
@@ -602,6 +611,7 @@ export default function Home() {
     testRequestBusyRef.current = true;
     const requestVersion = ++testRequestVersionRef.current;
     setTestError("");
+    trackEvent("quiz_submit", { quiz_id: selectedQuizId });
     setScreen("marking");
     try {
       const submitted = await submitSavedAttempt(currentAttemptId, answers, studentSession.accessToken);
@@ -613,6 +623,7 @@ export default function Home() {
       setAiSummarySource(submitted.attempt.aiSummarySource);
       setAttempts((current) => current.map((attempt) => attempt.id === currentAttemptId ? completed : attempt));
       setSelectedDetail(0);
+      trackEvent("quiz_complete", { quiz_id: selectedQuizId, score_percent: submitted.attempt.percent });
       setScreen("results");
     } catch (error) {
       if (requestVersion !== testRequestVersionRef.current) return;
@@ -642,6 +653,7 @@ export default function Home() {
       setSelectedDetail(0);
       setAttempts((current) => [nextAttempt, ...current]);
       setCurrentQuestion(0);
+      trackEvent("quiz_start", { quiz_id: quizId, question_count: started.questions.length });
       setScreen("test");
     } catch (error) {
       if (requestVersion !== testRequestVersionRef.current) return;
@@ -680,6 +692,7 @@ export default function Home() {
   };
 
   const submitFeedback = (message: string, rating: number) => {
+    trackEvent("feedback_submit", { rating });
     if (studentSession?.accessToken) {
       void api.submitFeedback({ message, rating }, studentSession.accessToken).catch(() => undefined);
     }

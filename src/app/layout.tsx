@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/google-analytics";
+import { gaMeasurementId } from "@/lib/analytics";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,6 +38,7 @@ export default function RootLayout({
             __html: `(() => { try { const theme = localStorage.getItem("stem-jupeb-theme"); document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light"); } catch (_) { document.documentElement.classList.add("theme-light"); } try { const saved = JSON.parse(sessionStorage.getItem("tlchub-navigation") || "null"); if (saved && saved.screen && saved.screen !== "landing") document.documentElement.setAttribute("data-resuming", "1"); } catch (_) {} })();`,
           }}
         />
+        <GoogleAnalytics measurementId={gaMeasurementId} />
         {children}
       </body>
     </html>
