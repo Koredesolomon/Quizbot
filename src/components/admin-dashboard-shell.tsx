@@ -55,7 +55,7 @@ import {
 import { ActivityList, FeedbackSummary, LineChart, SettingToggle, TopicBars } from "./admin/overview-widgets";
 import { StudentsPanel } from "./admin/students-panel";
 import { QuestionBankActions, QuestionBankFlow } from "./admin/question-bank";
-import { ActionButton, DatePill, Field, MetricCard, PageHeading, Panel, ProfileMenuItem, SideItem } from "./admin/ui";
+import { ActionButton, DataTable, DatePill, Field, MetricCard, PageHeading, Panel, ProfileMenuItem, SideItem } from "./admin/ui";
 
 export type { AdminSection, CourseBuilderStep } from "./admin/config";
 
@@ -761,7 +761,19 @@ export function AdminDashboard({
                   <MetricCard icon={CalendarDays} label="Time Spent" value={`${completedAttempts.length * 8}m`} trend="Estimated activity" tone="rose" />
                 </div>
                 <StudentsPanel students={students} />
-                <div className="grid gap-4">
+                <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+                  <Panel title="Recent attempts">
+                    <DataTable
+                      headers={["Name", "Answered", "Avg. Score", "Status", "Last Active"]}
+                      rows={attempts.slice(0, 8).map((attempt) => [
+                        attempt.student,
+                        `${attempt.answered}/${attempt.questionCount}`,
+                        `${attempt.percent ?? 0}%`,
+                        <StatusBadge key="status" tone={attempt.status === "completed" ? "available" : "neutral"}>{attempt.status}</StatusBadge>,
+                        formatDate(attempt.submittedAt ?? attempt.startedAt),
+                      ])}
+                    />
+                  </Panel>
                   <Panel title="Analytics">
                     <TopicBars topics={topicRows} />
                   </Panel>
