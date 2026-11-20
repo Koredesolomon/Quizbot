@@ -1,4 +1,4 @@
-import type { PartResult, Question, QuizQuestion } from "@/types/platform";
+import type { PartResult, Question, QuizQuestion, RegisteredStudent } from "@/types/platform";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -479,6 +479,10 @@ export function getAdminAnalytics(token: string) {
 
 export function getAdminAttempts(token: string) {
   return apiRequest<ApiAttempt[]>("/admin/attempts", { token });
+}
+
+export function getAdminStudents(token: string) {
+  return apiRequest<RegisteredStudent[]>("/admin/students", { token });
 }
 
 export function getAdminFeedback(token: string) {

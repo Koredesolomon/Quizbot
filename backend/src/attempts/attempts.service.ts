@@ -164,6 +164,34 @@ export class AttemptsService {
     return attempts.map((attempt) => this.publicAttempt(attempt));
   }
 
+  /** Quiz activity per student, for the admin students list. */
+  async studentActivity() {
+    const rows = await this.attemptModel.aggregate<{
+      _id: Types.ObjectId;
+      started: number;
+      completed: number;
+      averagePercent: number | null;
+      lastActive: Date;
+    }>([
+      {
+        $group: {
+          _id: "$studentId",
+          started: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+          averagePercent: { $avg: { $cond: [{ $eq: ["$status", "completed"] }, "$percent", null] } },
+          lastActive: { $max: "$updatedAt" },
+        },
+      },
+    ]).exec();
+    return rows.map((row) => ({
+      studentId: row._id.toString(),
+      started: row.started,
+      completed: row.completed,
+      averagePercent: row.averagePercent,
+      lastActive: row.lastActive,
+    }));
+  }
+
   async allAttempts() {
     const attempts = await this.attemptModel.find().populate("studentId", "fullName email").sort({ createdAt: -1 }).exec();
     return attempts.map((attempt) => this.publicAttempt(attempt));

@@ -23,7 +23,7 @@ import {
 import type * as api from "@/lib/api";
 import { parseQuestionImportFile } from "@/lib/question-import";
 import { quizQuestionContexts, questionInput, type QuestionInput, type QuizQuestionContext } from "@/lib/question-editor";
-import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
+import type { Question, RegisteredStudent, StudentAttempt, StudentFeedback } from "@/types/platform";
 import { QuestionManager } from "./question-manager";
 import { PrimaryButton, SecondaryButton, StatusBadge } from "./ui";
 import {
@@ -53,8 +53,9 @@ import {
   slugCode,
 } from "./admin/format";
 import { ActivityList, FeedbackSummary, LineChart, SettingToggle, TopicBars } from "./admin/overview-widgets";
+import { StudentsPanel } from "./admin/students-panel";
 import { QuestionBankActions, QuestionBankFlow } from "./admin/question-bank";
-import { ActionButton, DataTable, DatePill, Field, MetricCard, PageHeading, Panel, ProfileMenuItem, SideItem } from "./admin/ui";
+import { ActionButton, DatePill, Field, MetricCard, PageHeading, Panel, ProfileMenuItem, SideItem } from "./admin/ui";
 
 export type { AdminSection, CourseBuilderStep } from "./admin/config";
 
@@ -68,6 +69,7 @@ export function AdminDashboard({
   questions,
   attempts,
   feedback,
+  students,
   onCreateCourse,
   onUpdateCourse,
   onDeleteCourse,
@@ -93,6 +95,7 @@ export function AdminDashboard({
   questions: Question[];
   attempts: StudentAttempt[];
   feedback: StudentFeedback[];
+  students: RegisteredStudent[];
   onCreateCourse: (input: {
     title: string;
     code: string;
@@ -148,7 +151,8 @@ export function AdminDashboard({
   const averageScore = completedAttempts.length
     ? Math.round(completedAttempts.reduce((sum, attempt) => sum + (attempt.percent ?? 0), 0) / completedAttempts.length)
     : 0;
-  const totalStudents = new Set(attempts.map((attempt) => attempt.student)).size;
+  // Registered accounts (including students who have not started a quiz); falls back to who has taken a quiz.
+  const totalStudents = students.length || new Set(attempts.map((attempt) => attempt.student)).size;
   const completionRate = attempts.length ? Math.round((completedAttempts.length / attempts.length) * 100) : 0;
   const unreadFeedback = feedback.filter((item) => item.status === "new").length;
   const moduleCount = courses.reduce((sum, course) => sum + (course.modules ?? []).length, 0);
@@ -756,19 +760,8 @@ export function AdminDashboard({
                   <MetricCard icon={CheckCircle2} label="Total Attempts" value={String(attempts.length)} trend={`${activeAttempts.length} in progress`} tone="purple" />
                   <MetricCard icon={CalendarDays} label="Time Spent" value={`${completedAttempts.length * 8}m`} trend="Estimated activity" tone="rose" />
                 </div>
-                <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-                  <Panel title="Students">
-                    <DataTable
-                      headers={["Name", "Answered", "Avg. Score", "Status", "Last Active"]}
-                      rows={attempts.slice(0, 8).map((attempt) => [
-                        attempt.student,
-                        `${attempt.answered}/${attempt.questionCount}`,
-                        `${attempt.percent ?? 0}%`,
-                        <StatusBadge key="status" tone={attempt.status === "completed" ? "available" : "neutral"}>{attempt.status}</StatusBadge>,
-                        formatDate(attempt.submittedAt ?? attempt.startedAt),
-                      ])}
-                    />
-                  </Panel>
+                <StudentsPanel students={students} />
+                <div className="grid gap-4">
                   <Panel title="Analytics">
                     <TopicBars topics={topicRows} />
                   </Panel>

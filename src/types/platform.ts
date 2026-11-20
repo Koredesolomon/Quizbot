@@ -98,6 +98,21 @@ export type StudentAttempt = {
   aiSummarySource?: "ai" | "auto";
 };
 
+/** A registered student account, as listed for admins. */
+export type RegisteredStudent = {
+  id: string;
+  fullName: string;
+  email: string;
+  username?: string;
+  signInMethod: "password" | "google";
+  joinedAt: string;
+  quizzesStarted: number;
+  quizzesCompleted: number;
+  /** Average percent over completed quizzes; null until one is completed. */
+  averageScore: number | null;
+  lastActiveAt?: string;
+};
+
 export type StudentFeedback = {
   id: string;
   student: string;

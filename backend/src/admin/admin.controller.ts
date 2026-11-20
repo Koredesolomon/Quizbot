@@ -5,6 +5,8 @@ import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { FeedbackService } from "../feedback/feedback.service";
 import { QuestionsService } from "../questions/questions.service";
+import { UsersService } from "../users/users.service";
+import { buildStudentRows } from "./students";
 
 @Controller("admin")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -13,12 +15,20 @@ export class AdminController {
   constructor(
     private readonly attempts: AttemptsService,
     private readonly feedback: FeedbackService,
-    private readonly questions: QuestionsService
+    private readonly questions: QuestionsService,
+    private readonly users: UsersService
   ) {}
 
   @Get("attempts")
   async attemptsList() {
     return this.attempts.allAttempts();
+  }
+
+  /** Everyone who has created a student account, including those who never started a quiz. */
+  @Get("students")
+  async studentsList() {
+    const [students, activity] = await Promise.all([this.users.listStudents(), this.attempts.studentActivity()]);
+    return buildStudentRows(students, activity);
   }
 
   @Get("feedback")

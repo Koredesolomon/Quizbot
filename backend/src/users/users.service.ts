@@ -57,6 +57,16 @@ export class UsersService {
     });
   }
 
+  /** Every student account, newest first. Only the fields an admin needs: never the password hash or reset token. */
+  async listStudents() {
+    return this.userModel
+      .find({ role: "student" })
+      .select("fullName email username authProvider createdAt")
+      .sort({ createdAt: -1, _id: -1 })
+      .lean()
+      .exec();
+  }
+
   async upsertPasswordAdmin(input: { fullName: string; email: string; passwordHash: string }) {
     const email = input.email.toLowerCase();
     const existing = await this.findByEmail(email);

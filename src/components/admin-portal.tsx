@@ -8,7 +8,7 @@ import { PasswordReset } from "@/components/password-reset";
 import * as api from "@/lib/api";
 import { questionInput } from "@/lib/question-editor";
 import { hostQuestionImages } from "@/lib/question-images";
-import type { Question, StudentAttempt, StudentFeedback } from "@/types/platform";
+import type { Question, RegisteredStudent, StudentAttempt, StudentFeedback } from "@/types/platform";
 
 const adminStorageKey = "stem-jupeb-admin-account";
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -77,6 +77,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   const [courses, setCourses] = useState<api.CourseContent[]>([]);
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
+  const [students, setStudents] = useState<RegisteredStudent[]>([]);
   const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
   const [adminAuthError, setAdminAuthError] = useState("");
   const [passwordResetEmail, setPasswordResetEmail] = useState<string | null>(null);
@@ -155,13 +156,17 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
     void Promise.allSettled([
       api.getAdminAttempts(token),
       api.getAdminFeedback(token),
-    ]).then(([backendAttempts, backendFeedback]) => {
+      api.getAdminStudents(token),
+    ]).then(([backendAttempts, backendFeedback, backendStudents]) => {
       if (ignore) return;
       if (backendAttempts.status === "fulfilled") {
         setAttempts(backendAttempts.value.map((attempt) => toAdminAttempt(attempt, questions.length)));
       }
       if (backendFeedback.status === "fulfilled") {
         setFeedback(backendFeedback.value.map(toStudentFeedback));
+      }
+      if (backendStudents.status === "fulfilled") {
+        setStudents(backendStudents.value);
       }
     });
 
@@ -304,6 +309,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       questions={questions}
       attempts={attempts}
       feedback={feedback}
+      students={students}
       onCreateCourse={async (input) => {
         try {
           const createdCourse = await api.createCourse(input, adminAccount.accessToken ?? "");
