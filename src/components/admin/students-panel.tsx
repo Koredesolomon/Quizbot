@@ -18,10 +18,21 @@ function downloadCsv(students: RegisteredStudent[]) {
 }
 
 /** Everyone who has created a student account, newest first, with a search box and a CSV download. */
-export function StudentsPanel({ students }: { students: RegisteredStudent[] }) {
+export function StudentsPanel({ students, error }: { students: RegisteredStudent[]; error?: string }) {
   const [query, setQuery] = useState("");
   const shown = useMemo(() => filterStudents(students, query), [students, query]);
   const neverStarted = students.filter((student) => student.quizzesStarted === 0).length;
+
+  if (error) {
+    return (
+      <Panel title="Registered students">
+        <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800" role="alert">
+          The student list could not be loaded ({error}). If the website was updated but not the backend, rebuild and restart the
+          backend, then refresh this page.
+        </p>
+      </Panel>
+    );
+  }
 
   return (
     <Panel

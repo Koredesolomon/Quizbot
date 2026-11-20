@@ -78,6 +78,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [feedback, setFeedback] = useState<StudentFeedback[]>([]);
   const [students, setStudents] = useState<RegisteredStudent[]>([]);
+  const [studentsError, setStudentsError] = useState("");
   const [adminAccount, setAdminAccount] = useState<AdminAccount | null>(null);
   const [adminAuthError, setAdminAuthError] = useState("");
   const [passwordResetEmail, setPasswordResetEmail] = useState<string | null>(null);
@@ -167,6 +168,10 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       }
       if (backendStudents.status === "fulfilled") {
         setStudents(backendStudents.value);
+        setStudentsError("");
+      } else {
+        const reason = backendStudents.reason;
+        setStudentsError(reason instanceof Error ? reason.message : "Could not load students.");
       }
     });
 
@@ -310,6 +315,7 @@ export function AdminPortal({ section, courseStep = "courses" }: { section: Admi
       attempts={attempts}
       feedback={feedback}
       students={students}
+      studentsError={studentsError}
       onCreateCourse={async (input) => {
         try {
           const createdCourse = await api.createCourse(input, adminAccount.accessToken ?? "");
